@@ -1,0 +1,149 @@
+=== uk-01 | dialog_tagged
+@raw
+I'm not going back there, she said.
+@expected
+‘I'm not going back there,’ she said.
+
+=== uk-02 | dialog_tagged
+@raw
+Where's the key? He asked.
+@expected
+‘Where's the key?’ he asked.
+
+=== uk-03 | dialog_tagged
+@raw
+I suppose, she said slowly, that you'll want the money now.
+@expected
+‘I suppose,’ she said slowly, ‘that you'll want the money now.’
+
+=== uk-04 | dialog_tagged
+@raw
+Um, fetch your coat, Mum said. Uh, we're leaving.
+@expected
+‘Fetch your coat,’ Mum said. ‘We're leaving.’
+
+=== uk-05 | embedded_quotes
+@raw
+He called it research, but we all knew it was napping.
+@expected
+He called it research, but we all knew it was napping.
+@notes
+no marks spoken, none inferred
+
+=== uk-06 | embedded_quotes
+@raw
+The sign on the gate said private, keep out, so naturally we climbed it.
+@expected
+The sign on the gate said ‘Private, keep out’, so naturally we climbed it.
+@notes
+logical punctuation: the comma belongs to the sentence, outside the quote
+
+=== uk-07 | embedded_quotes
+@raw
+And then he looks at me and says, I never loved you, just like that, Nora said.
+@expected
+‘And then he looks at me and says, “I never loved you,” just like that,’ Nora said.
+@notes
+UK nesting: double inside single
+
+=== uk-08 | spoken_commands
+@raw
+He called it open quote research close quote, but we all knew it was napping.
+@expected
+He called it ‘research’, but we all knew it was napping.
+@notes
+logical punctuation: comma outside
+
+=== uk-09 | dialog_inferred
+@context
+‘You took the last biscuit,’ said Harriet.
+
+‘I did not.’
+@raw
+You did. There are crumbs on your jumper. Uh, those are from breakfast.
+@expected
+¶
+‘You did. There are crumbs on your jumper.’
+
+‘Those are from breakfast.’
+
+=== uk-10 | dialog_inferred
+@context
+Gran set the teapot down between them. ‘Now. Which of you broke the window?’
+@raw
+He did. She did. Uh, I don't care who did it. Someone's paying for the glass.
+@expected
+¶
+‘He did.’
+
+‘She did.’
+
+‘I don't care who did it. Someone's paying for the glass.’
+
+=== uk-11 | action_beats
+@raw
+I don't know. She rubbed her eyes. Maybe tomorrow.
+@expected
+‘I don't know.’ She rubbed her eyes. ‘Maybe tomorrow.’
+
+=== uk-12 | action_beats
+@raw
+The problem, he tapped the screen, is right here.
+@expected
+‘The problem’—he tapped the screen—‘is right here.’
+
+=== uk-13 | dialog_continuation
+@context
+‘I don't know what you want from me,’ Elena said. ‘I gave you the house, I gave you the car,
+@raw
+I gave you the best years of my life. What else is there?
+@expected
+I gave you the best years of my life. What else is there?’
+
+=== uk-14 | questions_exclamations
+@raw
+Run! Run! The bridge is going! Someone screamed.
+@expected
+‘Run! Run! The bridge is going!’ someone screamed.
+
+=== uk-15 | interruptions
+@raw
+Mr. Fenwick, I really must insist that. Sit down, Agnes.
+@expected
+‘Mr. Fenwick, I really must insist that—’
+
+‘Sit down, Agnes.’
+
+=== uk-16 | repetition
+@raw
+No, no, no, he said. Not the blue one.
+@expected
+‘No, no, no,’ he said. ‘Not the blue one.’
+
+=== uk-17 | embedded_quotes
+@raw
+The headline read Local Man Wins Marrow Contest Again, and underneath it was a picture of my uncle.
+@expected
+The headline read ‘Local Man Wins Marrow Contest Again’, and underneath it was a picture of my uncle.
+
+=== uk-18 | narration_fillers
+@raw
+Uh, the the queue outside the chemist's stretched round the corner, um, and nobody was moving.
+@expected
+The queue outside the chemist's stretched round the corner, and nobody was moving.
+
+=== uk-19 | embedded_quotes
+@raw
+Can't you read? The farmer pointed at the sign. It says no trespassing.
+@expected
+‘Can't you read?’ The farmer pointed at the sign. ‘It says “No trespassing”.’
+@notes
+logical punctuation: the full stop closes the outer sentence, outside the inner quote
+
+=== uk-20 | spoken_commands
+@raw
+Open quote. Is it over? Close quote. New paragraph. Open quote. It's over. Close quote.
+@expected
+‘Is it over?’
+
+‘It's over.’

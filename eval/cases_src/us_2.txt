@@ -1,0 +1,513 @@
+=== embed-01 | embedded_quotes
+@raw
+The sign on the door said back in five minutes, but it had said that for an hour.
+@expected
+The sign on the door said “Back in five minutes,” but it had said that for an hour.
+
+=== embed-02 | embedded_quotes
+@raw
+Not again, Clara thought. Not tonight.
+@expected
+Not again, Clara thought. Not tonight.
+@notes
+thoughts are not quoted (they'd be italic in a manuscript); no change expected
+
+=== embed-03 | embedded_quotes
+@raw
+And then he looks at me and says, I never loved you, just like that, Nora said.
+@expected
+“And then he looks at me and says, ‘I never loved you,’ just like that,” Nora said.
+@notes
+nested quote: single marks inside double (US)
+
+=== embed-04 | embedded_quotes
+@raw
+The headline read Local Man Wins Pumpkin Contest Again, and underneath it was a picture of my uncle.
+@expected
+The headline read “Local Man Wins Pumpkin Contest Again,” and underneath it was a picture of my uncle.
+
+=== embed-05 | embedded_quotes
+@raw
+On the fridge, in her mother's handwriting, was a note. Gone to the coast. Feed the cat.
+@expected
+On the fridge, in her mother's handwriting, was a note: “Gone to the coast. Feed the cat.”
+
+=== embed-06 | embedded_quotes
+@raw
+She said that she would be home by nine, um, but she wasn't.
+@expected
+She said that she would be home by nine, but she wasn't.
+@notes
+indirect speech: must NOT be quoted
+
+=== embed-07 | embedded_quotes
+@raw
+Everyone in town called it the Big House, though it only had four rooms.
+@expected
+Everyone in town called it the Big House, though it only had four rooms.
+@notes
+a name, not a quotation: no marks
+
+=== embed-08 | embedded_quotes
+@raw
+Can't you read? The farmer pointed at the sign. It says no trespassing.
+@expected
+“Can't you read?” The farmer pointed at the sign. “It says ‘No trespassing.’”
+
+=== cmd-01 | spoken_commands
+@raw
+Open quote. Get down. Close quote. Tom hissed. New paragraph. She dropped to her knees, um, just as the the headlights swept across the field.
+@expected
+“Get down,” Tom hissed.
+
+She dropped to her knees just as the headlights swept across the field.
+
+=== cmd-02 | spoken_commands
+@context
+By midnight the wind had dropped, and the drifts lay still and blue under the moon.
+@raw
+New paragraph. The next morning, the snow had stopped.
+@expected
+¶
+The next morning, the snow had stopped.
+
+=== cmd-03 | spoken_commands
+@raw
+Open quote, I'm fine. Close quote, she lied.
+@expected
+“I'm fine,” she lied.
+
+=== cmd-04 | spoken_commands
+@raw
+Quote. Nobody move. End quote.
+@expected
+“Nobody move.”
+
+=== cmd-05 | spoken_commands
+@raw
+Dear Margaret, new line, I hope this letter finds you well.
+@expected
+Dear Margaret,
+I hope this letter finds you well.
+
+=== cmd-06 | spoken_commands
+@raw
+Open quote. Um, if you think I'm going to apologize, you've got another thing coming. Close quote. New paragraph. Open quote. I wasn't asking for an apology. Close quote.
+@expected
+“If you think I'm going to apologize, you've got another thing coming.”
+
+“I wasn't asking for an apology.”
+
+=== cmd-07 | spoken_commands
+@raw
+He called it open quote research close quote, but we all knew it was napping.
+@expected
+He called it “research,” but we all knew it was napping.
+@notes
+explicit quotes on a non-dialog word must be honored
+
+=== cmd-08 | spoken_commands
+@context
+We buried her on the hill behind the orchard, where she used to sit and watch the trains.
+@raw
+That was the last time I saw the house. New paragraph.
+@expected
+That was the last time I saw the house.
+¶
+@notes
+trailing paragraph break from the command
+
+=== cmd-09 | spoken_commands
+@raw
+“Hands where I can, uh, where I can see them,” the officer said.
+@expected
+“Hands where I can see them,” the officer said.
+@notes
+marks already inserted by the command pass
+
+=== cmd-10 | spoken_commands
+@raw
+Open quote. Is it over? Close quote. New paragraph. Open quote. It's over. Close quote.
+@expected
+“Is it over?”
+
+“It's over.”
+
+=== cmd-11 | spoken_commands
+@raw
+Open quote, run, close quote.
+@expected
+“Run.”
+
+=== cmd-12 | spoken_commands
+@context
+“Promise me you won't tell him,” she said.
+
+I promised. I didn't know yet what it would cost.
+@raw
+New paragraph. Three weeks passed before anyone spoke of it again.
+@expected
+¶
+Three weeks passed before anyone spoke of it again.
+
+=== prose-01 | command_words_in_prose
+@raw
+Clause seven began a new paragraph of the contract, and that was where the trouble started.
+@expected
+Clause seven began a new paragraph of the contract, and that was where the trouble started.
+
+=== prose-02 | command_words_in_prose
+@raw
+She wanted to quote the poem at the funeral, uh, but she couldn't remember the second verse.
+@expected
+She wanted to quote the poem at the funeral, but she couldn't remember the second verse.
+
+=== prose-03 | command_words_in_prose
+@raw
+Every time she opened her mouth to quote her mother, she stopped herself.
+@expected
+Every time she opened her mouth to quote her mother, she stopped herself.
+
+=== prose-04 | command_words_in_prose
+@raw
+He started a new line of work after the war, um, selling insurance door to door.
+@expected
+He started a new line of work after the war, selling insurance door to door.
+
+=== prose-05 | command_words_in_prose
+@raw
+Start a new paragraph there, Ms. Hale said, tapping the draft. The reader needs to breathe.
+@expected
+“Start a new paragraph there,” Ms. Hale said, tapping the draft. “The reader needs to breathe.”
+
+=== prose-06 | command_words_in_prose
+@raw
+The quote from the builder was twice what we'd expected.
+@expected
+The quote from the builder was twice what we'd expected.
+
+=== prose-07 | command_words_in_prose
+@raw
+I'll quote you on that, the reporter said.
+@expected
+“I'll quote you on that,” the reporter said.
+
+=== prose-08 | command_words_in_prose
+@raw
+The cat would scratch that chair to ribbons if you let her.
+@expected
+The cat would scratch that chair to ribbons if you let her.
+
+=== rep-01 | repetition
+@raw
+She was very, very tired, and the the stairs seemed endless.
+@expected
+She was very, very tired, and the stairs seemed endless.
+
+=== rep-02 | repetition
+@raw
+No, no, no, he said. Not the blue one.
+@expected
+“No, no, no,” he said. “Not the blue one.”
+
+=== rep-03 | repetition
+@raw
+It was a long, long way down.
+@expected
+It was a long, long way down.
+
+=== rep-04 | repetition
+@raw
+He knocked and knocked and knocked, but nobody came.
+@expected
+He knocked and knocked and knocked, but nobody came.
+
+=== rep-05 | repetition
+@raw
+Help, help, somebody help! The cry came from the river.
+@expected
+“Help, help, somebody help!” The cry came from the river.
+
+=== rep-06 | repetition
+@raw
+The the house on on Elm Street had been empty for for years.
+@expected
+The house on Elm Street had been empty for years.
+
+=== rep-07 | repetition
+@raw
+Faster, faster! The children shrieked.
+@expected
+“Faster, faster!” the children shrieked.
+
+=== rep-08 | repetition
+@raw
+He knew that that was the problem.
+@expected
+He knew that that was the problem.
+@notes
+grammatical "that that" must survive
+
+=== rep-09 | repetition
+@raw
+She had had enough of his excuses.
+@expected
+She had had enough of his excuses.
+
+=== rep-10 | repetition
+@raw
+It rained and rained, um, and and the river rose.
+@expected
+It rained and rained, and the river rose.
+
+=== rep-11 | repetition
+@raw
+Well, well, well, said the inspector.
+@expected
+“Well, well, well,” said the inspector.
+
+=== name-01 | names_odd_words
+@raw
+Ysolde handed the wyrmstone to Captain Thrane, uh, without a word.
+@expected
+Ysolde handed the wyrmstone to Captain Thrane without a word.
+
+=== name-02 | names_odd_words
+@raw
+Aunt Philippa's bakery, Crumbs and Company, stood between the laundromat and a shop that sold only left-handed scissors.
+@expected
+Aunt Philippa's bakery, Crumbs and Company, stood between the laundromat and a shop that sold only left-handed scissors.
+
+=== name-03 | names_odd_words
+@raw
+Ain't nobody coming, Jessup said. Not tonight, not ever.
+@expected
+“Ain't nobody coming,” Jessup said. “Not tonight, not ever.”
+
+=== name-04 | names_odd_words
+@raw
+The Kraken's Rest was the only inn in Port Varrow, and Mother Gessel ran it like a ship.
+@expected
+The Kraken's Rest was the only inn in Port Varrow, and Mother Gessel ran it like a ship.
+
+=== name-05 | names_odd_words
+@raw
+Recalibrate the flux array, Commander Oyelaran ordered. We jump in ninety seconds.
+@expected
+“Recalibrate the flux array,” Commander Oyelaran ordered. “We jump in ninety seconds.”
+
+=== name-06 | names_odd_words
+@raw
+Tamsin opened her laptop, typed sudo reboot, and, uh, held her breath.
+@expected
+Tamsin opened her laptop, typed sudo reboot, and held her breath.
+
+=== name-07 | names_odd_words
+@raw
+Gonna be a long night, kiddo, Ray said.
+@expected
+“Gonna be a long night, kiddo,” Ray said.
+
+=== name-08 | names_odd_words
+@raw
+Ça va? Asked Mathilde. Uh, bien, merci, he lied.
+@expected
+“Ça va?” asked Mathilde.
+
+“Bien, merci,” he lied.
+
+=== name-09 | names_odd_words
+@raw
+Kaitlynn and Mykel had been married for six days when the, um, when the trouble started.
+@expected
+Kaitlynn and Mykel had been married for six days when the trouble started.
+
+=== name-10 | names_odd_words
+@raw
+That's so frimble, Zee said, which was apparently a compliment on Teskar.
+@expected
+“That's so frimble,” Zee said, which was apparently a compliment on Teskar.
+
+=== seg-01 | missegmentation
+@raw
+When the train. Finally pulled in, the platform was empty.
+@expected
+When the train finally pulled in, the platform was empty.
+
+=== seg-02 | missegmentation
+@raw
+She checked the locks twice she checked the windows then she sat in the dark and waited.
+@expected
+She checked the locks twice. She checked the windows. Then she sat in the dark and waited.
+@notes
+run-on from the ASR; other boundary choices are acceptable (scored by punctuation F1)
+
+=== seg-03 | missegmentation
+@raw
+I told him. Not to come. He came anyway, Ruth said.
+@expected
+“I told him not to come. He came anyway,” Ruth said.
+
+=== seg-04 | missegmentation
+@raw
+Are you. Coming with us or not? Jack asked.
+@expected
+“Are you coming with us or not?” Jack asked.
+
+=== seg-05 | missegmentation
+@raw
+We're out of milk said Dad and then he went back to his newspaper.
+@expected
+“We're out of milk,” said Dad, and then he went back to his newspaper.
+
+=== seg-06 | missegmentation
+@raw
+Because of the storm. The wedding was moved indoors.
+@expected
+Because of the storm, the wedding was moved indoors.
+
+=== seg-07 | missegmentation
+@raw
+The orchard was quiet. except for the bees.
+@expected
+The orchard was quiet, except for the bees.
+
+=== seg-08 | missegmentation
+@raw
+Is that you Gemma it's me open the door.
+@expected
+“Is that you, Gemma? It's me. Open the door.”
+
+=== seg-09 | missegmentation
+@raw
+Get in. The car, Harlan said.
+@expected
+“Get in the car,” Harlan said.
+
+=== seg-10 | missegmentation
+@raw
+He. Uh. He wasn't there when I arrived.
+@expected
+He wasn't there when I arrived.
+
+=== ques-01 | questions_exclamations
+@raw
+What do you mean, gone? Asked Lila.
+@expected
+“What do you mean, gone?” asked Lila.
+
+=== ques-02 | questions_exclamations
+@raw
+Run! Run! The bridge is going! Someone screamed.
+@expected
+“Run! Run! The bridge is going!” someone screamed.
+
+=== ques-03 | questions_exclamations
+@raw
+You're not really leaving, are you. She said.
+@expected
+“You're not really leaving, are you?” she said.
+
+=== ques-04 | questions_exclamations
+@raw
+How dare you, the duchess hissed. How dare you come here.
+@expected
+“How dare you,” the duchess hissed. “How dare you come here.”
+
+=== ques-05 | questions_exclamations
+@raw
+Fire! Fire in the hold! The bosun bellowed.
+@expected
+“Fire! Fire in the hold!” the bosun bellowed.
+
+=== ques-06 | questions_exclamations
+@raw
+Did you lock the back door? Yes. Are you sure? Yes, Mom.
+@expected
+“Did you lock the back door?”
+
+“Yes.”
+
+“Are you sure?”
+
+“Yes, Mom.”
+
+=== ques-07 | questions_exclamations
+@raw
+Who could blame her? She had waited long enough.
+@expected
+Who could blame her? She had waited long enough.
+@notes
+rhetorical question in narration: no quotes
+
+=== ques-08 | questions_exclamations
+@raw
+Where were you? Where were you all night? Her voice cracked.
+@expected
+“Where were you? Where were you all night?” Her voice cracked.
+
+=== ques-09 | questions_exclamations
+@raw
+Can you hear that, Oscar asked, or am I going mad?
+@expected
+“Can you hear that,” Oscar asked, “or am I going mad?”
+
+=== ques-10 | questions_exclamations
+@raw
+And then, um, the whole roof came down!
+@expected
+And then the whole roof came down!
+
+=== intr-01 | interruptions
+@raw
+I was only trying to. Don't, she snapped. Don't you dare finish that sentence.
+@expected
+“I was only trying to—”
+
+“Don't,” she snapped. “Don't you dare finish that sentence.”
+
+=== intr-02 | interruptions
+@raw
+The money was in the. Wait. Where's my bag? Felix said.
+@expected
+“The money was in the—wait. Where's my bag?” Felix said.
+
+=== intr-03 | interruptions
+@raw
+If you would just let me. The door burst open.
+@expected
+“If you would just let me—” The door burst open.
+
+=== intr-04 | interruptions
+@raw
+Mr. Fenwick, I really must insist that. Sit down, Agnes.
+@expected
+“Mr. Fenwick, I really must insist that—”
+
+“Sit down, Agnes.”
+
+=== intr-05 | interruptions
+@raw
+We have to tell them, we have to. We don't have to do anything, Sara said.
+@expected
+“We have to tell them, we have to—”
+
+“We don't have to do anything,” Sara said.
+
+=== intr-06 | interruptions
+@raw
+Listen to me, he began, but Marta was already, uh, Marta was already halfway down the stairs.
+@expected
+“Listen to me,” he began, but Marta was already halfway down the stairs.
+
+=== intr-07 | interruptions
+@raw
+Hello? Hello? Can you hear me? I'm at the. The line went dead.
+@expected
+“Hello? Hello? Can you hear me? I'm at the—” The line went dead.
+
+=== intr-08 | interruptions
+@raw
+And that's when I saw. She stopped, swallowed. That's when I saw him.
+@expected
+“And that's when I saw—” She stopped, swallowed. “That's when I saw him.”

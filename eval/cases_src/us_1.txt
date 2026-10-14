@@ -1,0 +1,571 @@
+=== narr-01 | narration_fillers
+@raw
+The rain had not stopped for three days, and um, Mara was was starting to think it never would.
+@expected
+The rain had not stopped for three days, and Mara was starting to think it never would.
+
+=== narr-02 | narration_fillers
+@context
+The rain had not stopped for three days, and Mara was starting to think it never would.
+@raw
+Uh, she pulled the the shutters closed and lit the lamp on the windowsill.
+@expected
+She pulled the shutters closed and lit the lamp on the windowsill.
+
+=== narr-03 | narration_fillers
+@raw
+By the time the ferry reached Holloway Point, um, the fog had swallowed the lighthouse whole.
+@expected
+By the time the ferry reached Holloway Point, the fog had swallowed the lighthouse whole.
+
+=== narr-04 | narration_fillers
+@raw
+She reached for the, uh, she reached for the kettle and found it cold.
+@expected
+She reached for the kettle and found it cold.
+@notes
+false start: restarted clause
+
+=== narr-05 | narration_fillers
+@raw
+Uh, the kitchen smelled of burnt sugar and wet wool. Um, nobody had cleaned it since the winter.
+@expected
+The kitchen smelled of burnt sugar and wet wool. Nobody had cleaned it since the winter.
+
+=== narr-06 | narration_fillers
+@raw
+The old man walked, uh, the old man limped down the lane toward the churchyard.
+@expected
+The old man limped down the lane toward the churchyard.
+@notes
+false start with a changed verb: the first attempt is dropped
+
+=== narr-07 | narration_fillers
+@raw
+Uh, the the letter arrived on a Tuesday, um, which was strange, because the post never came on Tuesdays.
+@expected
+The letter arrived on a Tuesday, which was strange, because the post never came on Tuesdays.
+
+=== narr-08 | narration_fillers
+@context
+From the roof of the Calloway building you could see the whole east side, the river, the rail yards, the long gray bridge.
+@raw
+Um, the streetlights flickered on one by one, and and somewhere below a dog began to bark.
+@expected
+The streetlights flickered on one by one, and somewhere below a dog began to bark.
+
+=== narr-09 | narration_fillers
+@raw
+I I don't remember the drive home. I remember the radio, uh, playing something old and the the wipers keeping time.
+@expected
+I don't remember the drive home. I remember the radio playing something old and the wipers keeping time.
+
+=== narr-10 | narration_fillers
+@raw
+Hmm, the house was smaller than she remembered. Er, the porch sagged, and the paint had gone the color of old teeth.
+@expected
+The house was smaller than she remembered. The porch sagged, and the paint had gone the color of old teeth.
+
+=== narr-11 | narration_fillers
+@raw
+um so they waited. and waited. the bus never came.
+@expected
+So they waited. And waited. The bus never came.
+@notes
+lowercase sentence starts; fragments are intentional style
+
+=== narr-12 | narration_fillers
+@raw
+Ellen folded the letter into, um, into thirds and slid it under the clock.
+@expected
+Ellen folded the letter into thirds and slid it under the clock.
+
+=== tag-01 | dialog_tagged
+@raw
+I'm not going back there, she said.
+@expected
+“I'm not going back there,” she said.
+
+=== tag-02 | dialog_tagged
+@raw
+Where's the key? He asked.
+@expected
+“Where's the key?” he asked.
+
+=== tag-03 | dialog_tagged
+@raw
+Martin said, we should have left an hour ago.
+@expected
+Martin said, “We should have left an hour ago.”
+
+=== tag-04 | dialog_tagged
+@raw
+I suppose, she said slowly, that you'll want the money now.
+@expected
+“I suppose,” she said slowly, “that you'll want the money now.”
+
+=== tag-05 | dialog_tagged
+@raw
+Um, get your coat, Mom said. Uh, we're leaving.
+@expected
+“Get your coat,” Mom said. “We're leaving.”
+
+=== tag-06 | dialog_tagged
+@context
+Jonah set the bucket down on the step and wiped his forehead with the back of his wrist.
+@raw
+It's empty, he said, it's been empty all week.
+@expected
+“It's empty,” he said. “It's been empty all week.”
+@notes
+same character as context: continues the paragraph
+
+=== tag-07 | dialog_tagged
+@raw
+Stop! The guard shouted.
+@expected
+“Stop!” the guard shouted.
+
+=== tag-08 | dialog_tagged
+@raw
+I don't care what the doctor says, Grandpa grumbled. I'm having the pie.
+@expected
+“I don't care what the doctor says,” Grandpa grumbled. “I'm having the pie.”
+
+=== tag-09 | dialog_tagged
+@raw
+Fine, Lucy said, and slammed the door.
+@expected
+“Fine,” Lucy said, and slammed the door.
+
+=== tag-10 | dialog_tagged
+@raw
+It is late, said the captain. We sail at dawn.
+@expected
+“It is late,” said the captain. “We sail at dawn.”
+
+=== tag-11 | dialog_tagged
+@raw
+Uh, don't move, Theo whispered. There's something in the the reeds.
+@expected
+“Don't move,” Theo whispered. “There's something in the reeds.”
+
+=== tag-12 | dialog_tagged
+@raw
+Do you think, she asked, that anyone will notice?
+@expected
+“Do you think,” she asked, “that anyone will notice?”
+
+=== untag-01 | dialog_untagged
+@context
+Mrs. Patel looked up from the ledger and took off her glasses.
+@raw
+You're late again.
+@expected
+“You're late again.”
+@notes
+speaker is the context's subject: same paragraph
+
+=== untag-02 | dialog_untagged
+@context
+Mrs. Patel looked up from the ledger and took off her glasses. “You're late again.”
+@raw
+Sorry, the bus broke down. I swear it wasn't my fault.
+@expected
+¶
+“Sorry, the bus broke down. I swear it wasn't my fault.”
+
+=== untag-03 | dialog_untagged
+@context
+Daniel held out the photograph. “Do you recognize her?”
+@raw
+Um, no. Should I?
+@expected
+¶
+“No. Should I?”
+
+=== untag-04 | dialog_untagged
+@context
+Ruth turned to the window and was quiet for a long time. When she finally spoke, her voice was rough.
+@raw
+I never wanted any of this.
+@expected
+“I never wanted any of this.”
+@notes
+same speaker as the context paragraph, so no break
+
+=== untag-05 | dialog_untagged
+@context
+“Is anyone there?” Kit called into the dark.
+@raw
+Uh, only me. Don't shoot.
+@expected
+¶
+“Only me. Don't shoot.”
+
+=== untag-06 | dialog_untagged
+@raw
+Hey! Over here!
+@expected
+“Hey! Over here!”
+
+=== untag-07 | dialog_untagged
+@context
+The phone rang twice before Marcus picked it up.
+@raw
+Hello? Who is this?
+@expected
+“Hello? Who is this?”
+
+=== untag-08 | dialog_untagged
+@context
+“We need more firewood,” Ana said. “Unless you want to freeze.”
+@raw
+I'll go. Give me the axe.
+@expected
+¶
+“I'll go. Give me the axe.”
+
+=== untag-09 | dialog_untagged
+@context
+Beth handed him the cup without a word.
+@raw
+Thanks. I needed this.
+@expected
+¶
+“Thanks. I needed this.”
+@notes
+the recipient answers: new speaker, new paragraph
+
+=== untag-10 | dialog_untagged
+@context
+“Well?” said the inspector.
+@raw
+Well what? I've told you everything.
+@expected
+¶
+“Well what? I've told you everything.”
+
+=== infer-01 | dialog_inferred
+@context
+Mara watched him lace his boots by the door.
+@raw
+Where are you going? She asked. Uh, he didn't look up from the the map. I told you, he said. To the river.
+@expected
+“Where are you going?” she asked.
+
+He didn't look up from the map. “I told you,” he said. “To the river.”
+
+=== infer-02 | dialog_inferred
+@context
+“Where are you going?” she asked.
+
+He didn't look up from the map. “I told you,” he said. “To the river.”
+@raw
+The river's flooded, you know that. It's been flooded since Tuesday. So what? I'll swim. He folded the map and and stood up.
+@expected
+¶
+“The river's flooded, you know that. It's been flooded since Tuesday.”
+
+“So what? I'll swim.” He folded the map and stood up.
+@notes
+"you know" is genuine here, not a filler
+
+=== infer-03 | dialog_inferred
+@context
+Ines found her brother on the roof, legs dangling over the gutter.
+@raw
+What are you doing up here? Thinking. About what? Nothing. Everything. Go away.
+@expected
+“What are you doing up here?”
+
+“Thinking.”
+
+“About what?”
+
+“Nothing. Everything. Go away.”
+
+=== infer-04 | dialog_inferred
+@context
+“You took the last biscuit,” said Harriet.
+
+“I did not.”
+@raw
+You did. There are crumbs on your shirt. Uh, those are from breakfast.
+@expected
+¶
+“You did. There are crumbs on your shirt.”
+
+“Those are from breakfast.”
+
+=== infer-05 | dialog_inferred
+@context
+Officer Reyes crouched so she was level with the boy. “What's your name?”
+@raw
+Sam. Sam what? Just Sam.
+@expected
+¶
+“Sam.”
+
+“Sam what?”
+
+“Just Sam.”
+
+=== infer-06 | dialog_inferred
+@context
+“Is it true about the will?” asked Caroline.
+@raw
+Every word, the lawyer replied. Then I'll contest it. Um, you can try.
+@expected
+¶
+“Every word,” the lawyer replied.
+
+“Then I'll contest it.”
+
+“You can try.”
+
+=== infer-07 | dialog_inferred
+@context
+Dev pressed the phone to his ear. “Mom? It's me.”
+@raw
+Devendra, do you know what time it is? Sorry. I know. I just, I needed to hear your voice.
+@expected
+¶
+“Devendra, do you know what time it is?”
+
+“Sorry. I know. I just needed to hear your voice.”
+
+=== infer-08 | dialog_inferred
+@context
+Gran set the teapot down between them. “Now. Which of you broke the window?”
+@raw
+He did. She did. Uh, I don't care who did it. Someone's paying for the glass.
+@expected
+¶
+“He did.”
+
+“She did.”
+
+“I don't care who did it. Someone's paying for the glass.”
+
+=== infer-09 | dialog_inferred
+@context
+“Where were you on the night of the ninth?”
+@raw
+At home. Alone? With my cat. Does the cat have a name? Biscuit.
+@expected
+¶
+“At home.”
+
+“Alone?”
+
+“With my cat.”
+
+“Does the cat have a name?”
+
+“Biscuit.”
+
+=== infer-10 | dialog_inferred
+@context
+“We can't stay here,” Nadia said.
+@raw
+Joel kicked the dead fire apart. Where else is there? North. There's always north.
+@expected
+¶
+Joel kicked the dead fire apart. “Where else is there?”
+
+“North. There's always north.”
+
+=== infer-11 | dialog_inferred
+@context
+The doctor washed her hands and dried them on a paper towel before she turned to face the Hendersons.
+
+“Is he going to be all right?” Mr. Henderson asked.
+@raw
+It's too early to say. Um, the next 48 hours will tell us a lot.
+@expected
+¶
+“It's too early to say. The next 48 hours will tell us a lot.”
+
+=== infer-12 | dialog_inferred
+@context
+“Name?”
+@raw
+Peregrine Ashdown. The clerk's pen paused. Like the bird? Like the bird.
+@expected
+¶
+“Peregrine Ashdown.”
+
+The clerk's pen paused. “Like the bird?”
+
+“Like the bird.”
+
+=== cont-01 | dialog_continuation
+@context
+“I don't know what you want from me,” Elena said. “I gave you the house, I gave you the car,
+@raw
+I gave you the best years of my life. What else is there?
+@expected
+I gave you the best years of my life. What else is there?”
+
+=== cont-02 | dialog_continuation
+@context
+Father Doyle leaned forward. “When I was a boy in Cork, we had nothing, not shoes, not bread,
+@raw
+Not even a proper roof over our heads, and we were happy. Uh, he sat back. Happier than you'll ever be.
+@expected
+not even a proper roof over our heads, and we were happy.” He sat back. “Happier than you'll ever be.”
+
+=== cont-03 | dialog_continuation
+@context
+“The previous owner never left the house,” Mr. Albrecht said. “Not once in forty years. When they finally broke the door down,
+@raw
+They found him in the cellar, uh, still sitting in his chair. Mr. Albrecht smiled thinly.
+@expected
+they found him in the cellar, still sitting in his chair.” Mr. Albrecht smiled thinly.
+
+=== cont-04 | dialog_continuation
+@context
+“Let me tell you about my brother,” the old woman said. “He was the clever one, the one who could fix anything,
+@raw
+A clock, a radio, a broken heart. And then one day he, uh, he just walked away. She folded her hands.
+@expected
+a clock, a radio, a broken heart. And then one day he just walked away.” She folded her hands.
+
+=== cont-05 | dialog_continuation
+@context
+Rosa unfolded the note and read it aloud. “Meet me at the station at nine. Come alone.
+@raw
+Burn this letter. Close quote. She burned it.
+@expected
+Burn this letter.” She burned it.
+@notes
+the open quote came from an explicit command in the previous segment
+
+=== cont-06 | dialog_continuation
+@context
+“If you'd just listened to me,
+@raw
+Ben said, uh, none of this would have happened.
+@expected
+” Ben said, “none of this would have happened.”
+@notes
+output begins with the closing mark; the pipeline joins it without a space
+
+=== cont-07 | dialog_continuation
+@context
+Maggie's voice dropped to a whisper. “There's something under the floorboards in the back room, something that
+@raw
+Something that moves at night. I've heard it.
+@expected
+moves at night. I've heard it.”
+@notes
+author re-said the last words of the previous segment after a pause; the repeat is dropped
+
+=== cont-08 | dialog_continuation
+@context
+Lieutenant Okafor leaned over the console. “Captain, the readings from the second probe are—
+@raw
+Not now, Lieutenant. The captain didn't turn around.
+@expected
+”
+
+“Not now, Lieutenant.” The captain didn't turn around.
+@notes
+interrupted speaker: close the dangling quote, then a new speaker paragraph
+
+=== cont-09 | dialog_continuation
+@context
+“I want you to promise me something,” Dad said. “Promise me you'll finish school, whatever happens,
+@raw
+Whatever anyone tells you. Uh, promise me. I promise, I said.
+@expected
+whatever anyone tells you. Promise me.”
+
+“I promise,” I said.
+
+=== cont-10 | dialog_continuation
+@context
+The radio crackled. “Base, this is Kestrel. We are taking fire from the ridge,
+@raw
+requesting immediate, uh, immediate support. Over. Base came back at once. Kestrel, hold your position.
+@expected
+requesting immediate support. Over.”
+
+Base came back at once. “Kestrel, hold your position.”
+
+=== beat-01 | action_beats
+@raw
+I don't know. She rubbed her eyes. Maybe tomorrow.
+@expected
+“I don't know.” She rubbed her eyes. “Maybe tomorrow.”
+
+=== beat-02 | action_beats
+@raw
+Look at this. Pete spread the drawings across the table. Uh, every one of them is signed.
+@expected
+“Look at this.” Pete spread the drawings across the table. “Every one of them is signed.”
+
+=== beat-03 | action_beats
+@raw
+The problem, he tapped the screen, is right here.
+@expected
+“The problem”—he tapped the screen—“is right here.”
+@notes
+mid-sentence beat set off with em-dashes
+
+=== beat-04 | action_beats
+@context
+“I'm leaving the firm,” Owen said.
+@raw
+Lena set down her fork. You're serious. I've never been more serious. Uh, he reached across the table for her hand.
+@expected
+¶
+Lena set down her fork. “You're serious.”
+
+“I've never been more serious.” He reached across the table for her hand.
+
+=== beat-05 | action_beats
+@raw
+Well. Gran wiped her hands on her apron. I suppose you'd better come in.
+@expected
+“Well.” Gran wiped her hands on her apron. “I suppose you'd better come in.”
+
+=== beat-06 | action_beats
+@raw
+He laughed. That's the worst idea you've ever had. Then he picked up the rope.
+@expected
+He laughed. “That's the worst idea you've ever had.” Then he picked up the rope.
+
+=== beat-07 | action_beats
+@raw
+Uh, Tess shoved the the drawer shut. Not one word to your father. Understood? Understood.
+@expected
+Tess shoved the drawer shut. “Not one word to your father. Understood?”
+
+“Understood.”
+
+=== beat-08 | action_beats
+@raw
+Okay, okay. Mira held up both hands. I'll tell them. But you're coming with me.
+@expected
+“Okay, okay.” Mira held up both hands. “I'll tell them. But you're coming with me.”
+@notes
+"okay, okay" is intentional
+
+=== beat-09 | action_beats
+@context
+“I've sold the boat,” Anna said.
+@raw
+You can't be serious, Felix said, setting down his glass. I'm completely serious.
+@expected
+¶
+“You can't be serious,” Felix said, setting down his glass.
+
+“I'm completely serious.”
+
+=== beat-10 | action_beats
+@raw
+The sergeant stood. Right. Everyone out.
+@expected
+The sergeant stood. “Right. Everyone out.”

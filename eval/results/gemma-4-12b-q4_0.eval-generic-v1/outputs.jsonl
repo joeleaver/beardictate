@@ -1,0 +1,3 @@
+{"id": "narr-01", "output": "The rain had not stopped for three days, and Mara was starting to think it never would.", "latency_ms": 50247.6, "model_input": "The rain had not stopped for three days, and um, Mara was was starting to think it never would."}
+{"id": "narr-02", "output": "She pulled the shutters closed and lit the lamp on the windowsill.", "latency_ms": 48478.0, "model_input": "Uh, she pulled the the shutters closed and lit the lamp on the windowsill."}
+{"id": "narr-03", "output": "By the time the ferry reached Holloway Point, the fog had swallowed the lighthouse whole.", "latency_ms": 70568.4, "model_input": "By the time the ferry reached Holloway Point, um, the fog had swallowed the lighthouse whole."}

@@ -1,0 +1,90 @@
+=== long-01 | long_segments
+@raw
+Uh, the market at Saint Brennan's opened before dawn, and by six the square was already loud with gulls and cart wheels and the the fishwives calling their prices. Um, Agnes threaded her way between the stalls with her basket held high, past the cheese man, past the boy selling eels out of a bucket, past the old woman who, uh, who read palms for a penny and lied for two. She did not stop until she reached the bookseller's awning at the far end, where a man in a green coat was waiting for her.
+@expected
+The market at Saint Brennan's opened before dawn, and by six the square was already loud with gulls and cart wheels and the fishwives calling their prices. Agnes threaded her way between the stalls with her basket held high, past the cheese man, past the boy selling eels out of a bucket, past the old woman who read palms for a penny and lied for two. She did not stop until she reached the bookseller's awning at the far end, where a man in a green coat was waiting for her.
+@notes
+"past ... past ... past" is intentional anaphora
+
+=== long-02 | long_segments
+@context
+Agnes did not stop until she reached the bookseller's awning at the far end, where a man in a green coat was waiting for her.
+@raw
+You're late, he said. I'm exactly on time. You're late by my clock. Then your clock is wrong, she said, and set the basket down between them. Uh, did you bring it? He glanced over his shoulder at the crowd. Not here. Then where? He nodded toward the church.
+@expected
+¶
+“You're late,” he said.
+
+“I'm exactly on time.”
+
+“You're late by my clock.”
+
+“Then your clock is wrong,” she said, and set the basket down between them. “Did you bring it?”
+
+He glanced over his shoulder at the crowd. “Not here.”
+
+“Then where?”
+
+He nodded toward the church.
+
+=== long-03 | long_segments
+@raw
+I was eleven the summer my grandfather taught me to drive, um, if you could call it driving. He'd sit in the passenger seat of his old truck with his hat over his eyes and say, left, and I'd go left, and he'd say, slower, and I'd go slower, and once he said, stop, and I didn't, and that's how the mailbox came to be on the the wrong side of the road.
+@expected
+I was eleven the summer my grandfather taught me to drive, if you could call it driving. He'd sit in the passenger seat of his old truck with his hat over his eyes and say, “Left,” and I'd go left, and he'd say, “Slower,” and I'd go slower, and once he said, “Stop,” and I didn't, and that's how the mailbox came to be on the wrong side of the road.
+
+=== long-04 | long_segments
+@context
+“Sit,” said Mrs. Okonkwo, and pointed at the chair across from her desk.
+@raw
+Hal sat. Um, I know why you're here, she said. You think I'm going to expel you. Aren't you? She took off her glasses and folded them very carefully, the way you'd fold a letter you didn't want to send. No, Mr. Brandt. I'm going to do something much worse. I'm going to make you captain of the debate team.
+@expected
+¶
+Hal sat.
+
+“I know why you're here,” she said. “You think I'm going to expel you.”
+
+“Aren't you?”
+
+She took off her glasses and folded them very carefully, the way you'd fold a letter you didn't want to send. “No, Mr. Brandt. I'm going to do something much worse. I'm going to make you captain of the debate team.”
+
+=== long-05 | long_segments
+@raw
+The ship's log for the fourteenth was short, uh, three lines in Captain Ferreira's tight hand. Wind northeast, moderate. Two men down with fever. Sighted land at dusk, um, but did not close. Below that, in a different ink and a different hand, someone had written a single word, and the word was, uh, the word was sorry.
+@expected
+The ship's log for the fourteenth was short, three lines in Captain Ferreira's tight hand. Wind northeast, moderate. Two men down with fever. Sighted land at dusk, but did not close. Below that, in a different ink and a different hand, someone had written a single word, and the word was sorry.
+@notes
+the log lines could be quoted, but nothing in the dictation asks for it; no marks expected
+
+=== long-06 | long_segments
+@context
+They found the car on the shoulder of Route 9 with the engine still warm.
+@raw
+Detective Hwang walked around it twice before she said anything. No skid marks. Um, no damage. Keys in the ignition. Maybe he ran out of gas, Pruitt offered. Hwang leaned in through the open window and tapped the gauge. Three quarters full. Okay, so maybe he, uh, maybe he just wanted to walk. In January? In his socks? She held up a pair of shoes from the footwell.
+@expected
+¶
+Detective Hwang walked around it twice before she said anything. “No skid marks. No damage. Keys in the ignition.”
+
+“Maybe he ran out of gas,” Pruitt offered.
+
+Hwang leaned in through the open window and tapped the gauge. “Three quarters full.”
+
+“Okay, so maybe he just wanted to walk.”
+
+“In January? In his socks?” She held up a pair of shoes from the footwell.
+
+=== long-07 | long_segments
+@raw
+It is a strange thing to come home to a house where nobody is expecting you. Um, the key still worked. The hallway still smelled of lemon polish and and old radiators. Someone had moved the piano, though, and in its place stood a tall glass cabinet full of of tiny porcelain birds, dozens of them, every one of them looking at the door as if, uh, as if they had been waiting for me in particular.
+@expected
+It is a strange thing to come home to a house where nobody is expecting you. The key still worked. The hallway still smelled of lemon polish and old radiators. Someone had moved the piano, though, and in its place stood a tall glass cabinet full of tiny porcelain birds, dozens of them, every one of them looking at the door as if they had been waiting for me in particular.
+
+=== long-08 | long_segments
+@context
+Grandma Ruth had been dead for nine years, so the voicemail was something of a surprise.
+@raw
+Um, it's me, the message said. Don't hang up. I know this is, uh, irregular. I need you to go to the attic and find the blue hatbox, the one with the the cracked lid, and I need you to do it before your Uncle Leo gets there, because he will throw it out, he throws everything out. There was a pause, and a sound like a kettle. That's all. Love you, sweet pea.
+@expected
+“It's me,” the message said. “Don't hang up. I know this is irregular. I need you to go to the attic and find the blue hatbox, the one with the cracked lid, and I need you to do it before your Uncle Leo gets there, because he will throw it out, he throws everything out.” There was a pause, and a sound like a kettle. “That's all. Love you, sweet pea.”
+@notes
+the voicemail is part of the context paragraph's topic; no leading break
