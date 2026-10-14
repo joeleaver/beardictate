@@ -46,6 +46,9 @@ Uncommitted work in the tree belongs to those subagents. If they finished
 before this session ended, their output is already committed; if you find
 uncommitted files under those paths, **verify then commit** (see checklist).
 
+**Never `git commit -a` while subagents are working** — it sweeps their
+half-written files into the commit. Always `git add <paths>` / `git commit -- <paths>`.
+
 ### Checklist for each finished crate before committing
 ```bash
 export CARGO_TARGET_DIR=/mnt/data/beardictate-targets/main
