@@ -100,6 +100,23 @@ API + tests".
   - [#1520](https://github.com/joeleaver/rinch/issues/1520) tray runtime icon/tooltip/menu, checkable items, bindable left-click, tray-only app — **priority**
   - [#1522](https://github.com/joeleaver/rinch/issues/1522) OS notifications (until then, `notify-rust` behind a small trait)
   - [#1519](https://github.com/joeleaver/rinch/issues/1519) non-activating windows — general rinch feature, **not** on our path
+  Status (rinch session report): PRs in adversarial review, not merged:
+  **#1530** (hotkeys: `rinch::hotkey::register`, feature `global-hotkeys`;
+  press/release on main thread, rebind, `Conflict` error, sided/modifier-only
+  keys like RightCtrl, `HotkeyCapture`, `Binding::SystemChosen` for the
+  Wayland portal) and **#1527** (tray: non-blocking `set_icon`/`set_tooltip`/
+  `set_menu`, `MenuItem::checkbox/radio` bound to a Signal, `on_activate`,
+  `WindowProps::visible=false` for tray-only). Follow-ups #1528 (macOS
+  no-Dock activation policy), #1529 (per-app ksni tray id).
+  Gotchas for the app:
+  - **Ship a real `.desktop` file on Linux.** The KDE GlobalShortcuts
+    portal needs one for an unsandboxed app (rinch writes a NoDisplay stub
+    if missing, but ours should be proper).
+  - **rinch#1526:** `system-tray` + `file-dialogs` together panic on Linux
+    when a file dialog opens. "Import model folder…" needs a file dialog:
+    don't enable both until #1526 is fixed (or pick the folder another way).
+  - macOS: chord hotkeys need no permission; modifier-only ones need Input
+    Monitoring (first-run onboarding step).
   The Rinch session said it would message the beardictate session as each
   lands; check `gh issue view <n> -R joeleaver/rinch` rather than relying on that.
 
