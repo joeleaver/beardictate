@@ -14,3 +14,4 @@ sherpa-onnx.workspace = true
 
 [dev-dependencies]
 hound.workspace = true
+bd-audio.workspace = true

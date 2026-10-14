@@ -13,3 +13,10 @@ tracing.workspace = true
 cpal.workspace = true
 rubato.workspace = true
 crossbeam-channel.workspace = true
+rtrb = "0.3.2"
+
+[features]
+# Native PipeWire / PulseAudio hosts on Linux (cpal otherwise uses ALSA,
+# which reaches PipeWire through its ALSA plugin). Need the system dev libs.
+pipewire = ["cpal/pipewire"]
+pulseaudio = ["cpal/pulseaudio"]
