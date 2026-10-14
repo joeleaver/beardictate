@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
 <style>
 body{margin:0}
-a{color:#8A4E0B}a:hover{color:#5E3507}
+a{color:#2459B8}a:hover{color:#173F86}
 </style>
 </helmet>
 <div style="width: 800px; height: 800px; box-sizing: border-box; padding: 48px 56px; background: #F4F0E8; font-family: Figtree, system-ui, sans-serif; color: #241C16; display: flex; flex-direction: column; gap: 28px">
@@ -23,13 +23,13 @@ a{color:#8A4E0B}a:hover{color:#5E3507}
         <div style="display: flex; gap: 10px">
           <div style="width: 44px; height: 44px; border-radius: 8px; background: #E9E4DC; display: flex; align-items: center; justify-content: center">
             <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-              <circle cx="9" cy="8" r="5" fill="#241C16"></circle><circle cx="23" cy="8" r="5" fill="#241C16"></circle><circle cx="16" cy="18.5" r="12" fill="#241C16"></circle><ellipse cx="16" cy="22.5" rx="6" ry="4.6" fill="{{s.snout}}"></ellipse>
+              <circle cx="10" cy="9" r="5" fill="#0E1A30"></circle><circle cx="22" cy="9" r="5" fill="#0E1A30"></circle><circle cx="16" cy="18" r="12" fill="#0E1A30"></circle><ellipse cx="16" cy="22" rx="6.2" ry="4.8" fill="{{s.snout}}"></ellipse><path d="M253.4 18.9 C253.4 17.7 258.6 17.7 258.6 18.9 C258.6 20 256.7 21.3 256 21.3 C255.3 21.3 253.4 20 253.4 18.9 Z" fill="#0E1A30"></path>
               <sc-if value="{{s.dot}}" hint-placeholder-val="{{ false }}"><circle cx="26" cy="26" r="5.5" fill="{{s.dotColor}}" stroke="#E9E4DC" stroke-width="2"></circle></sc-if>
             </svg>
           </div>
           <div style="width: 44px; height: 44px; border-radius: 8px; background: #202020; display: flex; align-items: center; justify-content: center">
             <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-              <circle cx="9" cy="8" r="5" fill="#F3EEE6"></circle><circle cx="23" cy="8" r="5" fill="#F3EEE6"></circle><circle cx="16" cy="18.5" r="12" fill="#F3EEE6"></circle><ellipse cx="16" cy="22.5" rx="6" ry="4.6" fill="{{s.snoutDark}}"></ellipse>
+              <circle cx="10" cy="9" r="5" fill="#F3EEE6"></circle><circle cx="22" cy="9" r="5" fill="#F3EEE6"></circle><circle cx="16" cy="18" r="12" fill="#F3EEE6"></circle><ellipse cx="16" cy="22" rx="6.2" ry="4.8" fill="{{s.snoutDark}}"></ellipse><path d="M253.4 18.9 C253.4 17.7 258.6 17.7 258.6 18.9 C258.6 20 256.7 21.3 256 21.3 C255.3 21.3 253.4 20 253.4 18.9 Z" fill="#F3EEE6"></path>
               <sc-if value="{{s.dot}}" hint-placeholder-val="{{ false }}"><circle cx="26" cy="26" r="5.5" fill="{{s.dotColor}}" stroke="#202020" stroke-width="2"></circle></sc-if>
             </svg>
           </div>
@@ -44,7 +44,7 @@ a{color:#8A4E0B}a:hover{color:#5E3507}
   <h2 style="margin: 8px 0 0; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #6B5D50">Right-click menu</h2>
   <div style="display: flex; gap: 20px; align-items: flex-start">
     <div style="width: 300px; background: #FBFAF8; border: 1px solid #DDD5CA; border-radius: 10px; padding: 6px; box-shadow: 0 16px 40px rgba(36,28,22,0.16); font-size: 14px">
-      <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 6px; background: #F1E3CC">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 6px; background: #E3ECFB">
         <span style="font-weight: 600">Start dictating</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6B5D50">Ctrl+Alt+Space</span>
       </div>
       <div style="padding: 9px 12px; color: #6B5D50; font-size: 12px">Or left-click the bear</div>
@@ -60,7 +60,7 @@ a{color:#8A4E0B}a:hover{color:#5E3507}
     <div style="width: 280px; margin-top: 56px; background: #FBFAF8; border: 1px solid #DDD5CA; border-radius: 10px; padding: 6px; box-shadow: 0 16px 40px rgba(36,28,22,0.16); font-size: 14px">
       <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Off (raw dictation)</span></div>
       <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Bear Small</span></div>
-      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 6px; background: #F1E3CC"><span style="width: 14px; font-weight: 800">●</span><span style="font-weight: 600">Bear Medium</span><span style="margin-left: auto; font-size: 11px; font-weight: 700; color: #6A3C08; background: #F6D9A8; border-radius: 99px; padding: 2px 8px">FOR THIS PC</span></div>
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 6px; background: #E3ECFB"><span style="width: 14px; font-weight: 800">●</span><span style="font-weight: 600">Bear Medium</span><span style="margin-left: auto; font-size: 11px; font-weight: 700; color: #173F86; background: #C9DAF8; border-radius: 99px; padding: 2px 8px">FOR THIS PC</span></div>
       <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px; color: #8C7F72"><span style="width: 14px"></span><span>Bear Large</span><span style="margin-left: auto; font-size: 12px">2.5 GB ↓</span></div>
       <div style="height: 1px; background: #E6DFD5; margin: 4px 8px"></div>
       <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Custom…</span></div>
@@ -74,8 +74,8 @@ renderVals() {
 return {
 states: [
 { name: 'Idle', desc: 'Ready. Hotkey is armed.', snout: '#E9E4DC', snoutDark: '#202020', dot: false, dotColor: '#000' },
-{ name: 'Listening', desc: 'Mic is open. Dot pulses with your voice.', snout: '#E8A33D', snoutDark: '#E8A33D', dot: true, dotColor: '#D1452F' },
-{ name: 'Cleaning', desc: 'Sentences in the pipe; text on its way.', snout: '#E8A33D', snoutDark: '#E8A33D', dot: true, dotColor: '#3C6FD8' },
+{ name: 'Listening', desc: 'Mic is open. Dot pulses with your voice.', snout: '#2F6FDB', snoutDark: '#2F6FDB', dot: true, dotColor: '#D1452F' },
+{ name: 'Cleaning', desc: 'Sentences in the pipe; text on its way.', snout: '#2F6FDB', snoutDark: '#2F6FDB', dot: true, dotColor: '#1FA38A' },
 { name: 'Paused', desc: 'Off for this app, or snoozed.', snout: '#B9AFA3', snoutDark: '#6E665D', dot: false, dotColor: '#000' },
 { name: 'Needs you', desc: 'Model missing, mic denied, or hotkey taken.', snout: '#E9E4DC', snoutDark: '#202020', dot: true, dotColor: '#E0A800' }
 ]

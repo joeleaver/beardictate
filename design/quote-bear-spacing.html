@@ -1,0 +1,124 @@
+<title>Quote Bear Spacing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&family=Literata:opsz,wght@7..72,400&display=swap">
+<style>
+/* Layout: three variants side by side, each a column of big mark, tray strip, lockup. Stacks on phones. */
+:root {
+  --honey: #E8A33D;
+  --ink: #241C16;
+  --cream: #F6E7CB;
+  --bg: #FBF7F0;
+  --card: #FFFFFF;
+  --fg: #241C16;
+  --muted: #6B5D50;
+  --rule: #E7DDCF;
+  --honey-text: #8A4E0B;
+  --tray-light: #EEE8DF;
+  --tray-dark: #1F1D22;
+  --tray-dark-text: #A9A39B;
+  --font-ui: "Figtree", system-ui, sans-serif;
+  --font-prose: "Literata", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17130F; --card: #221C17; --fg: #F3E9DA; --muted: #B3A493;
+    --rule: #3A3028; --honey-text: #E8A33D; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17130F; --card: #221C17; --fg: #F3E9DA; --muted: #B3A493;
+  --rule: #3A3028; --honey-text: #E8A33D; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+.page { max-width: 1180px; margin: 0 auto; padding: 40px 20px 56px; display: flex; flex-direction: column; gap: 28px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.variant { background: var(--card); border: 1px solid var(--rule); border-radius: 22px; padding: 24px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.variant.pick { border-color: var(--honey); box-shadow: 0 0 0 2px var(--honey) inset; }
+.label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.label b { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--honey-text); }
+.label span { font-size: 13px; color: var(--muted); }
+.big { width: 100%; max-width: 220px; aspect-ratio: 1; align-self: center; }
+.big svg { width: 100%; height: 100%; display: block; }
+.trays { display: flex; flex-direction: column; gap: 8px; }
+.tray { border-radius: 12px; padding: 12px 14px; display: flex; gap: 18px; align-items: flex-end; justify-content: center; }
+.tray.light { background: var(--tray-light); color: #6B5D50; }
+.tray.dark { background: var(--tray-dark); color: var(--tray-dark-text); }
+.tray figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.tray svg { display: block; }
+.lockup { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--rule); padding-top: 16px; }
+.lockup svg { width: 44px; height: 44px; flex: none; }
+.lockup .word { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.lockup .word span { color: var(--honey-text); }
+.notes { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+footer { color: var(--muted); font-size: 13px; font-family: var(--font-prose); }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Quote Bear: tightening the spacing</h1>
+    <p>A is the mark as it stands. B and C pull the ears in and down, thin the honey ring between ears and head, and close up the eyes and snout bars. Check the 16 px icons first: that's the tray, and it's where most people will see the bear.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <footer>Source: design/canvas/Main.dc.html, concept A. Honey #E8A33D on ink #241C16.</footer>
+</div>
+
+<script>
+const VARIANTS = [
+  { key: "A", name: "Current", note: "As drawn on the canvas",
+    earDx: 0, earDy: 0, ring: 22, eyeX: 56, pitch: 24, barCx: 259, dy: 0,
+    notes: ["Ears sit wide and high", "22 px honey ring", "Snout bars sit 3 px right of centre"] },
+  { key: "B", name: "Snug", note: "Ears in 18, down 14",
+    earDx: 18, earDy: 14, ring: 16, eyeX: 52, pitch: 21, barCx: 256, dy: -8,
+    notes: ["Ears tuck closer to the head", "16 px ring", "Bars centred, pitch 21"] },
+  { key: "C", name: "Compact", note: "Ears in 32, down 24",
+    earDx: 32, earDy: 24, ring: 13, eyeX: 50, pitch: 19, barCx: 256, dy: -14,
+    notes: ["Ears overlap the head most", "13 px ring", "Bars centred, pitch 19"] },
+];
+const BARS = [30, 66, 46, 22];
+
+function mark(v, label) {
+  const bars = BARS.map((h, i) => {
+    const cx = v.barCx + (i - 1.5) * v.pitch;
+    return `<rect x="${cx - 7}" y="${353 - h / 2}" width="14" height="${h}" rx="7" fill="#241C16"/>`;
+  }).join("");
+  return `<svg viewBox="0 0 512 512" role="img" aria-label="${label}">
+    <rect width="512" height="512" rx="116" fill="#E8A33D"/>
+    <g transform="translate(0 ${v.dy})">
+      <g transform="translate(${v.earDx} ${v.earDy})">
+        <circle cx="150" cy="122" r="56" fill="#241C16"/>
+        <path d="M200 140 C206 206 170 254 112 272 C138 244 150 214 148 186 Z" fill="#241C16"/>
+      </g>
+      <g transform="translate(${-v.earDx} ${v.earDy})">
+        <circle cx="362" cy="122" r="56" fill="#241C16"/>
+        <path d="M412 140 C418 206 382 254 324 272 C350 244 362 214 360 186 Z" fill="#241C16"/>
+      </g>
+      <circle cx="256" cy="300" r="152" fill="#241C16" stroke="#E8A33D" stroke-width="${v.ring}"/>
+      <circle cx="${256 - v.eyeX}" cy="262" r="15" fill="#F6E7CB"/>
+      <circle cx="${256 + v.eyeX}" cy="262" r="15" fill="#F6E7CB"/>
+      <ellipse cx="256" cy="352" rx="84" ry="62" fill="#F6E7CB"/>
+      ${bars}
+    </g>
+  </svg>`;
+}
+
+function sized(v, px) {
+  return mark(v, `Variant ${v.key} at ${px} pixels`).replace("<svg ", `<svg width="${px}" height="${px}" `);
+}
+
+function tray(v, kind) {
+  return `<div class="tray ${kind}">` + [32, 24, 16].map(px =>
+    `<figure>${sized(v, px)}<figcaption>${px}</figcaption></figure>`).join("") + `</div>`;
+}
+
+document.getElementById("grid").innerHTML = VARIANTS.map(v => `
+  <section class="variant${v.key === "B" ? " pick" : ""}">
+    <div class="label"><b>${v.key} · ${v.name}</b><span>${v.note}</span></div>
+    <div class="big">${mark(v, `Quote Bear variant ${v.key}, ${v.name}`)}</div>
+    <div class="trays">${tray(v, "light")}${tray(v, "dark")}</div>
+    <div class="lockup">${mark(v, "")}<div class="word">bear<span>dictate</span></div></div>
+    <ul class="notes">${v.notes.map(n => `<li>${n}</li>`).join("")}</ul>
+  </section>`).join("");
+</script>

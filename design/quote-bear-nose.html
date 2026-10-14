@@ -1,0 +1,147 @@
+<title>Quote Bear Nose</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;700;800&family=Literata:opsz,wght@7..72,400&display=swap">
+<style>
+/* Layout: one card per palette (Snug geometry throughout): big mark, tray strip, lockup. Wraps to one column on phones. */
+:root {
+  --bg: #F6F8FB;
+  --card: #FFFFFF;
+  --fg: #16202E;
+  --muted: #5B6676;
+  --rule: #DFE5EE;
+  --tray-light: #E9EDF2;
+  --tray-light-text: #5B6676;
+  --tray-dark: #1D1F24;
+  --tray-dark-text: #A3A9B3;
+  --font-ui: "Figtree", system-ui, sans-serif;
+  --font-prose: "Literata", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F141B; --card: #171E28; --fg: #E6ECF4; --muted: #9AA6B6; --rule: #2A3442; color-scheme: dark;
+  }
+  :root:not([data-theme="light"]) :is(.word span, .label b) { color: var(--acc-d); }
+}
+:root[data-theme="dark"] {
+  --bg: #0F141B; --card: #171E28; --fg: #E6ECF4; --muted: #9AA6B6; --rule: #2A3442; color-scheme: dark;
+}
+:root[data-theme="dark"] :is(.word span, .label b) { color: var(--acc-d); }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+.page { max-width: 1180px; margin: 0 auto; padding: 40px 20px 56px; display: flex; flex-direction: column; gap: 28px; }
+header { display: flex; flex-direction: column; gap: 6px; }
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 64ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.variant { background: var(--card); border: 1px solid var(--rule); border-radius: 22px; padding: 24px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.variant.ref { opacity: 0.8; }
+.label { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.label b { color: var(--acc); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.label span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.big { width: 100%; max-width: 200px; aspect-ratio: 1; align-self: center; }
+.big svg { width: 100%; height: 100%; display: block; }
+.trays { display: flex; flex-direction: column; gap: 8px; }
+.tray { border-radius: 12px; padding: 12px 14px; display: flex; gap: 18px; align-items: flex-end; justify-content: center; }
+.tray.light { background: var(--tray-light); color: var(--tray-light-text); }
+.tray.dark { background: var(--tray-dark); color: var(--tray-dark-text); }
+.tray figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.tray svg { display: block; }
+.lockup { display: flex; align-items: center; gap: 12px; border-top: 1px solid var(--rule); padding-top: 16px; }
+.lockup svg { width: 44px; height: 44px; flex: none; }
+.word { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.word span { color: var(--acc); }
+.desc { margin: 0; color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 13px; font-family: var(--font-prose); }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Quote Bear: refining the nose</h1>
+    <p>Starting from C (nose and inner ears), these vary the nose shape and where it sits on the muzzle. The first card is C as it was. Check the 16 px icons: whatever detail disappears there is only for the big sizes.</p>
+  </header>
+  <div class="grid" id="grid"></div>
+  <footer>All Cobalt, Snug spacing, centred at 112%. Muzzle and eyes are the same as C except where noted.</footer>
+</div>
+
+<script>
+const C = { tile: "#2F6FDB", ink: "#0E1A30", face: "#DDE8FB", acc: "#2459B8", accD: "#7FA9F2" };
+const G = { earDx: 18, earDy: 14, ring: 16, dy: -8, scale: 1.12 };
+const BASE = { ...C, eyeX: 56, eyeY: 256, eyeR: 15, muzzle: [76, 58, 360], inner: true, bars: { cy: 384, k: 0.45, pitch: 15 }, paleBars: false, philtrum: false };
+const PALETTES = [
+  { ...BASE, name: "C · As was", tag: "reference", desc: "Sharp-cornered triangle inside the muzzle.",
+    nose: { shape: "tri", cy: 326, w: 60, h: 38, fill: "ink" } },
+  { ...BASE, name: "C1 · Soft, straddling", tag: "teddy nose", desc: "Rounded teddy nose sitting on the top edge of the muzzle.",
+    nose: { shape: "soft", cy: 306, w: 68, h: 46, fill: "ink" }, bars: { cy: 378, k: 0.45, pitch: 15 } },
+  { ...BASE, name: "C2 · Soft + philtrum", tag: "nose joins mouth", desc: "Soft nose with a short line down to the sound-bar mouth.",
+    nose: { shape: "soft", cy: 318, w: 64, h: 42, fill: "ink" }, philtrum: true, bars: { cy: 392, k: 0.42, pitch: 15 } },
+  { ...BASE, name: "C3 · Soft + highlight", tag: "glint", desc: "Bigger soft nose with a small glint. The glint drops out below 32 px.",
+    nose: { shape: "soft", cy: 318, w: 76, h: 50, fill: "ink", hl: true }, bars: { cy: 384, k: 0.42, pitch: 15 } },
+  { ...BASE, name: "C4 · Oval nose", tag: "button nose", desc: "Wide oval button nose, slightly lower.",
+    nose: { shape: "oval", cy: 324, w: 66, h: 40, fill: "ink" }, bars: { cy: 382, k: 0.45, pitch: 15 } },
+  { ...BASE, name: "C5 · High muzzle", tag: "muzzle up 10", desc: "Muzzle and soft nose moved up, closer to the eyes, more face below.",
+    muzzle: [78, 60, 350], nose: { shape: "soft", cy: 304, w: 66, h: 44, fill: "ink" }, bars: { cy: 372, k: 0.45, pitch: 15 } },
+];
+const BARS = [30, 66, 46, 22];
+
+function nosePath(n) {
+  const cx = 256, l = cx - n.w / 2, r = cx + n.w / 2, t = n.cy - n.h / 2, b = n.cy + n.h / 2;
+  if (n.shape === "tri") {
+    return `M${l + 10} ${t} H${r - 10} Q${r + 6} ${t} ${r - 4} ${t + 14} L262 ${b - 3} Q256 ${b + 3} 250 ${b - 3} L${l + 4} ${t + 14} Q${l - 6} ${t} ${l + 10} ${t} Z`;
+  }
+  const s = t + n.h * 0.28, m = t + n.h * 0.62;
+  return `M${l} ${s} C${l} ${t - n.h * 0.06} ${r} ${t - n.h * 0.06} ${r} ${s} C${r} ${m} ${cx + n.w * 0.14} ${b} ${cx} ${b} C${cx - n.w * 0.14} ${b} ${l} ${m} ${l} ${s} Z`;
+}
+function noseSvg(p) {
+  const n = p.nose, fill = n.fill === "ink" ? p.ink : p.face;
+  const shape = n.shape === "oval"
+    ? `<ellipse cx="256" cy="${n.cy}" rx="${n.w / 2}" ry="${n.h / 2}" fill="${fill}"/>`
+    : `<path d="${nosePath(n)}" fill="${fill}"/>`;
+  const hl = n.hl ? `<ellipse cx="${256 - n.w * 0.17}" cy="${n.cy - n.h * 0.18}" rx="${n.w * 0.11}" ry="${n.h * 0.09}" fill="${p.face}" opacity="0.85"/>` : "";
+  const ph = p.philtrum ? `<rect x="252" y="${n.cy + n.h / 2 - 4}" width="8" height="${p.bars.cy - 14 - (n.cy + n.h / 2 - 4)}" rx="4" fill="${p.ink}"/>` : "";
+  return ph + shape + hl;
+}
+
+function mark(p, label, px) {
+  const size = px ? `width="${px}" height="${px}" ` : "";
+  const barFill = p.paleBars ? p.face : p.ink;
+  const bars = BARS.map((h, i) => {
+    const cx = 256 + (i - 1.5) * p.bars.pitch, hh = Math.max(10, h * p.bars.k), w = p.bars.k < 0.6 ? 10 : 14;
+    return `<rect x="${cx - w / 2}" y="${p.bars.cy - hh / 2}" width="${w}" height="${hh}" rx="${w / 2}" fill="${barFill}"/>`;
+  }).join("");
+  const inner = (x) => p.inner ? `<circle cx="${x}" cy="128" r="26" fill="${p.face}"/>` : "";
+  const muzzle = p.muzzle ? `<ellipse cx="256" cy="${p.muzzle[2]}" rx="${p.muzzle[0]}" ry="${p.muzzle[1]}" fill="${p.face}"/>` : "";
+  const nose = p.nose ? noseSvg(p) : "";
+  return `<svg ${size}viewBox="0 0 512 512" role="img" aria-label="${label}">
+    <rect width="512" height="512" rx="116" fill="${p.tile}"/>
+    <g transform="translate(256 256) scale(${G.scale}) translate(-256 -262)"><g transform="translate(0 ${G.dy})">
+      <g transform="translate(${G.earDx} ${G.earDy})">
+        <circle cx="150" cy="122" r="56" fill="${p.ink}"/>
+        <path d="M200 140 C206 206 170 254 112 272 C138 244 150 214 148 186 Z" fill="${p.ink}"/>
+        ${inner(158)}
+      </g>
+      <g transform="translate(${-G.earDx} ${G.earDy})">
+        <circle cx="362" cy="122" r="56" fill="${p.ink}"/>
+        <path d="M412 140 C418 206 382 254 324 272 C350 244 362 214 360 186 Z" fill="${p.ink}"/>
+        ${inner(354)}
+      </g>
+      <circle cx="256" cy="300" r="152" fill="${p.ink}" stroke="${p.tile}" stroke-width="${G.ring}"/>
+      <circle cx="${256 - p.eyeX}" cy="${p.eyeY}" r="${p.eyeR}" fill="${p.face}"/>
+      <circle cx="${256 + p.eyeX}" cy="${p.eyeY}" r="${p.eyeR}" fill="${p.face}"/>
+      ${muzzle}${nose}${bars}
+    </g></g>
+  </svg>`;
+}
+
+function tray(p, kind) {
+  return `<div class="tray ${kind}">` + [32, 24, 16].map(px =>
+    `<figure>${mark(p, `${p.name} at ${px} pixels`, px)}<figcaption>${px}</figcaption></figure>`).join("") + `</div>`;
+}
+
+document.getElementById("grid").innerHTML = PALETTES.map(p => `
+  <section class="variant" style="--acc:${p.acc};--acc-d:${p.accD}">
+    <div class="label"><b>${p.name}</b><span>${p.tag}</span></div>
+    <div class="big">${mark(p, `Quote Bear face, ${p.name}`)}</div>
+    <div class="trays">${tray(p, "light")}${tray(p, "dark")}</div>
+    <div class="lockup">${mark(p, "")}<div class="word">bear<span>dictate</span></div></div>
+    <p class="desc">${p.desc}</p>
+  </section>`).join("");
+</script>
