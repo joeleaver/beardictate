@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>beardictate tray icon and menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#8A4E0B}a:hover{color:#5E3507}
+</style>
+</helmet>
+<div style="width: 800px; height: 800px; box-sizing: border-box; padding: 48px 56px; background: #F4F0E8; font-family: Figtree, system-ui, sans-serif; color: #241C16; display: flex; flex-direction: column; gap: 28px">
+  <h1 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #6B5D50">Tray icon states</h1>
+
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px">
+    <sc-for list="{{states}}" as="s" hint-placeholder-count="5">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 18px 10px; display: flex; flex-direction: column; align-items: center; gap: 12px">
+        <div style="display: flex; gap: 10px">
+          <div style="width: 44px; height: 44px; border-radius: 8px; background: #E9E4DC; display: flex; align-items: center; justify-content: center">
+            <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="9" cy="8" r="5" fill="#241C16"></circle><circle cx="23" cy="8" r="5" fill="#241C16"></circle><circle cx="16" cy="18.5" r="12" fill="#241C16"></circle><ellipse cx="16" cy="22.5" rx="6" ry="4.6" fill="{{s.snout}}"></ellipse>
+              <sc-if value="{{s.dot}}" hint-placeholder-val="{{ false }}"><circle cx="26" cy="26" r="5.5" fill="{{s.dotColor}}" stroke="#E9E4DC" stroke-width="2"></circle></sc-if>
+            </svg>
+          </div>
+          <div style="width: 44px; height: 44px; border-radius: 8px; background: #202020; display: flex; align-items: center; justify-content: center">
+            <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="9" cy="8" r="5" fill="#F3EEE6"></circle><circle cx="23" cy="8" r="5" fill="#F3EEE6"></circle><circle cx="16" cy="18.5" r="12" fill="#F3EEE6"></circle><ellipse cx="16" cy="22.5" rx="6" ry="4.6" fill="{{s.snoutDark}}"></ellipse>
+              <sc-if value="{{s.dot}}" hint-placeholder-val="{{ false }}"><circle cx="26" cy="26" r="5.5" fill="{{s.dotColor}}" stroke="#202020" stroke-width="2"></circle></sc-if>
+            </svg>
+          </div>
+        </div>
+        <div style="font-size: 15px; font-weight: 700">{{s.name}}</div>
+        <div style="font-size: 12px; line-height: 1.4; color: #6B5D50; text-align: center">{{s.desc}}</div>
+      </div>
+    </sc-for>
+  </div>
+  <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #6B5D50">The tray icon is beardictate’s only live status, since there’s no overlay. Drawn at 32 px for 2× trays, light and dark taskbars. State lives in the snout and a corner dot, so the silhouette never changes and stays recognisable at 16 px. Tooltip mirrors it (“Listening · 0:12”).</p>
+
+  <h2 style="margin: 8px 0 0; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #6B5D50">Right-click menu</h2>
+  <div style="display: flex; gap: 20px; align-items: flex-start">
+    <div style="width: 300px; background: #FBFAF8; border: 1px solid #DDD5CA; border-radius: 10px; padding: 6px; box-shadow: 0 16px 40px rgba(36,28,22,0.16); font-size: 14px">
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 6px; background: #F1E3CC">
+        <span style="font-weight: 600">Start dictating</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6B5D50">Ctrl+Alt+Space</span>
+      </div>
+      <div style="padding: 9px 12px; color: #6B5D50; font-size: 12px">Or left-click the bear</div>
+      <div style="height: 1px; background: #E6DFD5; margin: 4px 8px"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border-radius: 6px; background: #EFEAE3">
+        <span>Cleanup</span><span style="color: #6B5D50">Bear Medium  ›</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 12px"><span>Paste instead of typing here</span><span style="color: #6B5D50">☐</span></div>
+      <div style="height: 1px; background: #E6DFD5; margin: 4px 8px"></div>
+      <div style="padding: 9px 12px">Settings…</div>
+      <div style="padding: 9px 12px">Quit beardictate</div>
+    </div>
+    <div style="width: 280px; margin-top: 56px; background: #FBFAF8; border: 1px solid #DDD5CA; border-radius: 10px; padding: 6px; box-shadow: 0 16px 40px rgba(36,28,22,0.16); font-size: 14px">
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Off (raw dictation)</span></div>
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Bear Small</span></div>
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 6px; background: #F1E3CC"><span style="width: 14px; font-weight: 800">●</span><span style="font-weight: 600">Bear Medium</span><span style="margin-left: auto; font-size: 11px; font-weight: 700; color: #6A3C08; background: #F6D9A8; border-radius: 99px; padding: 2px 8px">FOR THIS PC</span></div>
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px; color: #8C7F72"><span style="width: 14px"></span><span>Bear Large</span><span style="margin-left: auto; font-size: 12px">2.5 GB ↓</span></div>
+      <div style="height: 1px; background: #E6DFD5; margin: 4px 8px"></div>
+      <div style="display: flex; gap: 10px; align-items: center; padding: 9px 12px"><span style="width: 14px"></span><span>Custom…</span></div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":800,"height":800}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+states: [
+{ name: 'Idle', desc: 'Ready. Hotkey is armed.', snout: '#E9E4DC', snoutDark: '#202020', dot: false, dotColor: '#000' },
+{ name: 'Listening', desc: 'Mic is open. Dot pulses with your voice.', snout: '#E8A33D', snoutDark: '#E8A33D', dot: true, dotColor: '#D1452F' },
+{ name: 'Cleaning', desc: 'Sentences in the pipe; text on its way.', snout: '#E8A33D', snoutDark: '#E8A33D', dot: true, dotColor: '#3C6FD8' },
+{ name: 'Paused', desc: 'Off for this app, or snoozed.', snout: '#B9AFA3', snoutDark: '#6E665D', dot: false, dotColor: '#000' },
+{ name: 'Needs you', desc: 'Model missing, mic denied, or hotkey taken.', snout: '#E9E4DC', snoutDark: '#202020', dot: true, dotColor: '#E0A800' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

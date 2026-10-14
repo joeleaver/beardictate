@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>beardictate settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#8A4E0B}a:hover{color:#5E3507}
+</style>
+</helmet>
+<div style="min-height: 860px; box-sizing: border-box; background: #F4F0E8; font-family: Figtree, system-ui, sans-serif; color: #241C16; padding: 24px">
+  <div style="max-width: 1180px; margin: 0 auto; background: #FBFAF8; border-radius: 16px; box-shadow: 0 1px 0 rgba(36,28,22,0.06), 0 16px 40px rgba(36,28,22,0.08); display: flex; flex-wrap: wrap; overflow: hidden">
+
+    <nav aria-label="Settings sections" style="flex: 1 1 220px; background: #EFE9E0; padding: 24px 14px; display: flex; flex-direction: column; gap: 4px">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 0 10px 18px">
+        <svg width="32" height="32" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#E8A33D"></rect><circle cx="150" cy="122" r="56" fill="#241C16"></circle><path d="M200 140 C206 206 170 254 112 272 C138 244 150 214 148 186 Z" fill="#241C16"></path><circle cx="362" cy="122" r="56" fill="#241C16"></circle><path d="M412 140 C418 206 382 254 324 272 C350 244 362 214 360 186 Z" fill="#241C16"></path><circle cx="256" cy="300" r="152" fill="#241C16" stroke="#E8A33D" stroke-width="22"></circle><ellipse cx="256" cy="352" rx="84" ry="62" fill="#F6E7CB"></ellipse></svg>
+        <span style="font-size: 18px; font-weight: 800; letter-spacing: -0.02em">bear<span style="color: #8A4E0B">dictate</span></span>
+      </div>
+      <sc-for list="{{sections}}" as="sec" hint-placeholder-count="6">
+        <button type="button" onClick="{{sec.pick}}" aria-current="{{sec.current}}" style="{{sec.style}}">{{sec.name}}</button>
+      </sc-for>
+    </nav>
+
+    <main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 40px; display: flex; flex-direction: column; gap: 24px">
+
+      <sc-if value="{{isCleanup}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <h1 style="margin: 0; font-size: 26px; font-weight: 800">Cleanup</h1>
+          <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #5E5146; max-width: 620px">After each sentence is transcribed, a small model on your computer fixes punctuation, drops the ums, and quotes your dialog. Bigger is smarter, but slower.</p>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; background: #F1E3CC; border-radius: 12px; padding: 14px 18px; font-size: 14px">
+          <span><strong>This computer:</strong> AMD Radeon 890M (shared memory) · 60 GB RAM · 12-core CPU</span>
+          <span style="color: #5E5146">Measured: Bear Medium cleans a sentence in 0.9 s</span>
+          <button type="button" style="margin-left: auto; font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D6C4A6; background: #FFFFFF; color: #241C16; cursor: pointer">Re-check my hardware</button>
+        </div>
+        <div role="radiogroup" aria-label="Cleanup model" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px">
+          <sc-for list="{{models}}" as="m" hint-placeholder-count="6">
+            <button type="button" role="radio" aria-checked="{{m.checked}}" onClick="{{m.pick}}" style="{{m.style}}">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%">
+                <span style="font-size: 16px; font-weight: 800">{{m.name}}</span>
+                <sc-if value="{{m.rec}}" hint-placeholder-val="{{ false }}"><span style="margin-left: auto; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; color: #6A3C08; background: #F6D9A8; border-radius: 99px; padding: 3px 8px">RECOMMENDED</span></sc-if>
+              </span>
+              <span style="font-size: 13px; line-height: 1.45; color: #5E5146; text-align: left">{{m.desc}}</span>
+              <span style="display: flex; gap: 12px; font-size: 12px; color: #6B5D50; margin-top: auto">
+                <span>{{m.size}}</span><span>{{m.speed}}</span><span style="margin-left: auto; font-weight: 700; color: {{m.statusColor}}">{{m.status}}</span>
+              </span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #E6DFD5; padding-top: 20px">
+          <h2 style="margin: 0; font-size: 17px; font-weight: 800">Style</h2>
+          <div style="display: flex; flex-wrap: wrap; gap: 24px">
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #5E5146">Quotation marks
+              <select style="font: inherit; font-weight: 500; font-size: 14px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16; min-width: 220px"><option>“Curly double” (US)</option><option>‘Curly single’ (UK)</option><option>"Straight"</option></select>
+            </label>
+            <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: #5E5146">Punctuation and quotes
+              <select style="font: inherit; font-weight: 500; font-size: 14px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16; min-width: 220px"><option>Inside the quotes (US)</option><option>Outside when not spoken (UK)</option></select>
+            </label>
+            <label style="display: flex; gap: 10px; align-items: center; font-size: 14px; align-self: flex-end; min-height: 44px"><input type="checkbox" checked style="accent-color: #8A4E0B; width: 18px; height: 18px">If cleanup rewords a sentence, type the raw version instead</label>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isGeneral}}" hint-placeholder-val="{{ false }}">
+        <h1 style="margin: 0; font-size: 26px; font-weight: 800">General</h1>
+        <div style="display: flex; flex-direction: column; gap: 0; border: 1px solid #E6DFD5; border-radius: 12px; overflow: hidden">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 18px; background: #FFFFFF">
+            <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 700">Dictation key</span><span style="font-size: 13px; color: #5E5146">Press to start, press again to stop</span></div>
+            <span style="margin-left: auto; display: flex; gap: 6px"><kbd style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px; background: #F4F0E8; border: 1px solid #D6CCBF; border-bottom-width: 3px; border-radius: 6px; padding: 4px 9px">Ctrl+Alt+Space</kbd></span>
+            <button type="button" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #D6CCBF; background: #FFFFFF; color: #241C16; cursor: pointer">Change…</button>
+          </div>
+          <label style="display: flex; gap: 12px; align-items: center; padding: 16px 18px; background: #FFFFFF; border-top: 1px solid #EEE8DF; font-weight: 700">Start beardictate when I sign in<input type="checkbox" checked style="margin-left: auto; accent-color: #8A4E0B; width: 18px; height: 18px"></label>
+          <label style="display: flex; gap: 12px; align-items: center; padding: 16px 18px; background: #FFFFFF; border-top: 1px solid #EEE8DF; font-weight: 700">Notify me when something needs attention<input type="checkbox" checked style="margin-left: auto; accent-color: #8A4E0B; width: 18px; height: 18px"></label>
+          <label style="display: flex; gap: 12px; align-items: center; padding: 16px 18px; background: #FFFFFF; border-top: 1px solid #EEE8DF; font-weight: 700">Play a soft click when listening starts and stops<input type="checkbox" style="margin-left: auto; accent-color: #8A4E0B; width: 18px; height: 18px"></label>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isOther}}" hint-placeholder-val="{{ false }}">
+        <h1 style="margin: 0; font-size: 26px; font-weight: 800">{{currentName}}</h1>
+        <p style="margin: 0; font-size: 15px; color: #5E5146">Not drawn yet. Cleanup and General are the screens to review first.</p>
+      </sc-if>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":860}}'>
+class Component extends DCLogic {
+constructor(props) { super(props); this.state = { section: 'cleanup', model: 'medium' }; }
+renderVals() {
+const sec = this.state.section;
+const names = [['general','General'],['mic','Microphone'],['cleanup','Cleanup'],['models','Models & storage'],['apps','Per-app'],['about','About']];
+const navBase = 'font: inherit; font-size: 15px; text-align: left; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; cursor: pointer; ';
+const sections = names.map(([id, name]) => ({
+name,
+current: id === sec ? 'page' : 'false',
+style: navBase + (id === sec ? 'background: #FBFAF8; color: #241C16; font-weight: 700;' : 'background: transparent; color: #4A3E34; font-weight: 500;'),
+pick: () => this.setState({ section: id })
+}));
+const sel = this.state.model;
+const cardBase = 'font: inherit; color: #241C16; text-align: left; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 16px; border-radius: 14px; cursor: pointer; min-height: 150px; ';
+const raw = [
+{ id: 'off', name: 'Off', desc: 'Raw dictation with spoken commands only. Fastest; nothing extra to download.', size: '0 GB', speed: 'instant', status: 'Ready', statusColor: '#2E7D4A', rec: false },
+{ id: 'small', name: 'Bear Small', desc: 'Good for laptops without a graphics card. Handles fillers and obvious dialog.', size: '0.65 GB', speed: '~0.4 s', status: 'Download', statusColor: '#8A4E0B', rec: false },
+{ id: 'medium', name: 'Bear Medium', desc: 'Best balance on this computer. Follows who is speaking across a scene.', size: '1.8 GB', speed: '~0.9 s', status: 'Installed', statusColor: '#2E7D4A', rec: true },
+{ id: 'large', name: 'Bear Large', desc: 'Strongest on long, untagged dialog. Needs a capable GPU.', size: '2.5 GB', speed: '~1.6 s', status: 'Download', statusColor: '#8A4E0B', rec: false },
+{ id: 'gguf', name: 'Your own model', desc: 'Any GGUF file llama.cpp can run. Uses the general prompt, which you can edit.', size: '—', speed: 'varies', status: 'Choose file…', statusColor: '#8A4E0B', rec: false },
+{ id: 'server', name: 'Another program', desc: 'Ollama, LM Studio, or any OpenAI-compatible server. Text leaves beardictate.', size: '—', speed: 'varies', status: 'Set up…', statusColor: '#8A4E0B', rec: false }
+];
+const models = raw.map((m) => ({ ...m,
+checked: m.id === sel ? 'true' : 'false',
+style: cardBase + (m.id === sel ? 'background: #FFF8EC; border: 2px solid #C47A14;' : 'background: #FFFFFF; border: 2px solid #E6DFD5;'),
+pick: () => this.setState({ model: m.id })
+}));
+const current = names.find(([id]) => id === sec);
+return { sections, models, isCleanup: sec === 'cleanup', isGeneral: sec === 'general', isOther: sec !== 'cleanup' && sec !== 'general', currentName: current ? current[1] : '' };
+}
+}
+</script>
+</body>
+</html>

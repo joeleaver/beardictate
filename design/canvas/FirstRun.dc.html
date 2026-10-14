@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>beardictate first run</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=Literata:ital,opsz,wght@0,7..72,400;1,7..72,400&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#8A4E0B}a:hover{color:#5E3507}
+</style>
+</helmet>
+<div style="width: 1640px; height: 700px; box-sizing: border-box; padding: 48px; background: #F4F0E8; font-family: Figtree, system-ui, sans-serif; color: #241C16; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px">
+
+  <!-- 1 Welcome + mic -->
+  <section aria-labelledby="fr1" style="background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 32px rgba(36,28,22,0.08)">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #8A4E0B">STEP 1 OF 4</span>
+    <svg width="72" height="72" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#E8A33D"></rect><circle cx="150" cy="122" r="56" fill="#241C16"></circle><path d="M200 140 C206 206 170 254 112 272 C138 244 150 214 148 186 Z" fill="#241C16"></path><circle cx="362" cy="122" r="56" fill="#241C16"></circle><path d="M412 140 C418 206 382 254 324 272 C350 244 362 214 360 186 Z" fill="#241C16"></path><circle cx="256" cy="300" r="152" fill="#241C16" stroke="#E8A33D" stroke-width="22"></circle><circle cx="200" cy="262" r="15" fill="#F6E7CB"></circle><circle cx="312" cy="262" r="15" fill="#F6E7CB"></circle><ellipse cx="256" cy="352" rx="84" ry="62" fill="#F6E7CB"></ellipse><rect x="216" y="338" width="14" height="30" rx="7" fill="#241C16"></rect><rect x="240" y="320" width="14" height="66" rx="7" fill="#241C16"></rect><rect x="264" y="330" width="14" height="46" rx="7" fill="#241C16"></rect><rect x="288" y="342" width="14" height="22" rx="7" fill="#241C16"></rect></svg>
+    <h2 id="fr1" style="margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2">Talk. Your words land wherever you’re typing.</h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5E5146">Everything runs on this computer. No account, and nothing you say leaves it.</p>
+    <label for="mic" style="font-size: 13px; font-weight: 700; color: #5E5146">Microphone</label>
+    <select id="mic" style="font: inherit; font-size: 14px; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16"><option>Blue Yeti (USB)</option><option>Laptop microphone</option></select>
+    <div style="display: flex; gap: 3px; align-items: flex-end; height: 22px" aria-label="Input level" role="img">
+      <span style="width: 6px; height: 6px; background: #C47A14; border-radius: 2px"></span><span style="width: 6px; height: 12px; background: #C47A14; border-radius: 2px"></span><span style="width: 6px; height: 18px; background: #C47A14; border-radius: 2px"></span><span style="width: 6px; height: 22px; background: #C47A14; border-radius: 2px"></span><span style="width: 6px; height: 14px; background: #C47A14; border-radius: 2px"></span><span style="width: 6px; height: 8px; background: #E1D7CA; border-radius: 2px"></span><span style="width: 6px; height: 8px; background: #E1D7CA; border-radius: 2px"></span><span style="width: 6px; height: 8px; background: #E1D7CA; border-radius: 2px"></span>
+      <span style="font-size: 12px; color: #5E5146; margin-left: 8px">Say something…</span>
+    </div>
+    <button type="button" style="margin-top: auto; font: inherit; font-size: 15px; font-weight: 700; min-height: 48px; border-radius: 12px; border: 0; background: #241C16; color: #F6E7CB; cursor: pointer">Continue</button>
+  </section>
+
+  <!-- 2 Key -->
+  <section aria-labelledby="fr2" style="background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 32px rgba(36,28,22,0.08)">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #8A4E0B">STEP 2 OF 4</span>
+    <h2 id="fr2" style="margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2">Pick a key to start and stop dictating</h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5E5146">Press it once to start talking and again when you’re done. Press your choice now.</p>
+    <div style="background: #F1E3CC; border-radius: 14px; padding: 34px 16px; display: flex; justify-content: center">
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 22px; background: #FFFFFF; border: 1px solid #D6C4A6; border-bottom-width: 4px; border-radius: 10px; padding: 10px 18px">Ctrl+Alt+Space</kbd>
+    </div>
+    <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4"><input type="checkbox" style="margin-top: 3px; accent-color: #8A4E0B"><span>I’d rather hold the key while I talk</span></label>
+    <button type="button" style="margin-top: auto; font: inherit; font-size: 15px; font-weight: 700; min-height: 48px; border-radius: 12px; border: 0; background: #241C16; color: #F6E7CB; cursor: pointer">Continue</button>
+  </section>
+
+  <!-- 3 Tuning -->
+  <section aria-labelledby="fr3" style="background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 32px rgba(36,28,22,0.08)">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #8A4E0B">STEP 3 OF 4</span>
+    <h2 id="fr3" style="margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2">Tuning for your computer</h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5E5146">One-time setup. Speech recognition works as soon as the first item finishes.</p>
+    <ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; font-size: 14px">
+      <sc-for list="{{steps}}" as="st" hint-placeholder-count="4">
+        <li style="display: flex; gap: 12px; align-items: flex-start">
+          <span style="flex: none; width: 22px; height: 22px; border-radius: 99px; background: {{st.bg}}; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{st.mark}}</span>
+          <span style="display: flex; flex-direction: column; gap: 3px"><span style="font-weight: 700; color: {{st.color}}">{{st.title}}</span><span style="font-size: 12px; color: #6B5D50">{{st.detail}}</span></span>
+        </li>
+      </sc-for>
+    </ol>
+    <div style="height: 8px; background: #E9E1D5; border-radius: 99px; overflow: hidden" role="progressbar" aria-valuenow="62" aria-valuemin="0" aria-valuemax="100" aria-label="Setup progress"><div style="width: 62%; height: 100%; background: #C47A14"></div></div>
+    <button type="button" style="margin-top: auto; font: inherit; font-size: 15px; font-weight: 600; min-height: 48px; border-radius: 12px; border: 1px solid #D6CCBF; background: #FFFFFF; color: #241C16; cursor: pointer">Skip cleanup for now</button>
+  </section>
+
+  <!-- 4 Try it -->
+  <section aria-labelledby="fr4" style="background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 12px 32px rgba(36,28,22,0.08)">
+    <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: #8A4E0B">STEP 4 OF 4</span>
+    <h2 id="fr4" style="margin: 0; font-size: 24px; font-weight: 800; line-height: 1.2">Try it here</h2>
+    <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #5E5146">Press <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #F4F0E8; border: 1px solid #D6CCBF; border-radius: 5px; padding: 1px 6px">Ctrl+Alt+Space</kbd>, read this aloud, ums and all, then press it again:</p>
+    <p style="margin: 0; background: #F1E3CC; border-radius: 12px; padding: 14px 16px; font-family: Literata, Georgia, serif; font-style: italic; font-size: 15px; line-height: 1.55; color: #4A3E34">where are you going she asked um he didn’t look up I told you he said to the river</p>
+    <label for="pad" style="font-size: 13px; font-weight: 700; color: #5E5146">Result</label>
+    <textarea id="pad" rows="4" style="font-family: Literata, Georgia, serif; font-size: 15px; line-height: 1.6; padding: 12px 14px; border-radius: 12px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16; resize: none">“Where are you going?” she asked.
+
+He didn’t look up. “I told you,” he said. “To the river.”</textarea>
+    <button type="button" style="margin-top: auto; font: inherit; font-size: 15px; font-weight: 700; min-height: 48px; border-radius: 12px; border: 0; background: #241C16; color: #F6E7CB; cursor: pointer">Done, beardictate lives in your tray</button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1640,"height":700}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+steps: [
+{ mark: '✓', bg: '#2E7D4A', color: '#241C16', title: 'Speech model', detail: 'Parakeet v3 · 0.65 GB · verified' },
+{ mark: '✓', bg: '#2E7D4A', color: '#241C16', title: 'Checked your hardware', detail: 'Radeon 890M, 60 GB RAM' },
+{ mark: '3', bg: '#C47A14', color: '#241C16', title: 'Downloading Bear Medium', detail: '1.1 of 1.8 GB · resumes if interrupted' },
+{ mark: '4', bg: '#B8ADA1', color: '#6B5D50', title: 'Timing a test sentence', detail: 'Confirms Bear Medium is fast enough here' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

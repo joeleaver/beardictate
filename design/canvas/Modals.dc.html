@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>beardictate modals</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#8A4E0B}a:hover{color:#5E3507}
+</style>
+</helmet>
+<div style="width: 1400px; height: 700px; box-sizing: border-box; padding: 48px 48px; background: #4A4038; font-family: Figtree, system-ui, sans-serif; color: #241C16; display: flex; gap: 32px; align-items: flex-start">
+
+  <!-- Hotkey capture -->
+  <div role="dialog" aria-labelledby="hk-title" style="flex: 1; background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.35)">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 id="hk-title" style="margin: 0; font-size: 21px; font-weight: 800">Choose your dictation key</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #5E5146">Press the keys now. A single modifier like Right Ctrl works too.</p>
+    </div>
+    <div style="background: #F1E3CC; border-radius: 14px; padding: 26px 16px; display: flex; gap: 10px; justify-content: center; align-items: center">
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; background: #FFFFFF; border: 1px solid #D6C4A6; border-bottom-width: 3px; border-radius: 8px; padding: 8px 14px">Ctrl</kbd>
+      <span style="color: #8A4E0B; font-weight: 700">+</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; background: #FFFFFF; border: 1px solid #D6C4A6; border-bottom-width: 3px; border-radius: 8px; padding: 8px 14px">Alt</kbd>
+      <span style="color: #8A4E0B; font-weight: 700">+</span>
+      <kbd style="font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; background: #FFFFFF; border: 1px solid #D6C4A6; border-bottom-width: 3px; border-radius: 8px; padding: 8px 14px">Space</kbd>
+    </div>
+    <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+      <legend style="font-size: 13px; font-weight: 700; color: #5E5146; margin-bottom: 8px">When I press it</legend>
+      <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4"><input type="radio" name="mode" checked style="margin-top: 3px; accent-color: #8A4E0B"><span><strong>Toggle.</strong> Press to start, press again to stop. Best for long passages.</span></label>
+      <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4"><input type="radio" name="mode" style="margin-top: 3px; accent-color: #8A4E0B"><span><strong>Hold to talk.</strong> Dictate while held, type on release.</span></label>
+    </fieldset>
+    <div style="display: flex; gap: 10px; align-items: flex-start; background: #FFF4D6; border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.45; color: #5C4300">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A6400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none; margin-top: 1px"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+      <span>Ctrl+Alt+Space is already used by <strong>PowerToys Run</strong>. Pick another, or change it there.</span>
+    </div>
+    <div style="display: flex; gap: 10px; justify-content: flex-end">
+      <button type="button" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #D6CCBF; background: #FFFFFF; color: #241C16; cursor: pointer">Cancel</button>
+      <button type="button" style="font: inherit; font-size: 14px; font-weight: 700; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #241C16; color: #F6E7CB; cursor: pointer">Use this key</button>
+    </div>
+  </div>
+
+  <!-- Model download -->
+  <div role="dialog" aria-labelledby="dl-title" style="flex: 1; background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.35)">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 id="dl-title" style="margin: 0; font-size: 21px; font-weight: 800">Downloading Bear Large</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #5E5146">Better at long dialog scenes. You can keep dictating with Bear Medium meanwhile.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: #5E5146"><span><strong style="color: #241C16">1.08 GB</strong> of 2.50 GB</span><span>14.2 MB/s · about 2 min</span></div>
+      <div role="progressbar" aria-valuenow="43" aria-valuemin="0" aria-valuemax="100" aria-label="Download progress" style="height: 10px; background: #E9E1D5; border-radius: 99px; overflow: hidden"><div style="width: 43%; height: 100%; background: #C47A14; border-radius: 99px"></div></div>
+    </div>
+    <dl style="margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; font-size: 13px">
+      <div><dt style="color: #6B5D50">From</dt><dd style="margin: 2px 0 0; font-weight: 600">huggingface.co (mirror 1 of 2)</dd></div>
+      <div><dt style="color: #6B5D50">Saved to</dt><dd style="margin: 2px 0 0; font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 12px">%LOCALAPPDATA%\beardictate</dd></div>
+      <div><dt style="color: #6B5D50">Checked with</dt><dd style="margin: 2px 0 0; font-weight: 600">SHA-256 after download</dd></div>
+      <div><dt style="color: #6B5D50">License</dt><dd style="margin: 2px 0 0; font-weight: 600">Apache-2.0</dd></div>
+    </dl>
+    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #6B5D50">Closing this window or losing the connection is fine. It picks up where it left off.</p>
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: auto">
+      <button type="button" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #D6CCBF; background: #FFFFFF; color: #241C16; cursor: pointer">Cancel download</button>
+      <button type="button" style="font: inherit; font-size: 14px; font-weight: 700; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #241C16; color: #F6E7CB; cursor: pointer">Keep going in background</button>
+    </div>
+  </div>
+
+  <!-- External endpoint -->
+  <div role="dialog" aria-labelledby="ep-title" style="flex: 1; background: #FBFAF8; border-radius: 18px; padding: 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.35)">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <h2 id="ep-title" style="margin: 0; font-size: 21px; font-weight: 800">Use another program for cleanup?</h2>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #5E5146">Anything you dictate will be sent to this address. beardictate can’t see what that program does with it.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="ep-url" style="font-size: 13px; font-weight: 700; color: #5E5146">Server address (OpenAI-compatible)</label>
+      <input id="ep-url" type="url" value="http://127.0.0.1:11434/v1" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16; box-sizing: border-box">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="ep-model" style="font-size: 13px; font-weight: 700; color: #5E5146">Model name</label>
+      <input id="ep-model" type="text" value="gemma4:12b" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid #CFC3B3; background: #FFFFFF; color: #241C16; box-sizing: border-box">
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center; background: #E6F2EA; border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #1F5A33">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2E7D4A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+      <span>Reached Ollama on this computer · 1.4 s for the test sentence</span>
+    </div>
+    <label style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.4"><input type="checkbox" style="margin-top: 3px; accent-color: #8A4E0B"><span>I understand my dictation leaves beardictate.</span></label>
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: auto">
+      <button type="button" style="font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #D6CCBF; background: #FFFFFF; color: #241C16; cursor: pointer">Cancel</button>
+      <button type="button" disabled style="font: inherit; font-size: 14px; font-weight: 700; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: #B8ADA1; color: #3A2F27">Use this server</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1400,"height":700}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
