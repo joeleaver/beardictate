@@ -180,6 +180,8 @@ Ctrl+Alt+Space, checked against conflicts at first run.
     guardrail fallback ("typed the raw text"), elevated-window clipboard
     fallback ("press Ctrl+V"), hotkey conflict, mic lost, model missing.
     Rate-limited; never one per sentence.
+    Implemented with `notify-rust` directly (Windows toasts, freedesktop,
+    macOS); swap to a rinch API if rinch grows one.
 - **Settings window** — hotkey, mode, mic, cleanup tier, models (download
   state, disk usage, delete), per-app paste overrides, start at login.
 - **First-run** — mic permission/selection, pick hotkey, download ASR model
