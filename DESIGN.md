@@ -1,6 +1,6 @@
 # beardictate — design sketch
 
-Local, offline dictation for writers. Hold a hotkey, talk, and clean prose
+Local, offline dictation for writers. Press a hotkey, talk, and clean prose
 lands in whatever app has focus. "Clean" means capitalized and punctuated,
 fillers/stutters/false starts removed, and — the part nothing else does —
 **dialog correctly quoted**, the way a novelist would type it.
@@ -15,7 +15,8 @@ Status: sketch (2026-10-14). Nothing here is built yet.
 - **Windows is first-class**, Linux (incl. KDE/GNOME Wayland) and macOS follow.
 - Ships small: the installer contains no models; models download on demand,
   verified, resumable, and the app is useful as soon as the ASR model lands.
-- UI in rinch: lives in the tray, plus a small overlay and a settings window.
+- UI in rinch: lives in the tray (the tray icon *is* the status display),
+  plus settings and first-run windows. No floating overlay (decided 2026-10-14).
 
 ## Non-goals (for v1)
 
@@ -28,11 +29,11 @@ Status: sketch (2026-10-14). Nothing here is built yet.
 
 ```
  hotkey ─▶ capture ─▶ VAD/segment ─▶ ASR ─▶ command pass ─▶ cleanup LLM ─▶ injector
- (press/   (cpal,     (silero VAD,    (Parakeet  (deterministic:  (small local   (SendInput /
-  hold)     16k mono)  sentence-ish    TDT 0.6B   "open quote",    model, gets    libei / CGEvent,
+ (toggle)  (cpal,     (silero VAD,    (Parakeet  (deterministic:  (small local   (SendInput /
+            16k mono)  sentence-ish    TDT 0.6B   "open quote",    model, gets    libei / CGEvent,
                        chunks)         v3 int8)   "new paragraph") prior context)  or paste)
                                           │                            │
-                                          └──── overlay shows raw ─────┴─ then cleaned text
+                       tray icon: idle → listening → cleaning → idle (or needs-you)
 ```
 
 Every stage after capture runs on a worker thread, connected by channels, so
@@ -146,7 +147,9 @@ override list in settings ("always paste in X").
 
 ## Hotkey
 
-Two modes, user's choice: **hold-to-talk** and **toggle**.
+**Toggle by default** (press to start, press again to stop; long passages
+without holding a key). Hold-to-talk stays available as a setting, since
+rinch#1521 reports release anyway.
 
 | Platform | Mechanism |
 |---|---|
@@ -158,44 +161,47 @@ Two modes, user's choice: **hold-to-talk** and **toggle**.
 **Provided by rinch** ([rinch#1521](https://github.com/joeleaver/rinch/issues/1521)):
 press/release callbacks on the main thread, rebinding, conflict errors,
 modifier-only bindings. The table above is what rinch implements underneath.
-Default binding must avoid common app shortcuts; something like Right-Ctrl
-hold or Ctrl+Alt+Space.
+Default binding must avoid common app shortcuts; something like
+Ctrl+Alt+Space, checked against conflicts at first run.
 
 ## UI (rinch)
 
-- **Tray icon** — idle / listening / processing / error states; menu:
-  start/stop, cleanup tier, open settings, quit.
-- **Overlay** — small borderless, transparent, always-on-top pill near the
-  cursor or a screen corner: level meter while listening, then raw text, then
-  cleaned text as segments complete. **Must never take focus** or the
-  keystrokes go to us instead of the target app. Rules that make this hold
-  on every platform:
-  - Create the overlay **once at startup and keep it mapped**. Idle =
-    transparent/empty, not hidden. Show/hide is a content change, never a
-    map/unmap, because on Wayland the *compositor* decides whether a newly
-    mapped window gets focus.
-  - **Click-through by default** (empty input region works on native
-    Wayland too). Interactive only while a modifier is held, to drag it.
-  - Windows/macOS/X11 get true non-activating + skip-taskbar from rinch#1519.
-    Native KDE Wayland: those flags are documented no-ops (no layer-shell
-    yet), so the pill may show a taskbar entry. Cosmetic, accepted
-    2026-10-14. Layer-shell is a low-priority rinch follow-up.
+- **Tray icon = the status display.** States: idle / listening / cleaning /
+  paused / needs-you, carried by the snout colour and a corner dot so the
+  silhouette never changes. Tooltip mirrors the state ("Listening — 0:12",
+  "Downloading Bear Medium 43%"). Left-click toggles dictation; right-click
+  menu: start/stop, cleanup model (radio), paste-in-this-app, settings, quit.
+- **No floating overlay.** Dropped 2026-10-14: it bought little and cost a
+  focus-stealing risk on every platform (rinch#1519 is no longer on our
+  critical path). Things the overlay would have said go to:
+  - tray icon + tooltip for live state;
+  - an **optional start/stop sound** (soft click, off by default) for people
+    who aren't looking at the tray;
+  - an **OS notification** only for events that need the user's attention:
+    guardrail fallback ("typed the raw text"), elevated-window clipboard
+    fallback ("press Ctrl+V"), hotkey conflict, mic lost, model missing.
+    Rate-limited; never one per sentence.
 - **Settings window** — hotkey, mode, mic, cleanup tier, models (download
   state, disk usage, delete), per-app paste overrides, start at login.
 - **First-run** — mic permission/selection, pick hotkey, download ASR model
-  (progress), optional cleanup model, quick test pad.
+  (progress), optional cleanup model, quick test pad, and on **Windows a
+  "pin the bear to your taskbar" step**: new tray icons land in the overflow
+  flyout, where a status icon is useless. Show the Settings → Personalization
+  → Taskbar → Other system tray icons path (and a deep link if one works).
 
 ### rinch work this depends on (filed, prioritized)
 rinch already has multi-window, borderless, transparent, always-on-top,
 start-hidden, close-intercept (hide-to-tray), and a tray icon (ksni / tray-icon).
 Missing, and being built in rinch rather than worked around here:
-1. [rinch#1519](https://github.com/joeleaver/rinch/issues/1519):
-   **non-activating, click-through, skip-taskbar windows**, for the overlay.
-2. [rinch#1521](https://github.com/joeleaver/rinch/issues/1521):
+1. [rinch#1521](https://github.com/joeleaver/rinch/issues/1521):
    **global hotkeys** with press/release.
-3. [rinch#1520](https://github.com/joeleaver/rinch/issues/1520):
+2. [rinch#1520](https://github.com/joeleaver/rinch/issues/1520):
    **tray runtime updates** (icon/tooltip/menu), checkable items,
    configurable left-click, tray-only apps.
+
+([rinch#1519](https://github.com/joeleaver/rinch/issues/1519), non-activating
+windows, continues as a general rinch feature; not needed now that there's no
+overlay.)
 
 ## Models: shipping without them
 
@@ -270,7 +276,7 @@ beardictate/
     bd-commands/             spoken command rules
     bd-platform/             text injector per OS (hotkeys come from rinch)
     bd-models/               manifest, downloader, verification, storage
-    beardictate/             the rinch app: tray, overlay, settings, first-run
+    beardictate/             the rinch app: tray, settings, first-run, notifications
   eval/                      cleanup eval cases + runner (scores any model/endpoint)
   training/                  synthetic data generator + fine-tune recipe
 ```
@@ -290,8 +296,7 @@ headless from a CLI (`bd-cli file.wav` → cleaned text) on any OS.
    still no UI beyond a console. Dogfood in Word, Scrivener, Google Docs.
 3. **Model manager**: manifest, downloader, verify, import. Installer with no
    weights.
-4. **rinch UI**: tray / overlay / settings / first-run, once rinch#1519 and
-   rinch#1520 land.
+4. **rinch UI**: tray / settings / first-run, once rinch#1520 lands.
 5. **Fine-tuned cleanup model**: synthetic data → train 0.6B & 1.7B →
    must beat Gemma 4 12B on the eval set → publish weights.
 6. **Linux Wayland + macOS** backends; Flatpak, DMG.
