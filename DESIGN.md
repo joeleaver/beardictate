@@ -32,7 +32,6 @@ Status: sketch (2026-10-14). Nothing here is built yet.
  (toggle)  (cpal,     (silero VAD,    (Parakeet  (deterministic:  (small local   (SendInput /
             16k mono)  sentence-ish    TDT 0.6B   "open quote",    model, gets    libei / CGEvent,
                        chunks)         v3 int8)   "new paragraph") prior context)  or paste)
-                                          │                            │
                        tray icon: idle → listening → cleaning → idle (or needs-you)
 ```
 
