@@ -37,7 +37,7 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | `bd-asr` | **Committed.** `ParakeetAsr` + `Segmenter` (Silero). WER 0 on the test wav; CPU RTF ≈0.15–0.24 on a loaded box. |
 | `bd-commands` | **In progress / uncommitted** (subagent). Spoken-command rules + prose false-positive tests. |
 | `bd-cleanup` | **In progress / uncommitted** (subagent). Prompts, guardrail, `LlamaCleanup` (llama-cpp-2, `vulkan` feature), `HttpCleanup`, `examples/bench_cleanup`. |
-| `bd-platform` | **In progress / uncommitted** (subagent). Windows SendInput/paste/UIPI; Linux backend (portal+libei or X11). |
+| `bd-platform` | **Committed.** Windows SendInput/paste/UIPI (cross-checked with `cargo xwin clippy`, **never run on real Windows** — see `crates/bd-platform/WINDOWS_TESTING.md`); Linux XTest + RemoteDesktop portal/libei (live-tested only in a nested KWin). `prepare()` triggers the Wayland permission dialog; `INJECTED_MARKER` in `dwExtraInfo` lets rinch's keyboard hook ignore our own keystrokes. |
 | `eval/`, `training/` | **In progress / uncommitted** (subagent). ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
 | `bd-cli` | **Not started** — next for the coordinator (see below). |
 | `design/` | **Committed.** Design-canvas source (`.dc.html` artboards). |
@@ -70,7 +70,12 @@ API + tests".
 2. **bd-core tweaks** suggested by the ASR agent, worth taking:
    `AudioSegment.start_sample: u64` (alignment/gap detection) and
    `Asr::transcribe(&self)` (sherpa recognizer is stateless per call).
-   Check what the cleanup/platform agents asked for too.
+   From the platform agent: add a default `Injector::prepare()` (Wayland
+   portal approval through the trait object); `InjectOutcome::Pasted`
+   should carry `restored: bool` (restore can be off/skipped/failed); and
+   **hold-to-talk**: injection waits for modifiers to be released, so with a
+   held hotkey the pipeline must queue injection until key-up (or hold
+   bindings must avoid modifiers). Check what the cleanup agent asked for too.
 3. **Pipeline + `bd` CLI** (`crates/bd-cli`, binary `bd`): a pipeline module
    (threads + crossbeam channels: segmenter → ASR → commands → cleanup →
    sink, cleaning sentence N while N+1 is spoken; context buffer of our own
