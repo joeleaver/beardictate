@@ -141,7 +141,7 @@ fn live_wayland_end_to_end() {
     let typed = driver::inject(&mut backend, &config, "Typed line.\n").unwrap();
     assert_eq!(typed, InjectOutcome::Typed);
     let pasted = driver::inject(&mut backend, &config, "“Curly,” she said—").unwrap();
-    assert_eq!(pasted, InjectOutcome::Pasted);
+    assert_eq!(pasted, InjectOutcome::Pasted { restored: true });
     assert!(
         backend
             .clipboard_still_ours("user's own clipboard")

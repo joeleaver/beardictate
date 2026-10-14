@@ -25,6 +25,9 @@ pub struct AudioSegment {
     pub samples: Vec<f32>,
     /// Monotonic sequence number within a dictation session, starting at 0.
     pub seq: u64,
+    /// Offset of the first sample from the start of the dictation session's
+    /// audio stream, for aligning segments and spotting gaps between them.
+    pub start_sample: u64,
 }
 
 impl AudioSegment {
@@ -36,8 +39,9 @@ impl AudioSegment {
 /// Speech-to-text for one finished segment.
 pub trait Asr: Send {
     /// Returns the transcript with the model's own casing and punctuation.
-    /// An empty string means "no speech".
-    fn transcribe(&mut self, segment: &AudioSegment) -> Result<String, BoxError>;
+    /// An empty string means "no speech". Takes `&self`: a recognizer keeps
+    /// no state between segments.
+    fn transcribe(&self, segment: &AudioSegment) -> Result<String, BoxError>;
 }
 
 /// What the cleanup model is asked to do with one segment.
@@ -62,9 +66,11 @@ pub trait Cleanup: Send {
 pub enum InjectOutcome {
     /// Synthesized keystrokes.
     Typed,
-    /// Placed on the clipboard and pasted with the platform paste chord; the
-    /// previous clipboard content was restored.
-    Pasted,
+    /// Placed on the clipboard and pasted with the platform paste chord.
+    /// `restored` says whether the previous clipboard content was put back;
+    /// it isn't when restoring is turned off, the clipboard changed while
+    /// pasting, or the restore itself failed.
+    Pasted { restored: bool },
     /// Could not deliver (e.g. the focused window is elevated on Windows), so
     /// the text was left on the clipboard for the user to paste.
     LeftOnClipboard { reason: String },
@@ -72,5 +78,12 @@ pub enum InjectOutcome {
 
 /// Delivers text into whatever application has keyboard focus.
 pub trait Injector {
+    /// One-time setup that may need the user, such as a permission dialog.
+    /// Call it during onboarding so the dialog doesn't interrupt the first
+    /// dictation. Calling it again after a refusal asks again.
+    fn prepare(&mut self) -> Result<(), BoxError> {
+        Ok(())
+    }
+
     fn inject(&mut self, text: &str) -> Result<InjectOutcome, BoxError>;
 }

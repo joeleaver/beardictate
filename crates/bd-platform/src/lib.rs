@@ -105,6 +105,10 @@ impl PlatformInjector {
 }
 
 impl Injector for PlatformInjector {
+    fn prepare(&mut self) -> Result<(), BoxError> {
+        Ok(PlatformInjector::prepare(self)?)
+    }
+
     fn inject(&mut self, text: &str) -> Result<InjectOutcome, BoxError> {
         Ok(self.inject_text(text)?)
     }

@@ -16,10 +16,13 @@ const EN_TEXT: &str =
 #[test]
 fn transcribes_known_sentence() {
     let Some(models) = models_dir() else { return };
-    let mut asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
+    let asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
     // en.wav is 24 kHz, so this also exercises bd-audio's resampler.
     let samples = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
-    let text = asr.transcribe(&AudioSegment { samples, seq: 0 }).unwrap();
+    let text = asr.transcribe(&AudioSegment {
+            samples,
+            ..AudioSegment::default()
+        }).unwrap();
     eprintln!("transcript: {text}");
     assert_eq!(wer(EN_TEXT, &text), 0.0, "got {text:?}");
     // Native punctuation and casing survive.
@@ -32,11 +35,11 @@ fn transcribes_known_sentence() {
 #[test]
 fn empty_and_silent_segments_give_empty_text() {
     let Some(models) = models_dir() else { return };
-    let mut asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
+    let asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
     assert_eq!(asr.transcribe(&AudioSegment::default()).unwrap(), "");
     let quiet = AudioSegment {
         samples: silence(1.0),
-        seq: 0,
+        ..AudioSegment::default()
     };
     assert_eq!(asr.transcribe(&quiet).unwrap(), "");
 }

@@ -158,20 +158,29 @@ fn paste<B: Backend>(
     // The target reads the clipboard asynchronously after it processes the
     // chord. Restoring before that would paste the user's old content.
     thread::sleep(settings.paste_settle);
-    if let Some(snapshot) = snapshot {
-        match backend.clipboard_still_ours(text) {
-            Ok(true) => {
-                if let Err(e) = backend.clipboard_restore(snapshot) {
+    let restored = match snapshot {
+        None => false,
+        Some(snapshot) => match backend.clipboard_still_ours(text) {
+            Ok(true) => match backend.clipboard_restore(snapshot) {
+                Ok(()) => true,
+                Err(e) => {
                     // The text was delivered; a failed restore is not a failed
                     // injection.
                     tracing::warn!(error = %e, "could not restore the previous clipboard");
+                    false
                 }
+            },
+            Ok(false) => {
+                tracing::info!("clipboard changed while pasting; not restoring it");
+                false
             }
-            Ok(false) => tracing::info!("clipboard changed while pasting; not restoring it"),
-            Err(e) => tracing::warn!(error = %e, "could not check the clipboard; not restoring"),
-        }
-    }
-    Ok(InjectOutcome::Pasted)
+            Err(e) => {
+                tracing::warn!(error = %e, "could not check the clipboard; not restoring");
+                false
+            }
+        },
+    };
+    Ok(InjectOutcome::Pasted { restored })
 }
 
 #[cfg(test)]
@@ -267,7 +276,7 @@ mod tests {
             reason: "no keymap".into(),
         });
         let out = inject(&mut b, &config(Strategy::Auto), "“hi”").unwrap();
-        assert_eq!(out, InjectOutcome::Pasted);
+        assert_eq!(out, InjectOutcome::Pasted { restored: true });
         assert_eq!(
             b.log,
             vec!["type:“hi”", "set:“hi”:true", "chord:CtrlV", "restore:old"]
@@ -334,8 +343,20 @@ mod tests {
         let mut b = fake();
         b.foreign_change = true;
         let out = inject(&mut b, &config(Strategy::PasteOnly), "x").unwrap();
-        assert_eq!(out, InjectOutcome::Pasted);
+        assert_eq!(out, InjectOutcome::Pasted { restored: false });
         assert_eq!(b.clipboard, "user copied this");
+    }
+
+    #[test]
+    fn restore_disabled_reports_not_restored() {
+        let mut b = fake();
+        let config = InjectorConfig {
+            restore_clipboard: false,
+            ..config(Strategy::PasteOnly)
+        };
+        let out = inject(&mut b, &config, "x").unwrap();
+        assert_eq!(out, InjectOutcome::Pasted { restored: false });
+        assert_eq!(b.clipboard, "x");
     }
 
     #[test]

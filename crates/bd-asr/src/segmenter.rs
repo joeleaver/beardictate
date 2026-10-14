@@ -279,6 +279,7 @@ impl Segmenter {
         out.push(AudioSegment {
             samples: self.buf[a..b].to_vec(),
             seq: self.seq,
+            start_sample: from,
         });
         self.seq += 1;
         self.emitted_until = to;

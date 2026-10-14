@@ -81,7 +81,7 @@ impl ParakeetAsr {
 }
 
 impl Asr for ParakeetAsr {
-    fn transcribe(&mut self, segment: &AudioSegment) -> Result<String, BoxError> {
+    fn transcribe(&self, segment: &AudioSegment) -> Result<String, BoxError> {
         Ok(self.transcribe_samples(&segment.samples)?)
     }
 }

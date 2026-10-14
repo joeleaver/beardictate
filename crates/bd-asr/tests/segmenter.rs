@@ -99,6 +99,7 @@ fn flush_returns_speech_in_progress_and_restarts_numbering() {
     let all: Vec<_> = live.into_iter().chain(flushed).collect();
     assert_eq!(all.len(), 1);
     assert_eq!(all[0].seq, 0);
+    assert!(all[0].start_sample < en.len() as u64, "offsets restart too");
 }
 
 #[test]
@@ -163,6 +164,9 @@ fn long_run_on_is_cut_without_losing_audio() {
         (at, at + seg.len())
     };
     let spans: Vec<(usize, usize)> = all.iter().map(|s| locate(&s.samples)).collect();
+    for (s, span) in all.iter().zip(&spans) {
+        assert_eq!(s.start_sample, span.0 as u64, "start_sample is off");
+    }
     eprintln!("spans {spans:?}, speech {speech_start}..{speech_end}");
     for pair in spans.windows(2) {
         assert_eq!(
