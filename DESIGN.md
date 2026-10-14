@@ -168,7 +168,18 @@ hold or Ctrl+Alt+Space.
 - **Overlay** — small borderless, transparent, always-on-top pill near the
   cursor or a screen corner: level meter while listening, then raw text, then
   cleaned text as segments complete. **Must never take focus** or the
-  keystrokes go to us instead of the target app.
+  keystrokes go to us instead of the target app. Rules that make this hold
+  on every platform:
+  - Create the overlay **once at startup and keep it mapped**. Idle =
+    transparent/empty, not hidden. Show/hide is a content change, never a
+    map/unmap, because on Wayland the *compositor* decides whether a newly
+    mapped window gets focus.
+  - **Click-through by default** (empty input region works on native
+    Wayland too). Interactive only while a modifier is held, to drag it.
+  - Windows/macOS/X11 get true non-activating + skip-taskbar from rinch#1519.
+    Native KDE Wayland: those flags are documented no-ops (no layer-shell
+    yet), so the pill may show a taskbar entry. Cosmetic, accepted
+    2026-10-14. Layer-shell is a low-priority rinch follow-up.
 - **Settings window** — hotkey, mode, mic, cleanup tier, models (download
   state, disk usage, delete), per-app paste overrides, start at login.
 - **First-run** — mic permission/selection, pick hotkey, download ASR model
