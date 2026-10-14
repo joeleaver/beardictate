@@ -1,0 +1,172 @@
+# beardictate model manifest, compiled into the app with include_str!.
+#
+# Every model the app can download or import. The installer ships no weights.
+#
+# Rules (enforced by `Manifest::validate`, run in a unit test):
+# - `id` is unique, lowercase [a-z0-9._-]. It names the model's directory in
+#   the store, so give a model new bytes a new id.
+# - Each `sources` entry is an https base URL ending in '/'. A file's URL is
+#   the base plus the file's `path`. Sources are tried in order.
+# - Sources are pinned: Hugging Face `resolve/<commit sha>/` URLs or GitHub
+#   release assets, never `main`. The sha256 is the real guarantee; the pin
+#   keeps it from going stale.
+# - `available = false` marks a catalog entry with no weights yet: no files,
+#   no sources.
+# - `cleanup` models carry their prompt-template id and sampling params, so
+#   swapping models never means retuning by hand.
+#
+# Provenance of each hash is noted per model.
+
+# --- ASR -------------------------------------------------------------------
+
+# k2-fsa's sherpa-onnx int8 export of nvidia/parakeet-tdt-0.6b-v3.
+# Pinned commit 2bda32ec70b097a55adaa07d9a7173915b43cc78 (2025-08-16).
+# Hashes: the three .onnx files from the HF tree API `lfs.oid` (sha256);
+# tokens.txt is not in LFS, so it was fetched at the pinned commit and hashed
+# locally, and its git blob id matched the API's `oid`
+# (fc43e1c723e262df60b70e1919614417162d1fe2).
+[[model]]
+id = "asr-parakeet-tdt-0.6b-v3-int8"
+kind = "asr"
+name = "Parakeet TDT 0.6B v3 (int8)"
+license = "CC-BY-4.0"
+attribution = "Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0; ONNX export by k2-fsa/sherpa-onnx."
+homepage = "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"
+required = true
+sources = [
+    "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/",
+]
+files = [
+    { path = "encoder.int8.onnx", size = 652184281, sha256 = "acfc2b4456377e15d04f0243af540b7fe7c992f8d898d751cf134c3a55fd2247" },
+    { path = "decoder.int8.onnx", size = 11845275, sha256 = "179e50c43d1a9de79c8a24149a2f9bac6eb5981823f2a2ed88d655b24248db4e" },
+    { path = "joiner.int8.onnx", size = 6355277, sha256 = "3164c13fc2821009440d20fcb5fdc78bff28b4db2f8d0f0b329101719c0948b3" },
+    { path = "tokens.txt", size = 93939, sha256 = "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d" },
+]
+
+# --- VAD -------------------------------------------------------------------
+
+# The silero_vad.onnx that sherpa-onnx's docs and examples download, from the
+# k2-fsa/sherpa-onnx `asr-models` release (asset uploaded 2025-07-11).
+# Hash: the GitHub release API's asset `digest` (sha256), confirmed by a full
+# download through this crate's downloader.
+[[model]]
+id = "vad-silero"
+kind = "vad"
+name = "Silero VAD"
+license = "MIT"
+attribution = "Silero VAD by Silero Team, MIT; ONNX export by k2-fsa/sherpa-onnx."
+homepage = "https://github.com/snakers4/silero-vad"
+required = true
+sources = [
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/",
+]
+files = [
+    { path = "silero_vad.onnx", size = 643854, sha256 = "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6" },
+]
+
+# --- Cleanup ---------------------------------------------------------------
+#
+# Stock Qwen3 GGUFs from Qwen's own ungated, Apache-2.0 GGUF repos. Hashes from
+# the HF tree API `lfs.oid` at the pinned commit. Qwen3 is a hybrid
+# thinking model; cleanup runs it with thinking off. Sampling is greedy, as in
+# the 2026-10-14 bench (eval/run_eval.py): the task is copy-with-edits, not
+# generation.
+
+# Pinned commit 23749fefcc72300e3a2ad315e1317431b06b590a (2025-05-09).
+[[model]]
+id = "cleanup-qwen3-0.6b-q8_0"
+kind = "cleanup"
+name = "Qwen3 0.6B"
+license = "Apache-2.0"
+homepage = "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF"
+sources = [
+    "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/",
+]
+files = [
+    { path = "Qwen3-0.6B-Q8_0.gguf", size = 639446688, sha256 = "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031" },
+]
+[model.cleanup]
+prompt_template = "qwen3-cleanup-v1"
+thinking = false
+[model.cleanup.sampling]
+temperature = 0.0
+top_k = 0
+top_p = 1.0
+min_p = 0.0
+repeat_penalty = 1.0
+presence_penalty = 0.0
+max_tokens = 512
+
+# Pinned commit 90862c4b9d2787eaed51d12237eafdfe7c5f6077 (2025-05-09).
+[[model]]
+id = "cleanup-qwen3-1.7b-q8_0"
+kind = "cleanup"
+name = "Qwen3 1.7B"
+license = "Apache-2.0"
+homepage = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF"
+sources = [
+    "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/",
+]
+files = [
+    { path = "Qwen3-1.7B-Q8_0.gguf", size = 1834426016, sha256 = "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a" },
+]
+[model.cleanup]
+prompt_template = "qwen3-cleanup-v1"
+thinking = false
+[model.cleanup.sampling]
+temperature = 0.0
+top_k = 0
+top_p = 1.0
+min_p = 0.0
+repeat_penalty = 1.0
+presence_penalty = 0.0
+max_tokens = 512
+
+# Pinned commit bc640142c66e1fdd12af0bd68f40445458f3869b (2025-05-21).
+[[model]]
+id = "cleanup-qwen3-4b-q4_k_m"
+kind = "cleanup"
+name = "Qwen3 4B"
+license = "Apache-2.0"
+homepage = "https://huggingface.co/Qwen/Qwen3-4B-GGUF"
+sources = [
+    "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/",
+]
+files = [
+    { path = "Qwen3-4B-Q4_K_M.gguf", size = 2497280256, sha256 = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5" },
+]
+[model.cleanup]
+prompt_template = "qwen3-cleanup-v1"
+thinking = false
+[model.cleanup.sampling]
+temperature = 0.0
+top_k = 0
+top_p = 1.0
+min_p = 0.0
+repeat_penalty = 1.0
+presence_penalty = 0.0
+max_tokens = 512
+
+# Bear fine-tunes (DESIGN.md, "Cleanup model choices"): catalog placeholders
+# until the weights are trained and published.
+
+[[model]]
+id = "cleanup-bear-small"
+kind = "cleanup"
+name = "Bear Small"
+license = "Apache-2.0"
+available = false
+
+[[model]]
+id = "cleanup-bear-medium"
+kind = "cleanup"
+name = "Bear Medium"
+license = "Apache-2.0"
+available = false
+
+[[model]]
+id = "cleanup-bear-large"
+kind = "cleanup"
+name = "Bear Large"
+license = "Apache-2.0"
+available = false
