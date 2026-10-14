@@ -2,3 +2,5 @@
 *.gguf
 *.onnx
 /models
+/training/data
+/training/out

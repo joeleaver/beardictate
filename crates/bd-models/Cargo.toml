@@ -1,0 +1,20 @@
+[package]
+name = "bd-models"
+description = "beardictate: model manifest, resumable verified downloader, on-disk store"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+sha2.workspace = true
+hex.workspace = true
+directories.workspace = true
+ureq.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

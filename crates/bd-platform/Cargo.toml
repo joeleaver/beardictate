@@ -1,0 +1,16 @@
+[package]
+name = "bd-platform"
+description = "beardictate: per-OS text injection (type and paste strategies)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bd-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+arboard.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Security", "Win32_System_Threading"] }

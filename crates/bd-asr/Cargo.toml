@@ -1,0 +1,16 @@
+[package]
+name = "bd-asr"
+description = "beardictate: speech recognition (Parakeet via sherpa-onnx) and Silero VAD segmentation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bd-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+sherpa-onnx.workspace = true
+
+[dev-dependencies]
+hound.workspace = true
