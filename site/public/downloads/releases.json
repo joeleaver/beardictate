@@ -4,7 +4,7 @@
     {
       "id": "windows",
       "name": "Windows",
-      "requirements": "Windows 10 or 11, 64-bit. Cleanup runs on the processor for now, a few seconds a sentence; graphics-card support is coming. The installer isn’t signed yet, so if Windows SmartScreen warns, choose More info, then Run anyway.",
+      "requirements": "Windows 10 or 11, 64-bit. Cleanup runs on your graphics card (NVIDIA, AMD or Intel, through Vulkan), or on the processor if there isn’t a usable one. The installer isn’t signed yet, so if Windows SmartScreen warns, choose More info, then Run anyway.",
       "pending": "The Windows installer is being tested now. It will appear here as soon as it’s ready."
     },
     {
@@ -23,29 +23,29 @@
   "builds": [
     {
       "platform": "linux",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "kind": "Linux package (.tar.gz)",
-      "file": "beardictate-0.1.1-linux-x86_64.tar.gz",
-      "size": 39036720,
-      "sha256": "0503acb588b200b8e960748cb0e78d2f638b3298d67b124f94f86104f1e5f826",
+      "file": "beardictate-0.1.2-linux-x86_64.tar.gz",
+      "size": 39033698,
+      "sha256": "0ed4e4f7b3e11da7fb0c896a39412585b6597195cececd0c122a6b34b049c5c5",
       "date": "2026-10-15"
     },
     {
       "platform": "windows",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "kind": "Installer",
-      "file": "beardictate-0.1.1-windows-x64-setup.exe",
-      "size": 19601688,
-      "sha256": "8512d2f266ca8ca762d875c77212d956eee9ccfa95e47695e235b52469a225b1",
+      "file": "beardictate-0.1.2-windows-x64-setup.exe",
+      "size": 23855463,
+      "sha256": "0411a2488af1a59c33610796c11d380c20b6f27efa83aeef8655046c5eb52fab",
       "date": "2026-10-15"
     },
     {
       "platform": "windows",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "kind": "Portable zip",
-      "file": "beardictate-0.1.1-windows-x64.zip",
-      "size": 26477339,
-      "sha256": "bf31a7641a55fff4247a1ecaee3c6158a87b8352abd28be17276e2750280cbeb",
+      "file": "beardictate-0.1.2-windows-x64.zip",
+      "size": 41749421,
+      "sha256": "18d46af047f723b9aff4cc0f68bf8e85508a8263c4a90695eab83d9863667a52",
       "date": "2026-10-15"
     }
   ]
