@@ -39,6 +39,13 @@ impl Default for ParakeetConfig {
     }
 }
 
+/// The hotword list and its boost, and the two encoded for sherpa-onnx.
+struct Hotwords {
+    words: Vec<String>,
+    boost: f32,
+    encoded: String,
+}
+
 /// Parakeet TDT transducer ASR.
 ///
 /// The model directory holds `encoder`, `decoder` and `joiner` ONNX files
@@ -46,8 +53,8 @@ impl Default for ParakeetConfig {
 /// as in the `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` release.
 pub struct ParakeetAsr {
     recognizer: OfflineRecognizer,
-    /// The encoded hotword list; `None` when boosting is off.
-    hotwords: Option<RwLock<String>>,
+    /// The hotwords; `None` when boosting is off.
+    hotwords: Option<RwLock<Hotwords>>,
 }
 
 impl ParakeetAsr {
@@ -81,7 +88,7 @@ impl ParakeetAsr {
                 c.hotwords_score = boost;
                 c.model_config.modeling_unit = Some("bpe".into());
                 c.model_config.bpe_vocab = Some(hotwords::bpe_vocab(&tokens)?);
-                Some(RwLock::new(String::new()))
+                Some(RwLock::new(Hotwords { words: Vec::new(), boost, encoded: String::new() }))
             }
             Some(boost) => return Err(AsrError::InvalidConfig(format!("hotword boost must be positive, got {boost}"))),
         };
@@ -94,10 +101,25 @@ impl ParakeetAsr {
     /// Takes effect from the next segment. Needs
     /// [`ParakeetConfig::hotword_boost`].
     pub fn set_hotwords<S: AsRef<str>>(&self, words: &[S]) -> Result<(), AsrError> {
+        self.update(|h| h.words = words.iter().map(|w| w.as_ref().to_string()).collect())
+    }
+
+    /// Changes the boost from [`ParakeetConfig::hotword_boost`], from the next
+    /// segment. 0 stops listening for the hotwords (decoding stays beam search).
+    pub fn set_hotword_boost(&self, boost: f32) -> Result<(), AsrError> {
+        if !boost.is_finite() || boost < 0.0 {
+            return Err(AsrError::InvalidConfig(format!("hotword boost must be 0 or more, got {boost}")));
+        }
+        self.update(|h| h.boost = boost)
+    }
+
+    fn update(&self, change: impl FnOnce(&mut Hotwords)) -> Result<(), AsrError> {
         let Some(lock) = &self.hotwords else {
             return Err(AsrError::InvalidConfig("hotwords need ParakeetConfig::hotword_boost".into()));
         };
-        *lock.write().unwrap_or_else(|e| e.into_inner()) = hotwords::encode(words);
+        let mut h = lock.write().unwrap_or_else(|e| e.into_inner());
+        change(&mut h);
+        h.encoded = hotwords::encode(&h.words, h.boost);
         Ok(())
     }
 
@@ -108,7 +130,7 @@ impl ParakeetAsr {
             return Ok(String::new());
         }
         let stream = match self.hotwords.as_ref().map(|l| l.read().unwrap_or_else(|e| e.into_inner())) {
-            Some(words) if !words.is_empty() => self.recognizer.create_stream_with_hotwords(&words),
+            Some(h) if !h.encoded.is_empty() => self.recognizer.create_stream_with_hotwords(&h.encoded),
             _ => self.recognizer.create_stream(),
         };
         stream.accept_waveform(SAMPLE_RATE as i32, samples);
@@ -121,6 +143,15 @@ impl ParakeetAsr {
 impl Asr for ParakeetAsr {
     fn transcribe(&self, segment: &AudioSegment) -> Result<String, BoxError> {
         Ok(self.transcribe_samples(&segment.samples)?)
+    }
+
+    /// Ignored when boosting is off (no [`ParakeetConfig::hotword_boost`]).
+    fn set_hotwords(&self, words: &[String], boost: f32) -> Result<(), BoxError> {
+        if self.hotwords.is_some() {
+            ParakeetAsr::set_hotwords(self, words)?;
+            self.set_hotword_boost(boost)?;
+        }
+        Ok(())
     }
 }
 

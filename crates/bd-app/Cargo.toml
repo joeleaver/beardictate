@@ -16,6 +16,9 @@ default = []
 vulkan = ["bd-cleanup/vulkan"]
 # Native PipeWire capture on Linux.
 pipewire = ["bd-audio/pipewire"]
+# rinch-debug: lets the rinch MCP server inspect and drive the window
+# (RINCH_DEBUG=0 turns it off). Development only.
+debug = ["rinch/debug"]
 
 [dependencies]
 bd-core.workspace = true

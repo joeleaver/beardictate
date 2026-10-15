@@ -17,15 +17,16 @@ use std::time::{Duration, Instant, SystemTime};
 use anyhow::{Context, Result};
 use bd_audio::{AudioError, CaptureConfig, CaptureEvent, StreamPolicy};
 use bd_core::InjectOutcome;
-use bd_models::Store;
-use bd_pipeline::setup::{self, CleanupOptions, CleanupSource};
-use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
+use bd_pipeline::{Event, Pipeline};
 use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use crossbeam_channel::{Receiver, Sender, bounded, never, select, tick, unbounded};
 
 use crate::mic::Mic;
 use crate::notify::Notifier;
-use crate::settings::{Paths, Settings, vocabulary};
+use crate::settings::{Paths, Settings};
+
+mod load;
+use load::{load, pipeline_config};
 
 /// After this long without dictating, the next dictation is a new passage:
 /// the cleanup model gets no context from before (you have probably moved on,
@@ -239,6 +240,8 @@ impl<U: Ui> Worker<U> {
             Ok(l) => {
                 tracing::info!(cleanup = %l.cleanup, "models loaded");
                 self.cleanup_name = format!("Cleanup: {}", l.cleanup);
+                // Settings changed while loading reach it now.
+                l.pipeline.reconfigure(pipeline_config(&self.settings));
                 self.pipeline = Some(l.pipeline);
             }
             Err(e) => {
@@ -395,8 +398,13 @@ impl<U: Ui> Worker<U> {
                 self.capture = None;
             }
         }
-        if old.pipeline() != s.pipeline() {
+        if old.models() != s.models() {
             self.request_reload();
+        } else if old.live() != s.live()
+            && let Some(pipeline) = &self.pipeline
+        {
+            tracing::info!("settings applied");
+            pipeline.reconfigure(pipeline_config(s));
         }
     }
 
@@ -427,37 +435,6 @@ impl<U: Ui> Worker<U> {
 
 fn mtime(path: &Path) -> Option<SystemTime> {
     fs::metadata(path).and_then(|m| m.modified()).ok()
-}
-
-/// Loads every model and starts a pipeline. Runs on its own thread.
-fn load(settings: &Settings) -> Result<Loaded> {
-    let store = match settings.models_dir.trim() {
-        "" => Store::from_env()?,
-        dir => Store::at(dir),
-    };
-    let words = vocabulary(&settings.special_words);
-    let segmenter = setup::load_segmenter(&store)?;
-    let asr = setup::load_asr(&store, &words.hotwords(), settings.hotword_boost)?;
-    let source = CleanupSource::parse(&settings.cleanup);
-    let cleanup = setup::load_cleanup(&source, &CleanupOptions::default(), &store)?;
-    let name = cleanup.as_ref().map_or_else(|| "off".to_string(), |c| c.name.clone());
-    if let Some(c) = &cleanup {
-        tracing::info!("{}", c.description);
-    }
-    let parts = Parts {
-        segmenter: Box::new(segmenter),
-        asr: Box::new(asr),
-        cleanup: cleanup.map(|c| Box::new(c.engine) as _),
-    };
-    let config = PipelineConfig {
-        style: settings.style(),
-        commands: settings.commands(),
-        vocabulary: words,
-        pause_paragraph: settings.pause_paragraph(),
-        ..PipelineConfig::default()
-    };
-    let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
-    Ok(Loaded { pipeline, cleanup: name })
 }
 
 /// Starts the typing thread. It sets up the platform injector first, which

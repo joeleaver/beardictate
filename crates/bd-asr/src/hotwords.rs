@@ -52,18 +52,24 @@ fn vocab_from_tokens(tokens: &str) -> Result<String, AsrError> {
 }
 
 /// The per-stream hotword string: one entry per word or phrase, separated
-/// by `/`. Whitespace is collapsed, `/` and control characters become
-/// spaces, and empty or repeated entries are dropped.
-pub(crate) fn encode<S: AsRef<str>>(words: &[S]) -> String {
+/// by `/`, each ending in ` :boost` (sherpa-onnx's per-hotword score, which
+/// overrides the recognizer's). Whitespace is collapsed, `/`, `:` and
+/// control characters become spaces, and empty or repeated entries are
+/// dropped. A boost of 0 or less means no hotwords.
+pub(crate) fn encode<S: AsRef<str>>(words: &[S], boost: f32) -> String {
+    if !(boost.is_finite() && boost > 0.0) {
+        return String::new();
+    }
     let mut seen: Vec<String> = Vec::new();
     for w in words {
-        let cleaned: String = w.as_ref().chars().map(|c| if c == '/' || c.is_control() { ' ' } else { c }).collect();
+        let cleaned: String =
+            w.as_ref().chars().map(|c| if c == '/' || c == ':' || c.is_control() { ' ' } else { c }).collect();
         let word = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
         if !word.is_empty() && !seen.contains(&word) {
             seen.push(word);
         }
     }
-    seen.join("/")
+    seen.iter().map(|w| format!("{w} :{boost:.2}")).collect::<Vec<_>>().join("/")
 }
 
 #[cfg(test)]
@@ -79,7 +85,11 @@ mod tests {
 
     #[test]
     fn hotwords_are_cleaned_and_joined() {
-        assert_eq!(encode(&["Ysolde", " Port  Varrow ", "", "Ysolde", "a/b", "x\ny"]), "Ysolde/Port Varrow/a b/x y");
-        assert_eq!(encode::<&str>(&[]), "");
+        assert_eq!(
+            encode(&["Ysolde", " Port  Varrow ", "", "Ysolde", "a/b", "x\ny", "c:d"], 2.0),
+            "Ysolde :2.00/Port Varrow :2.00/a b :2.00/x y :2.00/c d :2.00"
+        );
+        assert_eq!(encode::<&str>(&[], 2.0), "");
+        assert_eq!(encode(&["Ysolde"], 0.0), "");
     }
 }

@@ -179,15 +179,20 @@ fn required(store: &Store, id: &str) -> Result<&'static ModelEntry> {
 }
 
 /// Loads Parakeet, listening for `hotwords` at `boost` when both are given.
+/// The hotword boost to use when the user hasn't picked one. On 22 invented
+/// names it doubled the hits without changing ordinary words; see
+/// [`ParakeetConfig::hotword_boost`].
+pub const DEFAULT_HOTWORD_BOOST: f32 = 2.0;
+
 pub fn load_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<ParakeetAsr> {
     required(store, ASR_MODEL)?;
     let dir = store.model_dir(ASR_MODEL);
-    let use_hotwords = !hotwords.is_empty() && boost > 0.0;
-    let config = ParakeetConfig { hotword_boost: use_hotwords.then_some(boost), ..ParakeetConfig::default() };
+    // Always beam search with hotwords on, even with none yet or a boost of
+    // 0, so words and boost can change later without reloading.
+    let config = ParakeetConfig { hotword_boost: Some(DEFAULT_HOTWORD_BOOST), ..ParakeetConfig::default() };
     let asr = ParakeetAsr::new(&dir, &config).with_context(|| format!("loading ASR from {}", dir.display()))?;
-    if use_hotwords {
-        asr.set_hotwords(hotwords)?;
-    }
+    asr.set_hotwords(hotwords)?;
+    asr.set_hotword_boost(boost)?;
     Ok(asr)
 }
 

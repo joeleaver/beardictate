@@ -42,6 +42,13 @@ pub trait Asr: Send {
     /// An empty string means "no speech". Takes `&self`: a recognizer keeps
     /// no state between segments.
     fn transcribe(&self, segment: &AudioSegment) -> Result<String, BoxError>;
+
+    /// Replaces the names and invented words to listen for, and how strongly
+    /// (0: not at all), from the next segment. Recognizers that can't take
+    /// hotwords ignore them.
+    fn set_hotwords(&self, _words: &[String], _boost: f32) -> Result<(), BoxError> {
+        Ok(())
+    }
 }
 
 /// What the cleanup model is asked to do with one segment.

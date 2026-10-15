@@ -9,8 +9,11 @@ use rinch::core::{KeyEventData, clear_keyboard_interceptor, set_keyboard_interce
 use rinch::hotkey::{CaptureStep, HotkeyCapture};
 use rinch::prelude::*;
 
-use crate::settings::{Punctuation, QuoteMarks, Settings, SpecialWord, TrayTheme};
+use crate::settings::{Punctuation, QuoteMarks, Settings, TrayTheme};
 use crate::ui::{self, Section, Shared, change, check_hotkey};
+
+mod words;
+use words::words;
 
 /// The window's content.
 pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
@@ -225,7 +228,7 @@ fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Cleanup" }
             Text { size: "sm", color: "dimmed",
-                "After each sentence is transcribed, a small model on your computer drops the ums, fixes punctuation and quotes your dialog. It never changes your words: if it tries, your words are put back."
+                "After each sentence is transcribed, a small model on your computer drops the ums, fixes punctuation and quotes your dialog."
             }
             Stack { gap: "sm",
                 for (value, label, description) in options.clone() {
@@ -371,88 +374,6 @@ fn punct(__scope: &mut RenderScope, s: &Shared, label: &'static str, value: Punc
             onchange: move || change(&b, |st| st.punctuation = value),
         }
     }
-}
-
-fn words(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
-    let new_word = Signal::new(String::new());
-    let new_heard = Signal::new(String::new());
-    let add = {
-        let s = s.clone();
-        move || {
-            let word = new_word.get().trim().to_string();
-            if word.is_empty() {
-                return;
-            }
-            let heard = split_heard(&new_heard.get());
-            change(&s, |st| st.special_words.push(SpecialWord { word, heard }));
-            new_word.set(String::new());
-            new_heard.set(String::new());
-        }
-    };
-    let add = Rc::new(add);
-    let (add2, add3) = (add.clone(), add.clone());
-    let list = s.clone();
-    rsx! {
-        div { style: "display: flex; flex-direction: column; gap: 14px;",
-            Title { order: 3, "Special words" }
-            Text { size: "sm", color: "dimmed",
-                "Names and invented words. beardictate listens for each spelling, and replaces what it tends to hear instead. Changes apply to your next dictation."
-            }
-            div { style: "display: flex; gap: 8px; font-size: 12px; color: var(--rinch-color-dimmed); padding: 0 2px;",
-                div { style: "width: 200px;", "Word" }
-                div { style: "flex: 1;", "Heard as (separate with commas)" }
-            }
-            for (i, w) in list.settings.get().special_words.into_iter().enumerate() {
-                let (a, b, c) = (list.clone(), list.clone(), list.clone());
-                div { key: format!("{i}:{}", w.word), style: "display: flex; gap: 8px; align-items: center;",
-                    TextInput {
-                        value: w.word.clone(),
-                        style: "width: 200px; font-weight: 600;",
-                        onchange: move |v: String| {
-                            let v = v.trim().to_string();
-                            if !v.is_empty() {
-                                change(&a, |st| st.special_words[i].word = v);
-                            }
-                        },
-                    }
-                    TextInput {
-                        value: w.heard.join(", "),
-                        placeholder: "what you hear instead",
-                        style: "flex: 1;",
-                        onchange: move |v: String| change(&b, |st| st.special_words[i].heard = split_heard(&v)),
-                    }
-                    ActionIcon {
-                        variant: "subtle",
-                        color: "red",
-                        onclick: move || change(&c, |st| { st.special_words.remove(i); }),
-                        "×"
-                    }
-                }
-            }
-            div { style: "display: flex; gap: 8px; align-items: center; padding-top: 6px; border-top: 1px solid var(--rinch-color-default-border);",
-                TextInput {
-                    placeholder: "Add a word",
-                    style: "width: 200px;",
-                    value_fn: move || new_word.get(),
-                    oninput: move |v: String| new_word.set(v),
-                    onsubmit: {let f = add.clone(); move || f()},
-                }
-                TextInput {
-                    placeholder: "heard as… (optional)",
-                    style: "flex: 1;",
-                    value_fn: move || new_heard.get(),
-                    oninput: move |v: String| new_heard.set(v),
-                    onsubmit: {let f = add2.clone(); move || f()},
-                }
-                Button { variant: "light", onclick: {let f = add3.clone(); move || f()}, "Add" }
-            }
-        }
-    }
-}
-
-/// "a, b ,c" → ["a", "b", "c"], dropping empty entries.
-fn split_heard(text: &str) -> Vec<String> {
-    text.split(',').map(str::trim).filter(|h| !h.is_empty()).map(String::from).collect()
 }
 
 fn about(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {

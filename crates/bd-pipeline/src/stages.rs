@@ -17,6 +17,7 @@ enum Cut {
     Segment(u64, AudioSegment),
     EndSession,
     NewPassage,
+    Reconfigure(Box<PipelineConfig>),
 }
 
 /// From the ASR to the finisher.
@@ -26,6 +27,7 @@ enum Heard {
     Text { id: u64, text: String, pause: Option<Duration> },
     EndSession,
     NewPassage,
+    Reconfigure(Box<PipelineConfig>),
 }
 
 pub(crate) fn spawn(
@@ -71,6 +73,9 @@ fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>, out: Send
             Input::NewPassage => {
                 let _ = out.send(Cut::NewPassage);
             }
+            Input::Reconfigure(config) => {
+                let _ = out.send(Cut::Reconfigure(config));
+            }
         }
     }
     if dirty {
@@ -108,6 +113,12 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                 Heard::EndSession
             }
             Cut::NewPassage => Heard::NewPassage,
+            Cut::Reconfigure(config) => {
+                if let Err(e) = asr.set_hotwords(&config.vocabulary.hotwords(), config.hotword_boost) {
+                    let _ = events.send(Event::Error { stage: Stage::Asr, message: format!("hotwords: {e}") });
+                }
+                Heard::Reconfigure(config)
+            }
         };
         let _ = out.send(heard);
     }
@@ -325,6 +336,7 @@ impl Finisher {
         let (id, text, pause) = match heard {
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
+            Heard::Reconfigure(config) => return self.reconfigure(*config),
             Heard::NewPassage => {
                 self.quote_open = false;
                 self.passage_has_text = false;
@@ -362,6 +374,15 @@ impl Finisher {
         if !out.text.is_empty() {
             self.queue.push_back(Item::Segment(Pending { id, quote_before, out }));
         }
+    }
+
+    /// Segments already taken in keep the settings they were read with.
+    fn reconfigure(&mut self, config: PipelineConfig) {
+        self.vocabulary = config.vocabulary;
+        self.pass = CommandPass::new(config.commands, config.style.clone());
+        self.style = config.style;
+        self.pause_paragraph = config.pause_paragraph;
+        self.sentence_hold = config.sentence_hold;
     }
 
     /// Drops the most recent undelivered segment of this passage, returning

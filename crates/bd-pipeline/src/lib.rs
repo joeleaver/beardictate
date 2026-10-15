@@ -68,7 +68,8 @@ pub struct Parts {
     pub cleanup: Option<Box<dyn Cleanup>>,
 }
 
-/// Settings fixed for the life of a pipeline.
+/// Settings for a pipeline. All but `context_chars` can be changed while it
+/// runs, with [`Feeder::reconfigure`].
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
     pub style: Style,
@@ -76,6 +77,10 @@ pub struct PipelineConfig {
     /// The user's names and invented words, fixed up in the ASR text before
     /// the command pass. (Their hotwords are the ASR's business.)
     pub vocabulary: Vocabulary,
+    /// How strongly the ASR listens for the vocabulary's words: a score per
+    /// matching token, 0 for not at all. Only [`Feeder::reconfigure`] reads
+    /// it; the ASR starts with what it was loaded with.
+    pub hotword_boost: f32,
     /// Start a new paragraph when the speaker paused at least this long
     /// before a segment, within one dictation session. `None`: only
     /// dictated breaks and (with [`Style::dialog_paragraphs`]) the cleanup
@@ -93,7 +98,7 @@ pub struct PipelineConfig {
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8) }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8) }
     }
 }
 
@@ -148,6 +153,7 @@ pub(crate) enum Input {
     Audio(Vec<f32>),
     EndSession,
     NewPassage,
+    Reconfigure(Box<PipelineConfig>),
 }
 
 /// Feeds a running pipeline from any thread. Cheap to clone. The stages
@@ -174,6 +180,13 @@ impl Feeder {
     /// window). Takes effect after everything already pushed.
     pub fn new_passage(&self) {
         self.send(Input::NewPassage);
+    }
+
+    /// Changes the vocabulary (hotwords too), style, commands and paragraph
+    /// rules. Takes effect from the next segment the ASR finishes after
+    /// everything already pushed, so it can arrive mid-dictation.
+    pub fn reconfigure(&self, config: PipelineConfig) {
+        self.send(Input::Reconfigure(Box::new(config)));
     }
 
     fn send(&self, msg: Input) {
@@ -213,6 +226,11 @@ impl Pipeline {
     /// See [`Feeder::end_session`].
     pub fn end_session(&self) {
         self.feeder_ref().end_session();
+    }
+
+    /// See [`Feeder::reconfigure`].
+    pub fn reconfigure(&self, config: PipelineConfig) {
+        self.feeder_ref().reconfigure(config);
     }
 
     /// See [`Feeder::new_passage`].

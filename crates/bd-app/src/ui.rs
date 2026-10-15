@@ -109,19 +109,18 @@ pub fn tray_image(status: &Status, theme: TrayTheme) -> TrayIconImage {
     TrayIconImage::from_rgba(rgba, icon::SIZE, icon::SIZE).expect("the icon is SIZE x SIZE RGBA")
 }
 
-/// The tray's tooltip. Every state starts with "beardictate": on Linux rinch
-/// also reports it as the item's title, which Plasma sorts the tray by, so a
-/// changing first word would move the icon.
+/// The tray's tooltip. (The item's title, which Plasma sorts the tray by,
+/// stays "beardictate", so the icon doesn't move as this changes.)
 fn tooltip(status: &Status, hotkey: &str) -> String {
     match status.state {
-        State::Loading => "beardictate · loading models…".into(),
-        State::Idle => format!("beardictate · {hotkey} to dictate\n{}", status.detail),
+        State::Loading => "Loading models…".into(),
+        State::Idle => format!("{hotkey} to dictate\n{}", status.detail),
         State::Listening => {
             let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
-            format!("beardictate · listening {}:{:02} · {hotkey} to stop", secs / 60, secs % 60)
+            format!("Listening {}:{:02} · {hotkey} to stop", secs / 60, secs % 60)
         }
-        State::Cleaning => "beardictate · finishing the last sentences…".into(),
-        State::NeedsYou => format!("beardictate · needs you: {}", status.detail),
+        State::Cleaning => "Finishing the last sentences…".into(),
+        State::NeedsYou => format!("Needs you: {}", status.detail),
     }
 }
 
@@ -303,11 +302,7 @@ mod tests {
     #[test]
     fn tooltips_say_what_to_do() {
         let idle = Status { state: State::Idle, detail: "Cleanup: Qwen3 4B".into(), since: None };
-        assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "beardictate · Ctrl+Alt+Space to dictate\nCleanup: Qwen3 4B");
+        assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nCleanup: Qwen3 4B");
         assert_eq!(shorten("abcdef", 4), "abc…");
-        for state in [State::Loading, State::Idle, State::Listening, State::Cleaning, State::NeedsYou] {
-            let s = Status { state, detail: "x".into(), since: None };
-            assert!(tooltip(&s, "K").starts_with("beardictate · "), "{state:?} would move the tray icon");
-        }
     }
 }

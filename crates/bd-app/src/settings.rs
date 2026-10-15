@@ -1,5 +1,4 @@
-//! The user's settings, kept as TOML in the platform config directory, and
-//! the special word list next to them.
+//! The user's settings, kept as TOML in the platform config directory.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -9,6 +8,9 @@ use anyhow::{Context, Result};
 use bd_commands::CommandConfig;
 use bd_core::{PunctuationPlacement, QuoteStyle, Style};
 use serde::{Deserialize, Serialize};
+
+mod words;
+pub use words::{FIRST_GROUP, SpecialWord, WordGroup, active_words, starter_groups, vocabulary};
 
 /// The marks around dialog.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -81,42 +83,10 @@ pub struct Settings {
     pub notifications: bool,
     /// Names and invented words: the recognizer listens for them, and what
     /// it hears instead is replaced.
-    pub special_words: Vec<SpecialWord>,
-}
-
-/// One special word.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SpecialWord {
-    /// The spelling to produce.
-    pub word: String,
-    /// What the recognizer writes instead, any casing.
-    #[serde(default)]
-    pub heard: Vec<String>,
-}
-
-impl SpecialWord {
-    pub fn new(word: &str, heard: &[&str]) -> Self {
-        Self { word: word.into(), heard: heard.iter().map(|h| h.to_string()).collect() }
-    }
-}
-
-/// The list a new user starts with: a real entry, which also shows how.
-pub fn starter_words() -> Vec<SpecialWord> {
-    vec![SpecialWord::new("beardictate", &["bear dictate", "bare dictate"])]
-}
-
-/// The pipeline's vocabulary for `words`; empty entries are skipped.
-pub fn vocabulary(words: &[SpecialWord]) -> bd_vocab::Vocabulary {
-    bd_vocab::Vocabulary::new(
-        words
-            .iter()
-            .filter(|w| !w.word.trim().is_empty())
-            .map(|w| bd_vocab::Word {
-                text: w.word.trim().to_string(),
-                heard: w.heard.iter().map(|h| h.trim().to_string()).filter(|h| !h.is_empty()).collect(),
-            })
-            .collect(),
-    )
+    pub word_groups: Vec<WordGroup>,
+    /// The ungrouped list of earlier versions, moved into a group on load.
+    #[serde(skip_serializing)]
+    special_words: Vec<SpecialWord>,
 }
 
 impl Default for Settings {
@@ -138,25 +108,44 @@ impl Default for Settings {
             tray_theme: TrayTheme::Auto,
             models_dir: String::new(),
             notifications: true,
-            special_words: starter_words(),
+            word_groups: starter_groups(),
+            special_words: Vec::new(),
         }
     }
 }
 
-/// The settings a running pipeline was built from: a change to any of them
-/// means loading it again.
+/// The settings the models were loaded with: a change to any of them means
+/// loading again. The rest reach a running pipeline at once (see
+/// [`Settings::live`]).
 #[derive(Debug, Clone, PartialEq)]
-pub struct PipelineSettings {
+pub struct ModelSettings {
     cleanup: String,
     models_dir: String,
-    style: Style,
-    commands: CommandConfig,
-    pause_paragraph: Option<Duration>,
-    hotword_boost: f32,
-    special_words: Vec<SpecialWord>,
+}
+
+/// The settings a running pipeline takes without reloading.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LiveSettings {
+    pub style: Style,
+    pub commands: CommandConfig,
+    pub pause_paragraph: Option<Duration>,
+    pub special_words: Vec<SpecialWord>,
+    pub hotword_boost: f32,
 }
 
 impl Settings {
+    /// Brings settings from an earlier version up to date. Returns whether
+    /// anything changed (and so wants saving).
+    pub fn upgrade(&mut self) -> bool {
+        if self.special_words.is_empty() {
+            return false;
+        }
+        // The old list replaces the starter group it never had.
+        let words = std::mem::take(&mut self.special_words);
+        self.word_groups = vec![WordGroup { words, ..WordGroup::new(FIRST_GROUP) }];
+        true
+    }
+
     pub fn style(&self) -> Style {
         Style {
             quotes: match (self.quote_marks, self.curly_quotes) {
@@ -182,15 +171,17 @@ impl Settings {
         self.paragraph_on_pause.then(|| Duration::from_secs_f32(self.pause_paragraph_secs.max(0.5)))
     }
 
-    pub fn pipeline(&self) -> PipelineSettings {
-        PipelineSettings {
-            cleanup: self.cleanup.clone(),
-            models_dir: self.models_dir.clone(),
+    pub fn models(&self) -> ModelSettings {
+        ModelSettings { cleanup: self.cleanup.clone(), models_dir: self.models_dir.clone() }
+    }
+
+    pub fn live(&self) -> LiveSettings {
+        LiveSettings {
             style: self.style(),
             commands: self.commands(),
             pause_paragraph: self.pause_paragraph(),
+            special_words: active_words(&self.word_groups),
             hotword_boost: self.hotword_boost,
-            special_words: self.special_words.clone(),
         }
     }
 }
@@ -199,8 +190,6 @@ impl Settings {
 #[derive(Debug, Clone)]
 pub struct Paths {
     pub settings: PathBuf,
-    /// Where the special words used to be kept, as text: imported once.
-    pub old_words: PathBuf,
     /// The Wayland remote-input approval, so the desktop asks only once.
     pub portal_token: PathBuf,
     /// This run's log (replaced each start).
@@ -217,7 +206,6 @@ impl Paths {
         fs::create_dir_all(config).with_context(|| format!("creating {}", config.display()))?;
         Ok(Paths {
             settings: config.join("settings.toml"),
-            old_words: config.join("words.txt"),
             portal_token: dirs.data_local_dir().join("portal-token"),
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
@@ -233,30 +221,17 @@ impl Paths {
             return Ok(settings);
         }
         let text = fs::read_to_string(&self.settings).with_context(|| format!("reading {}", self.settings.display()))?;
-        toml::from_str(&text).with_context(|| format!("in {}", self.settings.display()))
+        let mut settings: Settings = toml::from_str(&text).with_context(|| format!("in {}", self.settings.display()))?;
+        if settings.upgrade() {
+            self.save(&settings)?;
+        }
+        Ok(settings)
     }
 
     pub fn save(&self, settings: &Settings) -> Result<()> {
         let body = toml::to_string_pretty(settings).context("serializing settings")?;
         let text = format!("{SETTINGS_HEADER}\n{body}");
         write_atomic(&self.settings, &text)
-    }
-
-    /// Moves a word list from the old text file into `settings` (once: the
-    /// file is renamed afterwards). Returns whether anything changed.
-    pub fn import_old_words(&self, settings: &mut Settings) -> Result<bool> {
-        let Ok(text) = fs::read_to_string(&self.old_words) else { return Ok(false) };
-        let imported = bd_vocab::Vocabulary::parse(&text).with_context(|| format!("in {}", self.old_words.display()))?;
-        let mut changed = false;
-        for w in imported.words() {
-            if !settings.special_words.iter().any(|s| s.word == w.text) {
-                settings.special_words.push(SpecialWord { word: w.text.clone(), heard: w.heard.clone() });
-                changed = true;
-            }
-        }
-        fs::rename(&self.old_words, self.old_words.with_extension("txt.imported"))
-            .with_context(|| format!("renaming {}", self.old_words.display()))?;
-        Ok(changed)
     }
 
     pub fn load_portal_token(&self) -> Option<String> {
@@ -305,7 +280,8 @@ const SETTINGS_HEADER: &str = "\
 # quote_marks: \"double\" or \"single\"; curly_quotes: true or false.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.
-# special_words: [[special_words]] entries, word = \"...\", heard = [\"...\"].
+# word_groups: [[word_groups]] with name and enabled, each with
+#   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";
 
 #[cfg(test)]
@@ -332,19 +308,26 @@ mod tests {
         assert_eq!(style.quotes, QuoteStyle::CurlySingle);
         assert_eq!(style.punctuation, PunctuationPlacement::Logical);
         assert!(style.topic_paragraphs && style.dialog_paragraphs);
-        assert_ne!(s.pipeline(), Settings::default().pipeline());
+        assert_ne!(s.live(), Settings::default().live());
+        assert_eq!(s.models(), Settings::default().models());
     }
 
     #[test]
-    fn special_words_start_with_a_working_example() {
+    fn word_groups_round_trip_and_old_lists_move_into_one() {
         let s = Settings::default();
-        let v = vocabulary(&s.special_words);
-        assert_eq!(v.apply("I use bare dictate daily."), "I use beardictate daily.");
-        assert_eq!(v.hotwords(), ["beardictate"]);
         let text = toml::to_string_pretty(&s).unwrap();
-        assert_eq!(toml::from_str::<Settings>(&text).unwrap().special_words, s.special_words);
+        assert_eq!(toml::from_str::<Settings>(&text).unwrap().word_groups, s.word_groups);
         // An emptied list stays empty.
-        let none: Settings = toml::from_str("special_words = []\n").unwrap();
-        assert!(none.special_words.is_empty());
+        let none: Settings = toml::from_str("word_groups = []\n").unwrap();
+        assert!(none.word_groups.is_empty());
+
+        let old = "[[special_words]]\nword = \"Beardictate\"\nheard = [\"bare dictate\"]\n";
+        let mut s: Settings = toml::from_str(old).unwrap();
+        assert!(s.upgrade());
+        assert_eq!(s.word_groups.len(), 1);
+        assert_eq!(s.word_groups[0].name, FIRST_GROUP);
+        assert_eq!(s.word_groups[0].words, [SpecialWord::new("Beardictate", &["bare dictate"])]);
+        assert!(!s.upgrade());
+        assert!(!toml::to_string_pretty(&s).unwrap().contains("special_words"));
     }
 }

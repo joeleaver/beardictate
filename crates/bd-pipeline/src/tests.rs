@@ -361,3 +361,16 @@ fn scratch_that_drops_a_held_half_sentence() {
     assert!(events.contains(&Event::Scratched { id: 0 }));
     assert_eq!(texts(&events), "He left.");
 }
+
+#[test]
+fn reconfiguring_mid_dictation_changes_the_next_segment() {
+    let r = rig(vec!["The worm stone glowed.", "The worm stone dimmed."], false, false);
+    let rx = r.pipeline.events().clone();
+    say(&r.pipeline, 0);
+    until(&rx, |e| matches!(e, Event::Text { id: 0, .. }));
+    let vocabulary = bd_vocab::Vocabulary::parse("wyrmstone: worm stone").unwrap();
+    r.pipeline.reconfigure(PipelineConfig { vocabulary, ..PipelineConfig::default() });
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), " The wyrmstone dimmed.");
+}

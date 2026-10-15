@@ -82,23 +82,14 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let mut settings = settings;
-    match paths.import_old_words(&mut settings) {
-        Ok(true) => {
-            if let Err(e) = paths.save(&settings) {
-                eprintln!("beardictate: saving the imported special words: {e:#}");
-            }
-        }
-        Ok(false) => {}
-        Err(e) => eprintln!("beardictate: importing the old word list: {e:#}"),
-    }
     let shared = Shared::new(paths, settings);
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
     let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None };
     let tray = TrayIconBuilder::new()
         .with_id("beardictate")
-        .with_tooltip("beardictate · starting…")
+        .with_title("beardictate")
+        .with_tooltip("Starting…")
         .with_icon(tray_image(&starting, shared.settings.get().tray_theme))
         .with_menu(ui::tray_menu(&shared))
         .on_activate(|| engine_send(engine::Command::Toggle))
