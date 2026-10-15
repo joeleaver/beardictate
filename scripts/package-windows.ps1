@@ -36,7 +36,7 @@ foreach ($f in "beardictate.exe", "bd.exe", "sherpa-onnx-c-api.dll", "onnxruntim
     Copy-Item "$Stage\$f" $out
 }
 Copy-Item "$repo\LICENSE" "$out\LICENSE.txt"
-Copy-Item "$repo\packaging\windows\THIRD-PARTY.txt" $out
+Copy-Item "$repo\packaging\THIRD-PARTY.txt" $out
 
 if ($env:BD_SIGN_CMD) {
     foreach ($f in Get-ChildItem "$out\*.exe", "$out\*.dll") {
