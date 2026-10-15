@@ -13,6 +13,7 @@ use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{LlamaChatMessage, LlamaChatTemplate, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::token::LlamaToken;
+use llama_cpp_2::{LlamaStateSeqFlags, SeqState};
 
 use super::turns::Turns;
 use super::{GpuLayers, Job, LlamaConfig, ModelInfo, Sampling, default_threads};
@@ -120,6 +121,8 @@ fn run(
         n_batch: config.n_batch as usize,
         sampling: config.sampling,
         cached: Vec::new(),
+        recurrent: model.is_recurrent() || model.is_hybrid(),
+        checkpoint: None,
     };
     if ready.send(Ok(info)).is_err() {
         return Ok(());
@@ -142,6 +145,17 @@ struct Engine<'m> {
     sampling: Sampling,
     /// Tokens whose keys and values are in the KV cache, in order.
     cached: Vec<LlamaToken>,
+    /// Recurrent layers (Qwen3.5's gated delta net) keep one running state,
+    /// not one entry per token, so the cache can't be cut back to a prefix.
+    recurrent: bool,
+    /// For recurrent models: that state just after `cached[..len]`, taken
+    /// before the last message, so the next request starts from there.
+    checkpoint: Option<Checkpoint>,
+}
+
+struct Checkpoint {
+    len: usize,
+    state: SeqState,
 }
 
 impl Engine<'_> {
@@ -155,11 +169,13 @@ impl Engine<'_> {
         if tokens.is_empty() || tokens.len() + max_tokens > n_ctx {
             return Err(CleanupError::ContextOverflow { prompt: tokens.len(), budget: max_tokens, n_ctx });
         }
-        let result = self.generate(&tokens, max_tokens);
+        let split = if self.recurrent { self.last_message_start(&prompt, messages, &tokens, add_bos) } else { None };
+        let result = self.generate(&tokens, split, max_tokens);
         if result.is_err() {
             // The cache may hold a half-decoded batch; start clean next time.
             self.ctx.clear_kv_cache();
             self.cached.clear();
+            self.checkpoint = None;
         }
         result
     }
@@ -186,10 +202,33 @@ impl Engine<'_> {
         Ok(prompt)
     }
 
+    /// How many of `tokens` come before the last message's text: the part
+    /// the next request will share, unless the system prompt changes.
+    fn last_message_start(
+        &self,
+        prompt: &str,
+        messages: &[ChatMessage],
+        tokens: &[LlamaToken],
+        add_bos: bool,
+    ) -> Option<usize> {
+        let last = messages.last().filter(|m| !m.content.is_empty())?;
+        let start = prompt.rfind(&last.content)?;
+        let head = self.model.vocab().tokenize(&prompt.as_bytes()[..start], add_bos, true);
+        // The last token of the head may merge with the text after it.
+        let shared = head.iter().zip(tokens).take_while(|(a, b)| a == b).count();
+        (shared > 0).then_some(shared)
+    }
+
     /// Reuses the KV cache for the prompt prefix shared with the previous
     /// request (the system prompt, usually), decodes the rest, then samples
-    /// until end of turn or `max_tokens`.
-    fn generate(&mut self, tokens: &[LlamaToken], max_tokens: usize) -> Result<Completion, CleanupError> {
+    /// until end of turn or `max_tokens`. For a recurrent model, saves the
+    /// state at `split` on the way.
+    fn generate(
+        &mut self,
+        tokens: &[LlamaToken],
+        split: Option<usize>,
+        max_tokens: usize,
+    ) -> Result<Completion, CleanupError> {
         let started = Instant::now();
         // At least one prompt token must be decoded to get fresh logits.
         let mut common = self
@@ -200,27 +239,18 @@ impl Engine<'_> {
             .count()
             .min(tokens.len() - 1);
         if common < self.cached.len() {
-            let from = u32::try_from(common).unwrap_or(u32::MAX);
-            if !matches!(self.ctx.clear_kv_cache_seq(Some(0), Some(from), None), Ok(true)) {
-                self.ctx.clear_kv_cache();
-                common = 0;
-            }
-            self.cached.truncate(common);
+            common = self.rewind(common);
         }
+        let save_at = split.filter(|&s| s > common && s < tokens.len());
         let mut batch = LlamaBatch::new(self.n_batch.max(1), 1);
         let mut last_index = 0;
-        for (chunk_no, chunk) in tokens[common..].chunks(self.n_batch.max(1)).enumerate() {
-            batch.clear();
-            let base = common + chunk_no * self.n_batch.max(1);
-            for (k, &token) in chunk.iter().enumerate() {
-                let pos = base + k;
-                let is_last = pos == tokens.len() - 1;
-                batch
-                    .add(token, pos_i32(pos), &[0], is_last)
-                    .map_err(|e| llama_err("building batch")(&e))?;
+        let mut from = common;
+        for to in save_at.into_iter().chain([tokens.len()]) {
+            last_index = self.prefill(&mut batch, tokens, from, to)?;
+            if to < tokens.len() {
+                self.save_checkpoint(to);
             }
-            self.ctx.decode(&mut batch).map_err(|e| llama_err("decoding prompt")(&e))?;
-            last_index = batch.n_tokens() - 1;
+            from = to;
         }
         self.cached.truncate(common);
         self.cached.extend_from_slice(&tokens[common..]);
@@ -263,6 +293,72 @@ impl Engine<'_> {
             decode: decode_started.elapsed(),
         };
         Ok(Completion { text: String::from_utf8_lossy(&bytes).into_owned(), stats: Some(stats) })
+    }
+}
+
+impl Engine<'_> {
+    /// Cuts the cache back to `common` tokens, or as near as it can get:
+    /// a recurrent model goes back to its checkpoint, or to nothing.
+    fn rewind(&mut self, common: usize) -> usize {
+        let from = u32::try_from(common).unwrap_or(u32::MAX);
+        if matches!(self.ctx.clear_kv_cache_seq(Some(0), Some(from), None), Ok(true)) {
+            self.cached.truncate(common);
+            return common;
+        }
+        if self.checkpoint.as_ref().is_some_and(|c| c.len > common) {
+            self.checkpoint = None;
+        }
+        if let Some(checkpoint) = &self.checkpoint {
+            let len = checkpoint.len;
+            let at = u32::try_from(len).unwrap_or(u32::MAX);
+            // Restores the recurrent state only; the attention layers' cache
+            // still holds the prefix, and loses what came after it.
+            if self.ctx.state_seq_set(&checkpoint.state, 0).is_ok()
+                && matches!(self.ctx.clear_kv_cache_seq(Some(0), Some(at), None), Ok(true))
+            {
+                self.cached.truncate(len);
+                return len;
+            }
+            self.checkpoint = None;
+        }
+        tracing::debug!(common, cached = self.cached.len(), "can't cut the cache back; decoding the whole prompt");
+        self.ctx.clear_kv_cache();
+        self.cached.clear();
+        0
+    }
+
+    /// Decodes `tokens[from..to]`, asking for logits only at the prompt's
+    /// last token. Returns the batch index of the last token decoded.
+    fn prefill(&mut self, batch: &mut LlamaBatch, tokens: &[LlamaToken], from: usize, to: usize) -> Result<i32, CleanupError> {
+        let mut last_index = 0;
+        for (chunk_no, chunk) in tokens[from..to].chunks(self.n_batch.max(1)).enumerate() {
+            batch.clear();
+            let base = from + chunk_no * self.n_batch.max(1);
+            for (k, &token) in chunk.iter().enumerate() {
+                let pos = base + k;
+                let is_last = pos == tokens.len() - 1;
+                batch
+                    .add(token, pos_i32(pos), &[0], is_last)
+                    .map_err(|e| llama_err("building batch")(&e))?;
+            }
+            self.ctx.decode(batch).map_err(|e| llama_err("decoding prompt")(&e))?;
+            last_index = batch.n_tokens() - 1;
+        }
+        Ok(last_index)
+    }
+
+    /// Saves the recurrent state after the first `len` prompt tokens.
+    fn save_checkpoint(&mut self, len: usize) {
+        match self.ctx.state_seq_get(0, LlamaStateSeqFlags::PARTIAL_ONLY) {
+            Ok(state) => {
+                tracing::debug!(len, bytes = state.byte_len(), "saved recurrent state");
+                self.checkpoint = Some(Checkpoint { len, state });
+            }
+            Err(e) => {
+                tracing::debug!(%e, "couldn't save recurrent state");
+                self.checkpoint = None;
+            }
+        }
     }
 }
 
