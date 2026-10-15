@@ -57,6 +57,9 @@ pub struct ParakeetAsr {
     hotwords: Option<RwLock<Hotwords>>,
 }
 
+/// Score taken from blank in beam search; see [`ParakeetAsr::new`].
+const BLANK_PENALTY: f32 = 1.0;
+
 /// Silence added before and after each segment: 0.3 s.
 const PAD_SAMPLES: usize = SAMPLE_RATE as usize * 3 / 10;
 
@@ -88,6 +91,13 @@ impl ParakeetAsr {
             Some(boost) if boost.is_finite() && boost > 0.0 => {
                 c.decoding_method = Some("modified_beam_search".into());
                 c.max_active_paths = 4;
+                // sherpa-onnx's beam search for TDT models prefers to stop:
+                // after a sentence's full stop it emitted nothing for the
+                // rest of the segment (sherpa-onnx#3267). Charging for each
+                // blank evens that out: on 23 segments from a real
+                // microphone, 1.0 recovered every word greedy decoding got
+                // (0.5 nearly all; 2.0 began inventing words).
+                c.blank_penalty = BLANK_PENALTY;
                 c.hotwords_score = boost;
                 c.model_config.modeling_unit = Some("bpe".into());
                 c.model_config.bpe_vocab = Some(hotwords::bpe_vocab(&tokens)?);
