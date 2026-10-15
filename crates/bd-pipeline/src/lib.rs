@@ -72,6 +72,11 @@ pub struct PipelineConfig {
     /// The user's names and invented words, fixed up in the ASR text before
     /// the command pass. (Their hotwords are the ASR's business.)
     pub vocabulary: Vocabulary,
+    /// Start a new paragraph when the speaker paused at least this long
+    /// before a segment, within one dictation session. `None`: only
+    /// dictated breaks and (with [`Style::dialog_paragraphs`]) the cleanup
+    /// model's.
+    pub pause_paragraph: Option<Duration>,
     /// Characters of delivered text kept as context. The cleanup prompt
     /// trims this further to its own budget.
     pub context_chars: usize,
@@ -79,7 +84,7 @@ pub struct PipelineConfig {
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), context_chars: 4000 }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), pause_paragraph: None, context_chars: 4000 }
     }
 }
 
@@ -95,7 +100,9 @@ pub enum Stage {
 pub enum Event {
     /// The ASR finished a segment. `id` counts segments over the pipeline's
     /// whole life, from 0. Empty `text` means it heard no words.
-    Transcribed { id: u64, text: String, audio: Duration, elapsed: Duration },
+    /// `pause` is the silence before it in this session (`None` for the
+    /// session's first segment).
+    Transcribed { id: u64, text: String, audio: Duration, pause: Option<Duration>, elapsed: Duration },
     /// Text to deliver now, separator included: append it to what was
     /// delivered before.
     Text {

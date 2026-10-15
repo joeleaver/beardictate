@@ -21,7 +21,9 @@ enum Cut {
 
 /// From the ASR to the finisher.
 enum Heard {
-    Text(u64, String),
+    /// A transcript, with the silence before it in this session (`None` for
+    /// a session's first segment).
+    Text { id: u64, text: String, pause: Option<Duration> },
     EndSession,
     NewPassage,
 }
@@ -79,16 +81,21 @@ fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>, out: Send
 
 /// Stage 2: speech to text.
 fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>) {
+    // Where the previous segment of this session ended, in session samples.
+    let mut previous_end: Option<u64> = None;
+    let secs = |samples: u64| Duration::from_secs_f64(samples as f64 / f64::from(SAMPLE_RATE));
     for cut in &input {
         let heard = match cut {
             Cut::Segment(id, seg) => {
                 let started = Instant::now();
-                let audio = Duration::from_secs_f64(seg.samples.len() as f64 / f64::from(SAMPLE_RATE));
+                let audio = secs(seg.samples.len() as u64);
+                let pause = previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
+                previous_end = Some(seg.start_sample + seg.samples.len() as u64);
                 match asr.transcribe(&seg) {
                     Ok(text) => {
                         let elapsed = started.elapsed();
-                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, elapsed });
-                        Heard::Text(id, text)
+                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, pause, elapsed });
+                        Heard::Text { id, text, pause }
                     }
                     Err(e) => {
                         let _ = events.send(Event::Error { stage: Stage::Asr, message: e.to_string() });
@@ -96,7 +103,10 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                     }
                 }
             }
-            Cut::EndSession => Heard::EndSession,
+            Cut::EndSession => {
+                previous_end = None;
+                Heard::EndSession
+            }
             Cut::NewPassage => Heard::NewPassage,
         };
         let _ = out.send(heard);
@@ -142,6 +152,12 @@ struct Finisher {
     in_flight: Option<InFlight>,
     /// Whether a commanded quotation is open after the last segment taken in.
     quote_open: bool,
+    /// Start a paragraph after a pause this long (see
+    /// [`PipelineConfig::pause_paragraph`]).
+    pause_paragraph: Option<Duration>,
+    /// Whether this passage has words yet, so a pause before the first
+    /// segment doesn't open with a break.
+    passage_has_text: bool,
 }
 
 impl Finisher {
@@ -156,6 +172,8 @@ impl Finisher {
             queue: VecDeque::new(),
             in_flight: None,
             quote_open: false,
+            pause_paragraph: config.pause_paragraph,
+            passage_has_text: false,
         }
     }
 
@@ -217,11 +235,12 @@ impl Finisher {
     }
 
     fn take_in(&mut self, heard: Heard) {
-        let (id, text) = match heard {
-            Heard::Text(id, text) => (id, text),
+        let (id, text, pause) = match heard {
+            Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::NewPassage => {
                 self.quote_open = false;
+                self.passage_has_text = false;
                 return self.queue.push_back(Item::NewPassage);
             }
         };
@@ -246,6 +265,13 @@ impl Finisher {
         }
         let quote_before = self.quote_open;
         self.quote_open = out.quote_open;
+        let long_pause = matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
+        if long_pause && self.passage_has_text && !out.text.starts_with('\n') && out.has_words() {
+            out.text.insert_str(0, "\n\n");
+        }
+        if out.has_words() {
+            self.passage_has_text = true;
+        }
         if !out.text.is_empty() {
             self.queue.push_back(Item::Segment(Pending { id, quote_before, out }));
         }

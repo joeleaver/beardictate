@@ -1,5 +1,6 @@
 //! Pipeline behaviour with scripted stages: one pushed chunk is one segment,
-//! and its first sample picks the line the fake ASR "hears".
+//! and its first sample picks the line the fake ASR "hears". A chunk whose
+//! first sample is negative is silence: it only moves the clock on.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -11,17 +12,24 @@ use crate::{Event, Parts, Pipeline, PipelineConfig, Segmenting, Stage};
 
 struct ChunkSegmenter {
     seq: u64,
+    offset: u64,
 }
 
 impl Segmenting for ChunkSegmenter {
     fn accept(&mut self, samples: &[f32]) -> Vec<AudioSegment> {
-        let seg = AudioSegment { samples: samples.to_vec(), seq: self.seq, start_sample: 0 };
+        let start_sample = self.offset;
+        self.offset += samples.len() as u64;
+        if samples[0] < 0.0 {
+            return Vec::new();
+        }
+        let seg = AudioSegment { samples: samples.to_vec(), seq: self.seq, start_sample };
         self.seq += 1;
         vec![seg]
     }
 
     fn flush(&mut self) -> Vec<AudioSegment> {
         self.seq = 0;
+        self.offset = 0;
         Vec::new()
     }
 }
@@ -76,7 +84,7 @@ fn rig_with(script: Vec<&'static str>, cleanup: bool, gated: bool, config: Pipel
     let cleanup: Option<Box<dyn Cleanup>> = cleanup.then(|| {
         Box::new(FakeCleanup { contexts: contexts.clone(), gate: gated.then_some((started_tx, go_rx)) }) as _
     });
-    let parts = Parts { segmenter: Box::new(ChunkSegmenter { seq: 0 }), asr: Box::new(ScriptAsr(script)), cleanup };
+    let parts = Parts { segmenter: Box::new(ChunkSegmenter { seq: 0, offset: 0 }), asr: Box::new(ScriptAsr(script)), cleanup };
     let pipeline = Pipeline::spawn(parts, config).unwrap();
     Rig { pipeline, contexts, started, go }
 }
@@ -242,4 +250,44 @@ fn the_vocabulary_fixes_words_before_commands_and_cleanup() {
     say(&r.pipeline, 0);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(texts(&events), "\u{201C}Ysolde, take the wyrmstone.\u{201D}");
+}
+
+fn pause(p: &Pipeline, secs: f32) {
+    p.push_audio(vec![-1.0; (secs * bd_core::SAMPLE_RATE as f32) as usize]);
+}
+
+#[test]
+fn a_long_pause_starts_a_paragraph() {
+    let config = PipelineConfig { pause_paragraph: Some(Duration::from_secs(2)), ..PipelineConfig::default() };
+    let r = rig_with(vec!["It was late.", "We stayed in.", "Morning came.", "Fresh start."], false, false, config);
+    pause(&r.pipeline, 3.0);
+    say(&r.pipeline, 0);
+    pause(&r.pipeline, 1.0);
+    say(&r.pipeline, 1);
+    pause(&r.pipeline, 2.5);
+    say(&r.pipeline, 2);
+    // A new session and a new passage start without a break.
+    r.pipeline.end_session();
+    r.pipeline.new_passage();
+    pause(&r.pipeline, 5.0);
+    say(&r.pipeline, 3);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "It was late. We stayed in.\n\nMorning came.Fresh start.");
+    let pauses: Vec<Option<Duration>> = events
+        .iter()
+        .filter_map(|e| if let Event::Transcribed { pause, .. } = e { Some(*pause) } else { None })
+        .collect();
+    assert_eq!(pauses[0], None);
+    assert_eq!(pauses[2], Some(Duration::from_secs_f32(2.5)));
+    assert_eq!(pauses[3], None);
+}
+
+#[test]
+fn pauses_add_no_paragraphs_unless_asked() {
+    let r = rig(vec!["One.", "Two."], false, false);
+    say(&r.pipeline, 0);
+    pause(&r.pipeline, 10.0);
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "One. Two.");
 }

@@ -28,6 +28,7 @@
 //! hyphens and dashes separating words, so `well-known` = `well known`.
 
 mod align;
+mod breaks;
 mod repair;
 mod words;
 
@@ -37,6 +38,7 @@ mod tests;
 use std::fmt;
 
 pub use align::RemovalReason;
+pub use breaks::keep_dictated_breaks;
 pub use repair::{Repair, repair};
 pub use words::{Gap, Tokens, Word, normalize, tokenize};
 

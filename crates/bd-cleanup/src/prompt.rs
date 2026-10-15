@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn style_rule_follows_style() {
-        let uk = Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical };
+        let uk = Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical, ..Style::default() };
         let msgs = template("generic-v1").unwrap().render(&request("x", "y", &uk), &PromptOptions::default());
         assert!(msgs[0].content.contains("curly single") && msgs[0].content.contains('‘'));
         assert!(!msgs[0].content.contains('“'), "US marks leak into a UK prompt");

@@ -26,7 +26,7 @@ impl StyleArg {
     pub fn style(self) -> Style {
         match self {
             StyleArg::Us => Style::default(),
-            StyleArg::Uk => Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical },
+            StyleArg::Uk => Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical, ..Style::default() },
         }
     }
 }

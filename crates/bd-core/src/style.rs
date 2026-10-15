@@ -37,8 +37,19 @@ pub enum PunctuationPlacement {
     Logical,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Style {
     pub quotes: QuoteStyle,
     pub punctuation: PunctuationPlacement,
+    /// Let the cleanup model start a new paragraph when a different
+    /// character speaks. Off, the only breaks are the dictated ones ("new
+    /// paragraph", "new line") and any the pipeline adds at long pauses.
+    pub dialog_paragraphs: bool,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self { quotes: QuoteStyle::default(), punctuation: PunctuationPlacement::default(), dialog_paragraphs: true }
+    }
 }

@@ -268,7 +268,7 @@ fn load_cases(args: &Args) -> Result<Vec<Case>, Box<dyn std::error::Error>> {
             let v: serde_json::Value = serde_json::from_str(line)?;
             let s = |k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_string);
             let style = match s("style").as_deref() {
-                Some("uk") => Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical },
+                Some("uk") => Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical, ..Style::default() },
                 _ => Style::default(),
             };
             out.push(Case {

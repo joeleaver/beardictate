@@ -97,6 +97,15 @@ unreliable, quality findings stand):
 - Runtime: **llama.cpp** via `llama-cpp-2`, GGUF weights.
 - The user picks the cleanup model; see **Cleanup model choices** below.
 
+### Paragraphs
+
+One setting, three choices (Joe, 2026-10-14): **off** (only dictated "new
+paragraph"/"new line"), **dialog** (default: the cleanup model starts a
+paragraph when a different character speaks; off removes any break the model
+adds that wasn't dictated), **auto** (dialog, plus a paragraph after a pause of
+~3 s within one dictation session, measured from the VAD segment offsets).
+Pauses beat asking a small model to spot topic shifts one sentence at a time.
+
 ### Cleanup model choices
 
 Users choose from a catalog in settings, with a **Recommended for this

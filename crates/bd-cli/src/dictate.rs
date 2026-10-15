@@ -3,6 +3,7 @@
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::thread;
+use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use bd_audio::{AudioError, Capture, CaptureConfig, CaptureEvent, downmix_into, resample_to_16k};
@@ -10,10 +11,22 @@ use bd_core::SAMPLE_RATE;
 use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
 use bd_platform::{InjectorConfig, PlatformInjector};
 use bd_vocab::Vocabulary;
-use clap::Args;
+use clap::{Args, ValueEnum};
 use crossbeam_channel::Receiver;
 
 use crate::setup::{self, CleanupArgs, StyleArg};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, ValueEnum)]
+pub enum ParagraphsArg {
+    /// Only dictated breaks.
+    Off,
+    /// The cleanup model starts a paragraph when a different character
+    /// speaks.
+    #[default]
+    Dialog,
+    /// Dialog paragraphs, and a paragraph after a long pause.
+    Auto,
+}
 
 /// Options shared by `bd file` and `bd mic`.
 #[derive(Debug, Args)]
@@ -22,6 +35,15 @@ pub struct DictateArgs {
     pub cleanup: CleanupArgs,
     #[arg(long, value_enum, default_value_t)]
     pub style: StyleArg,
+    /// Where new paragraphs come from besides "new paragraph": nowhere
+    /// (off), a change of speaker in dialog (dialog), or that plus long
+    /// pauses (auto).
+    #[arg(long, value_enum, default_value_t)]
+    pub paragraphs: ParagraphsArg,
+    /// With --paragraphs auto: a pause this long, in seconds, starts a
+    /// paragraph.
+    #[arg(long, default_value_t = 3.0, value_name = "SECS")]
+    pub pause_paragraph: f32,
     /// Treat spoken "comma", "period", "question mark" etc. as marks.
     #[arg(long)]
     pub literal_punctuation: bool,
@@ -83,7 +105,13 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         asr: Box::new(asr),
         cleanup: cleanup.map(|c| Box::new(c.engine) as _),
     };
-    let mut config = PipelineConfig { style: args.style.style(), vocabulary, ..PipelineConfig::default() };
+    let mut style = args.style.style();
+    style.dialog_paragraphs = args.paragraphs != ParagraphsArg::Off;
+    let pause_paragraph = (args.paragraphs == ParagraphsArg::Auto)
+        .then(|| Duration::try_from_secs_f32(args.pause_paragraph))
+        .transpose()
+        .context("--pause-paragraph must be a positive number of seconds")?;
+    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
     Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))
 }
@@ -97,8 +125,13 @@ impl Reporter {
     /// Handles one event; returns the text to deliver, if any.
     fn report(&self, event: &Event) -> Option<String> {
         match event {
-            Event::Transcribed { id, text, audio, elapsed } if self.verbose => {
-                eprintln!("[{id}] asr {:.2}s audio in {:.0} ms: {text:?}", audio.as_secs_f32(), elapsed.as_secs_f64() * 1e3);
+            Event::Transcribed { id, text, audio, pause, elapsed } if self.verbose => {
+                let pause = pause.map_or(String::new(), |p| format!(" after {:.1}s pause", p.as_secs_f32()));
+                eprintln!(
+                    "[{id}] asr {:.2}s audio{pause} in {:.0} ms: {text:?}",
+                    audio.as_secs_f32(),
+                    elapsed.as_secs_f64() * 1e3
+                );
             }
             Event::Text { id, text, commanded, cleanup } => {
                 if self.verbose {

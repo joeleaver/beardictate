@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn styles_pick_the_marks() {
-        let uk = Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical };
+        let uk = Style { quotes: QuoteStyle::CurlySingle, punctuation: PunctuationPlacement::Logical, ..Style::default() };
         assert_eq!(smarten("", "\"Go\", she said.", &uk), "\u{2018}Go\u{2019}, she said.");
         let straight = Style { quotes: QuoteStyle::Straight, ..Style::default() };
         assert_eq!(smarten("", "\"Go.\"", &straight), "\"Go.\"");
