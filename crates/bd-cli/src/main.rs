@@ -34,7 +34,13 @@ enum Command {
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("warn")))
+        // By default: guardrail rejections (bd_cleanup info), so a segment
+        // typed as dictated says why; llama.cpp's load-time token warnings
+        // are noise for a CLI. BD_LOG overrides.
+        .with_env_filter(
+            EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("warn,bd_cleanup=info,llama-cpp-2=error")),
+        )
+        .without_time()
         .with_writer(std::io::stderr)
         .init();
     match Cli::parse().command {
