@@ -73,8 +73,17 @@ dialog-tag punctuation and new paragraph per speaker; **change no other words**.
 
 Guardrail: diff the output against the input at the word level. If the model
 added/changed words beyond the allowed edits (fillers, repeats, casing,
-punctuation), fall back to the ASR text for that segment. Cheap and kills the
-"LLM rewrote my sentence" failure mode.
+punctuation; but not turning words into ALL CAPS), the segment doesn't get the
+model's words. Cheap and kills the "LLM rewrote my sentence" failure mode.
+
+**Repair before falling back** (Joe, 2026-10-14). Small models often get the
+hard part right (quoting dialog) and then miscopy a word ("is coming" → "is
+came"); throwing the whole answer away loses the quotes too. Where the model
+swapped words one for one, put the dictated words back into its text and keep
+its quotes, punctuation, breaks and capitals; the repaired text must pass the
+guardrail again. Only when that isn't possible (added, dropped or moved words,
+a lost commanded mark) fall back to the ASR text. On the eval with stock
+Qwen3 4B: word accuracy 95.2% → 99.1%, words changed against the rules 66 → 0.
 
 Model plan, from the 2026-10-14 bench (on a heavily loaded box — speed numbers
 unreliable, quality findings stand):

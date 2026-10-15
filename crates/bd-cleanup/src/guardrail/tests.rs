@@ -210,3 +210,13 @@ fn context_echo_only_at_the_start() {
     assert!(!review_in_context(ctx, "Under the bed it moves.", "the bed it moves.").is_accepted());
     assert!(!review_in_context(ctx, "It moves, something that", "It moves,").is_accepted());
 }
+
+#[test]
+fn capitals_are_free_except_shouting() {
+    assert!(review("ok so the tv is mcallister's", "OK, so the TV is McAllister's.").is_accepted());
+    assert!(review("STOP right there", "STOP right there.").is_accepted());
+    assert_eq!(
+        review("he is coming home", "He is COMING home."),
+        GuardrailVerdict::Rejected(Rejection::Shouted { word: "COMING".into() })
+    );
+}

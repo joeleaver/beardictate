@@ -11,7 +11,8 @@
 //!   opening of a restart ("I just, I needed" → "I just needed"); and, with
 //!   [`review_in_context`], an opening that re-says the end of the context;
 //! - any change of case, punctuation, quote marks or whitespace, including
-//!   new paragraph breaks.
+//!   new paragraph breaks, except turning a word of more than three letters
+//!   into ALL CAPS (a model "shouting"; `OK`, `TV` are fine).
 //!
 //! Everything else is rejected: an inserted word, a substituted word (also
 //! `don't` → `do not`, `3` → `three`), a reordered word, or any other
@@ -19,10 +20,15 @@
 //! every quote mark and line or paragraph break in the input must still be
 //! in the output, between the same two kept words.
 //!
+//! A rejected output may still be usable: [`repair`] puts the dictated
+//! words back where the model swapped them one for one, keeping its
+//! formatting, and the result is reviewed again.
+//!
 //! Words are compared after folding case and apostrophes (`’` = `'`), with
 //! hyphens and dashes separating words, so `well-known` = `well known`.
 
 mod align;
+mod repair;
 mod words;
 
 #[cfg(test)]
@@ -31,6 +37,7 @@ mod tests;
 use std::fmt;
 
 pub use align::RemovalReason;
+pub use repair::{Repair, repair};
 pub use words::{Gap, Tokens, Word, normalize, tokenize};
 
 use align::Op;
@@ -77,6 +84,9 @@ pub enum Rejection {
     BreakLost { before: Option<String> },
     /// The model removed a commanded quote mark.
     QuoteLost { before: Option<String> },
+    /// The model put a word into capitals that the speaker didn't
+    /// (`coming` → `COMING`).
+    Shouted { word: String },
 }
 
 impl fmt::Display for Rejection {
@@ -102,6 +112,7 @@ impl fmt::Display for Rejection {
             }
             Rejection::BreakLost { before } => write!(f, "cleanup removed a dictated break before {}", near(before)),
             Rejection::QuoteLost { before } => write!(f, "cleanup removed a dictated quote mark before {}", near(before)),
+            Rejection::Shouted { word } => write!(f, "cleanup put {word:?} in capitals"),
         }
     }
 }
@@ -123,6 +134,9 @@ pub fn review_in_context(context: &str, input: &str, output: &str) -> GuardrailV
         return GuardrailVerdict::Rejected(explain(&a, &b));
     };
     if let Some(rejection) = check_marks(&a, &b, &alignment.kept) {
+        return GuardrailVerdict::Rejected(rejection);
+    }
+    if let Some(rejection) = check_shouting(&a, &b, &alignment.kept) {
         return GuardrailVerdict::Rejected(rejection);
     }
     let removed = alignment
@@ -158,6 +172,17 @@ fn check_marks(a: &Tokens, b: &Tokens, kept: &[usize]) -> Option<Rejection> {
         }
     }
     None
+}
+
+/// A kept word may change case freely, except into ALL CAPS when it is
+/// longer than three letters and the speaker's word wasn't already.
+fn check_shouting(a: &Tokens, b: &Tokens, kept: &[usize]) -> Option<Rejection> {
+    let all_caps = |w: &str| w.chars().any(char::is_alphabetic) && !w.chars().any(char::is_lowercase);
+    b.words.iter().zip(kept).find_map(|(out, &i)| {
+        let letters = out.text.chars().filter(|c| c.is_alphabetic()).count();
+        (!out.tag && letters > 3 && all_caps(&out.text) && !all_caps(&a.words[i].text))
+            .then(|| Rejection::Shouted { word: out.text.clone() })
+    })
 }
 
 fn explain(a: &Tokens, b: &Tokens) -> Rejection {

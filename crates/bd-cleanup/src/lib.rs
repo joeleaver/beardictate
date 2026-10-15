@@ -5,9 +5,10 @@
 //! renders the versioned [`prompt`] template, calls the backend, tidies the
 //! answer (straight quotes become the style's marks, see [`quotes`]), and
 //! runs the [`guardrail`]. If the model changed anything other
-//! than fillers, repeats, casing and punctuation, the segment falls back to
-//! its input (spoken commands already applied) and the
-//! [`GuardrailVerdict`] says why.
+//! than fillers, repeats, casing and punctuation, the dictated words are put
+//! back where it swapped them one for one ([`guardrail::repair`]);
+//! otherwise the segment falls back to its input (spoken commands already
+//! applied). The [`GuardrailVerdict`] says why.
 //!
 //! Backends:
 //! - [`LlamaChat`] (feature `llama`, on by default): llama.cpp in process,
@@ -29,7 +30,7 @@ use std::time::{Duration, Instant};
 
 use bd_core::{BoxError, Cleanup, CleanupRequest};
 
-pub use guardrail::{GuardrailVerdict, Rejection, Removal, RemovalReason};
+pub use guardrail::{GuardrailVerdict, Rejection, Removal, RemovalReason, Repair};
 pub use http::{HttpChat, HttpConfig};
 #[cfg(feature = "llama")]
 pub use llama::{GpuLayers, LlamaChat, LlamaConfig, ModelInfo, Sampling, shared_backend};
@@ -89,21 +90,26 @@ pub type HttpCleanup = GuardedCleanup<HttpChat>;
 /// Everything known about one cleaned segment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CleanupOutcome {
-    /// What to type: the model's text if accepted, otherwise the input.
+    /// What to type: the model's text if accepted, the repaired text if it
+    /// was rejected but [`guardrail::repair`] could fix it, otherwise the
+    /// input.
     pub text: String,
     /// The model's tidied answer, before the guardrail. `None` when the model
     /// was not called (a segment with no words).
     pub model_output: Option<String>,
     /// `None` when the model was not called.
     pub verdict: Option<GuardrailVerdict>,
+    /// When the verdict was a rejection: the repair that was used instead.
+    pub repair: Option<Repair>,
     pub stats: Option<GenerationStats>,
     pub elapsed: Duration,
 }
 
 impl CleanupOutcome {
-    /// True when the guardrail rejected the model and the input was used.
+    /// True when the guardrail rejected the model, no repair was possible,
+    /// and the input was used.
     pub fn fell_back(&self) -> bool {
-        matches!(self.verdict, Some(GuardrailVerdict::Rejected(_)))
+        matches!(self.verdict, Some(GuardrailVerdict::Rejected(_))) && self.repair.is_none()
     }
 }
 
@@ -156,6 +162,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
                 text: request.raw.to_string(),
                 model_output: None,
                 verdict: None,
+                repair: None,
                 stats: None,
                 elapsed: started.elapsed(),
             });
@@ -164,14 +171,28 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         let completion = self.backend.complete(&messages, max_new_tokens(request.raw))?;
         let output = quotes::smarten(request.context, &finalize(request.raw, &completion.text), request.style);
         let verdict = guardrail::review_in_context(request.context, request.raw, &output);
-        let text = if verdict.is_accepted() { output.clone() } else { request.raw.to_string() };
-        if let GuardrailVerdict::Rejected(r) = &verdict {
-            tracing::info!(reason = %r, "cleanup output rejected; using the dictated text");
-        }
+        let mut repair = None;
+        let text = match &verdict {
+            GuardrailVerdict::Accepted { .. } => output.clone(),
+            GuardrailVerdict::Rejected(r) => match guardrail::repair(request.context, request.raw, &output) {
+                Some(fixed) => {
+                    let swaps: Vec<String> = fixed.restored.iter().map(|(m, d)| format!("{m} → {d}")).collect();
+                    tracing::info!(reason = %r, restored = %swaps.join(", "), "cleanup output repaired: dictated words put back");
+                    let text = fixed.text.clone();
+                    repair = Some(fixed);
+                    text
+                }
+                None => {
+                    tracing::info!(reason = %r, "cleanup output rejected; using the dictated text");
+                    request.raw.to_string()
+                }
+            },
+        };
         Ok(CleanupOutcome {
             text,
             model_output: Some(output),
             verdict: Some(verdict),
+            repair,
             stats: completion.stats,
             elapsed: started.elapsed(),
         })

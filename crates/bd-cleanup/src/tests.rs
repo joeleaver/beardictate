@@ -98,3 +98,14 @@ fn budget_grows_with_input() {
     assert!(max_new_tokens("") >= 32);
     assert!(max_new_tokens(&"word ".repeat(40)) > 100);
 }
+
+#[test]
+fn a_miscopied_word_is_repaired_not_thrown_away() {
+    let style = Style::default();
+    let mut c = guarded(&["He said, \"Oh yes, it is came.\""]);
+    let outcome = c.clean_detailed(&req("he said, oh yes, it is coming.", &style)).unwrap();
+    assert_eq!(outcome.text, "He said, \u{201C}Oh yes, it is coming.\u{201D}");
+    assert!(!outcome.fell_back());
+    assert!(!outcome.verdict.as_ref().unwrap().is_accepted());
+    assert_eq!(outcome.repair.unwrap().restored, [("came".to_string(), "coming".to_string())]);
+}

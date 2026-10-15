@@ -17,7 +17,7 @@ use crate::setup::{self, CleanupArgs, StyleArg};
 #[derive(Debug, Args)]
 pub struct EvalArgs {
     /// Cases JSONL files (`id`, `raw`, `context`, optional `style`).
-    #[arg(long = "cases", required = true)]
+    #[arg(long = "cases", required = true, num_args = 1..)]
     pub cases: Vec<PathBuf>,
     /// Directory for outputs.jsonl.
     #[arg(long)]
@@ -70,7 +70,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
     fs::create_dir_all(&args.out)?;
     let out_path = args.out.join("outputs.jsonl");
     let mut out = BufWriter::new(File::create(&out_path)?);
-    let (mut rejected, mut total_ms) = (0, 0.0);
+    let (mut rejected, mut repaired, mut total_ms) = (0, 0, 0.0);
     for (k, case) in cases.iter().enumerate() {
         let style = match case.style.as_deref() {
             Some("uk") => StyleArg::Uk.style(),
@@ -84,6 +84,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
         let ms = outcome.elapsed.as_secs_f64() * 1e3;
         total_ms += ms;
         rejected += usize::from(outcome.fell_back());
+        repaired += usize::from(outcome.repair.is_some());
         let record = serde_json::json!({
             "id": case.id,
             "output": outcome.text,
@@ -91,6 +92,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
             "model_input": commanded,
             "model_output": outcome.model_output,
             "guardrail_rejected": outcome.fell_back(),
+            "repaired": outcome.repair.as_ref().map(|r| &r.restored),
         });
         writeln!(out, "{record}")?;
         out.flush()?;
@@ -102,7 +104,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
     }
     let n = cases.len().max(1);
     eprintln!(
-        "{} cases, mean {:.0} ms, guardrail fell back on {rejected}. Wrote {}",
+        "{} cases, mean {:.0} ms, {repaired} repaired, fell back on {rejected}. Wrote {}",
         cases.len(),
         total_ms / n as f64,
         out_path.display()
