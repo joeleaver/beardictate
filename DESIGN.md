@@ -321,11 +321,120 @@ Rough sizes: Parakeet v3 int8 ≈ 0.65 GB, Silero VAD ≈ 2 MB, cleanup 0.6B Q8
 
 | | Format | Notes |
 |---|---|---|
-| Windows | MSI (`cargo-wix`) or MSIX | **Code signing** (Azure Trusted Signing) or SmartScreen will scare users off. Autostart via HKCU `Run`. Per-user install, no admin. |
+| Windows | Inno Setup `.exe`, per user, plus a portable zip | See "Windows install and first run" below. |
 | Linux | AppImage + Flatpak | Flatpak needs portals anyway (GlobalShortcuts, RemoteDesktop) — which is the Wayland path we're using. `.deb` for convenience. |
 | macOS | signed + notarized `.app` in a DMG | |
 
 Updates: check a release feed, offer download; no silent self-update in v1.
+
+## Windows install and first run
+
+Decided 2026-10-15. Files: `packaging/windows/beardictate.iss`,
+`scripts/package-windows.ps1`, `.cargo/config.toml`, CI in
+`.github/workflows/ci.yml`.
+
+**Build.** Cross-compiles from Linux with `cargo xwin` (needs `llvm-lib`,
+`clang-cl` and `ninja` on `PATH` for llama.cpp's CMake build) or builds
+natively with MSVC + CMake + Ninja. The C runtime is linked **statically**
+(`+crt-static`, and `LLAMA_STATIC_CRT=1` so ggml builds with `/MT`): without
+it llama.cpp's C++ needs MSVCP140/VCRUNTIME140, and an installer would have
+to carry or require the VC++ redistributable. sherpa-onnx's prebuilt DLLs are
+static-CRT already. `beardictate.exe` is a GUI-subsystem program (no console
+window); `bd.exe` stays a console program.
+
+**What ships** (all in one folder; Windows finds DLLs next to the exe, so no
+rpath equivalent is needed): `beardictate.exe`, `bd.exe`,
+`sherpa-onnx-c-api.dll`, `onnxruntime.dll`, `onnxruntime_providers_shared.dll`,
+the icon, LICENSE and third-party notices. About 70 MB, no models.
+
+**Installer: Inno Setup**, per user. Considered:
+- *MSIX*: Store-friendly, clean uninstall, but every package must be signed
+  even to sideload, and the container redirects `%LOCALAPPDATA%` writes into
+  a package-private copy (models would land somewhere users and `bd` can't
+  find), and a packaged app's global keyboard hook and `SendInput` behave the
+  same but are harder to debug. Revisit for the Store later.
+- *WiX / MSI* (`cargo-wix`): the enterprise format, but per-user MSIs are
+  awkward (`MSIINSTALLPERUSER`, ICE validation noise), and IT deploys are
+  served well enough by Inno's `/VERYSILENT` plus the offline model import.
+- *Zip*: built anyway as the portable option, but no Start menu entry,
+  uninstaller or upgrade-in-place.
+- *Inno Setup*: one script, `PrivilegesRequired=lowest` (no UAC prompt),
+  installs to `%LOCALAPPDATA%\Programs\beardictate` like VS Code's user
+  setup, closes and restarts the running app on upgrade (Restart Manager),
+  signs installer and uninstaller with any signtool command.
+
+**Where things live:** app in `%LOCALAPPDATA%\Programs\beardictate`; models
+in `%LOCALAPPDATA%\beardictate\models` (bd-models' default, so `bd` and the
+app share them); settings and special words in
+`%APPDATA%\beardictate\config\settings.toml`; the log in
+`%LOCALAPPDATA%\beardictate\data\beardictate.log`.
+
+**Start at login:** the installer's "Start beardictate when I sign in" task
+(on by default) and the app's own setting write the same value,
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\beardictate`, so either
+can turn it off, and Task Manager's Startup apps shows it. Uninstall removes it.
+
+**Single instance and `--toggle`:** a per-user named pipe,
+`\\.\pipe\beardictate-<user>`, created with `FILE_FLAG_FIRST_PIPE_INSTANCE`
+and `PIPE_REJECT_REMOTE_CLIENTS` (the Unix socket's counterpart).
+
+**Uninstall:** stops the app, removes the program folder, shortcuts and Run
+value, then asks (default No) whether to delete settings and models too, so a
+reinstall needn't download 0.7–3 GB again. A silent uninstall keeps them.
+
+**Code signing and SmartScreen.** Unsigned, the installer gets SmartScreen's
+"Windows protected your PC" (More info → Run anyway) and Smart App Control
+may block it outright. Plan: **Azure Trusted Signing** (Microsoft's
+managed signing, ~$10/month, no hardware token, reputation builds on the
+publisher identity rather than per certificate); EV certificates no longer
+skip SmartScreen, so they aren't worth the cost. Sign the exes and DLLs
+before packaging and the installer after (`BD_SIGN_CMD` in the package
+script). Until then, releases say how to get past SmartScreen and publish
+SHA-256 sums.
+
+**First run (cross-platform, implemented).** The installer ships no
+weights. When the speech models (Parakeet + Silero VAD, ~670 MB) are
+missing, the settings window opens by itself (instead of starting hidden in
+the tray) with a card above every page, "One more step: the speech models",
+and the engine reports "the speech models aren't downloaded yet" without a
+notification:
+1. One **Download** button with the size ("Resume the download" when part
+   of it is on disk). A progress bar and "Downloading… 280 MB of 671 MB";
+   **Cancel** keeps what arrived; a failure shows under the button.
+2. When they verify, the engine reloads (`ModelsChanged`) and dictation
+   works at once with cleanup off ("ASR-only usable meanwhile"); the card
+   goes away.
+3. Cleanup models are optional, on the Cleanup page's model manager
+   (download, resume, delete); "Automatic" picks up the largest downloaded.
+Downloads go through the one model manager (`crates/bd-app/src/models.rs`,
+which tracks the speech models alongside the cleanup catalog); the card is
+`window/setup.rs`.
+
+**Checked on Windows 11** (Joe's laptop, 2026-10-15; the cross-built zip):
+`bd models download` and `bd file` (Parakeet: 3.85 s of audio in 0.4–0.5 s;
+Qwen3 0.6B cleanup on CPU ~7.5 s for that sentence, with the laptop busy);
+the app's first run from a clean profile (Models page, 671 MB in ~22 s,
+verified, engine loaded); single instance and `--toggle` over the pipe.
+Started over SSH, outside the desktop session, the tray and hotkey fail
+(no interactive window station) and the app falls back to its window, as
+designed.
+
+Not done yet (in order):
+- **Vulkan on Windows.** Built CPU-only for now. A `vulkan` build links
+  `vulkan-1.dll`, which only GPU drivers install, so on a machine without one
+  the exe would not start. llama-cpp-2's `dynamic-backends` feature builds
+  ggml with `GGML_BACKEND_DL` + `GGML_CPU_ALL_VARIANTS` and loads the backend
+  DLLs from a folder at runtime (`ggml_backend_load_all_from_path`), falling
+  back to CPU; the Vulkan DLL needs the Vulkan SDK at build time, so it's
+  built natively in CI rather than cross-built.
+- **Hardware probe + measured default** for the cleanup model (DESIGN
+  "Cleanup model choices"), and offering it from the first-run card.
+- The "pin the bear to the taskbar" first-run step (new tray icons land in
+  the overflow flyout).
+- Icon and version info embedded in the exe (shortcuts use the shipped
+  `.ico` meanwhile).
+- A generated list of Rust crate licenses (`cargo about`) in THIRD-PARTY.txt.
+- Updates: the installer upgrades in place; an update check is still to come.
 
 ## Repo layout (proposed)
 

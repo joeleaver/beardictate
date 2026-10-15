@@ -1,0 +1,13 @@
+# Windows: link the C runtime statically, so the installer needn't ship or
+# require the Visual C++ redistributable (llama.cpp's C++ would otherwise
+# need MSVCP140/VCRUNTIME140). sherpa-onnx's prebuilt DLLs are static-CRT
+# already. LLAMA_STATIC_CRT makes llama-cpp-sys build ggml with /MT to match;
+# it only changes MSVC builds.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[env]
+LLAMA_STATIC_CRT = "1"

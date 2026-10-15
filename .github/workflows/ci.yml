@@ -1,0 +1,77 @@
+# Windows CI: build, clippy, tests (with the real speech models, cached), and
+# the portable zip + installer as artifacts. Linux is built and tested on
+# Joe's machine for now (see HANDOVER.md); add a job here when that changes.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+      # Where the ASR tests find Parakeet + Silero (they skip without it).
+      BD_MODELS_DIR: ${{ github.workspace }}\ci-models
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Speech models (cached by manifest)
+        uses: actions/cache@v4
+        with:
+          path: ci-models
+          key: models-${{ hashFiles('crates/bd-models/manifest.toml') }}
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: Build
+        run: cargo build --workspace --release --locked
+
+      - name: Download the speech models (and the test wav the ASR tests read)
+        shell: pwsh
+        run: |
+          target\release\bd.exe models download asr-parakeet-tdt-0.6b-v3-int8 vad-silero
+          if ($LASTEXITCODE) { exit 1 }
+          $wavs = "$env:BD_MODELS_DIR\asr-parakeet-tdt-0.6b-v3-int8\test_wavs"
+          New-Item -ItemType Directory -Force $wavs | Out-Null
+          if (-not (Test-Path "$wavs\en.wav")) {
+            Invoke-WebRequest -OutFile "$wavs\en.wav" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/test_wavs/en.wav"
+          }
+
+      - name: Test
+        run: cargo test --workspace --release --locked
+
+      - name: Transcribe the test wav with bd
+        run: target\release\bd.exe file "%BD_MODELS_DIR%\asr-parakeet-tdt-0.6b-v3-int8\test_wavs\en.wav" --cleanup off
+        shell: cmd
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Package
+        shell: pwsh
+        run: scripts/package-windows.ps1 -NoBuild
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beardictate-windows-x64
+          path: dist/*
+          if-no-files-found: error

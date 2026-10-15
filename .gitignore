@@ -4,3 +4,5 @@
 /models
 /training/data
 /training/out
+/dist
+/packaging/windows/stage
