@@ -135,6 +135,8 @@ struct Worker<U> {
     standby: bool,
     /// Turn dictation on when the models first load.
     start_on_load: bool,
+    /// Always listening was awake when a reload started: wake it again.
+    wake_after_load: bool,
     cleaning: bool,
     last_dictation: Option<Instant>,
     type_text: Sender<TypeJob>,
@@ -162,6 +164,7 @@ impl<U: Ui> Worker<U> {
             listening_since: None,
             standby: false,
             start_on_load: true,
+            wake_after_load: false,
             cleaning: false,
             last_dictation: None,
             type_text,
@@ -229,6 +232,7 @@ impl<U: Ui> Worker<U> {
 
     fn start_load(&mut self) {
         self.reload_when_idle = false;
+        self.wake_after_load = self.standby && self.listening_since.is_some();
         self.load_error = None;
         // Dropping the old pipeline joins its threads, which are idle.
         self.pipeline = None;
@@ -260,7 +264,8 @@ impl<U: Ui> Worker<U> {
                     self.record_mic(true);
                 }
                 if self.wants_standby() {
-                    self.stand_by(starting);
+                    let wake = starting || std::mem::take(&mut self.wake_after_load);
+                    self.stand_by(wake);
                 } else if starting
                     && !self.settings.voice_wake
                     && let Err(e) = self.start()
@@ -417,7 +422,12 @@ impl<U: Ui> Worker<U> {
                 }
                 self.publish();
             }
-            Event::Transcribed { .. } | Event::Scratched { .. } => {}
+            // Counts only, never the words: enough to see in the log which
+            // sentence went missing, and when.
+            Event::Transcribed { id, text, .. } => {
+                tracing::info!(segment = id, words = text.split_whitespace().count(), "heard");
+            }
+            Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
         }
     }
 
@@ -459,7 +469,11 @@ impl<U: Ui> Worker<U> {
     }
 
     fn request_reload(&mut self) {
-        if self.busy() {
+        // Always listening is awake for hours; waiting for "go to sleep"
+        // would keep the old model all that time. Reload now and wake again
+        // after (speech during the few seconds of loading isn't typed).
+        let waits = self.cleaning || (self.listening_since.is_some() && !self.standby);
+        if waits {
             self.reload_when_idle = true;
         } else {
             self.start_load();
