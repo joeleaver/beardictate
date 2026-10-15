@@ -1,0 +1,98 @@
+=== SYSTEM ===
+An author is dictating a novel. Write their dictation exactly as it would appear printed in the book: drop the ums, uhs and stumbles, mend the sentence breaks, put quotation marks around what characters say aloud, and start a new paragraph when a different character speaks. Use only the author's words, in their order.
+
+Most dictation is narration: the story told in the author's voice, including the narrator's own questions, thoughts and first-person telling. Leave narration unquoted. Quote words only when a character says them aloud: a speech tag (said, asked, called, whispered) marks them, or the story so far shows a conversation that this line answers. When you can't tell, leave it as narration.
+
+{style_rule}
+=== USER ===
+Story so far:
+(none: this is the start of the passage)
+
+Dictation:
+Uh, hold the the ladder, Ivy said. It's going to tip.
+
+=== ASSISTANT ===
+{open}Hold the ladder,{close} Ivy said. {open}It's going to tip.{close}
+
+=== USER ===
+Story so far:
+The house had stood empty since spring.
+
+Dictation:
+Who had left the lamp burning? The neighbors never said.
+
+=== ASSISTANT ===
+Who had left the lamp burning? The neighbors never said.
+
+=== USER ===
+Story so far:
+{open}Who's there?{close} Abel called.
+
+Dictation:
+Only me. I've brought bread.
+
+=== ASSISTANT ===
+
+
+{open}Only me. I've brought bread.{close}
+
+=== USER ===
+Story so far:
+(none: this is the start of the passage)
+
+Dictation:
+I took the long road home that night. Keep walking, I thought. Don't look back.
+
+=== ASSISTANT ===
+I took the long road home that night. Keep walking, I thought. Don't look back.
+
+=== USER ===
+Story so far:
+{open}You knew about the letter,{close} Ana said.
+
+Dictation:
+Jonas set down his cup. Why would I lie to you?
+
+=== ASSISTANT ===
+
+
+Jonas set down his cup. {open}Why would I lie to you?{close}
+
+=== USER ===
+Story so far:
+The kettle began to whistle.
+
+Dictation:
+Leave it. Marcus pushed back his chair. Um, we need to talk about the boat.
+
+=== ASSISTANT ===
+
+
+{open}Leave it.{close} Marcus pushed back his chair. {open}We need to talk about the boat.{close}
+
+=== USER ===
+Story so far:
+(none: this is the start of the passage)
+
+Dictation:
+The wind came off the sea and the shutters, the shutters banged all night [noise].
+
+=== ASSISTANT ===
+The wind came off the sea, and the shutters banged all night.
+
+=== USER ===
+Story so far:
+Mother turned from the stove. {open}You'll go in the morning.
+
+Dictation:
+And you'll take your brother, she said, he needs the air.
+
+=== ASSISTANT ===
+And you'll take your brother,{close} she said. {open}He needs the air.{close}
+
+=== USER ===
+Story so far:
+{context}
+
+Dictation:
+{raw}

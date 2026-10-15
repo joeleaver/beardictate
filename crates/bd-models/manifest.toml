@@ -72,7 +72,10 @@ files = [
 # - Gemma 4 E2B with short-turns-v1: 47% exact, 71% quotes ok, ~0.85 s
 #   median, but it quotes narration that reads like speech ("Why had he come
 #   back?" and the sentence after it), which the eval doesn't measure; it was
-#   recommended briefly and taken back the same day.
+#   recommended briefly and taken back the same day. Its prompt is now
+#   narration-turns-v1, which tells it most dictation is narration; in spot
+#   checks on unseen sentences that stopped the false quotes and kept the
+#   tagged and untagged dialog. Full eval pending.
 # (Qwen3-4B, the old default, scored 33% / 49%.) The Qwen3 entries and the
 # Bear placeholders were removed until a small or much faster model earns a
 # place. Both repos are ungated and Apache-2.0; hashes from the HF tree API
@@ -121,7 +124,7 @@ files = [
     { path = "gemma-4-E2B-it-Q4_0.gguf", size = 2841481184, sha256 = "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52" },
 ]
 [model.cleanup]
-prompt_template = "short-turns-v1"
+prompt_template = "narration-turns-v1"
 thinking = false
 [model.cleanup.sampling]
 temperature = 0.0

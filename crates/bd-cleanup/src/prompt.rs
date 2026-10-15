@@ -65,6 +65,11 @@ pub const TEMPLATES: &[PromptTemplate] = &[
         source: include_str!("../prompts/short-turns-v1.txt"),
     },
     PromptTemplate {
+        id: "narration-turns-v1",
+        description: "short-turns-v1 told that most dictation is narration, with narration examples (questions, first person) left unquoted. For Gemma 4 E2B, which quoted narration.",
+        source: include_str!("../prompts/narration-turns-v1.txt"),
+    },
+    PromptTemplate {
         id: "eval-v0",
         description: "The 2026-10-14 seed-bench prompt, kept as a baseline for comparison.",
         source: include_str!("../prompts/eval-v0.txt"),
