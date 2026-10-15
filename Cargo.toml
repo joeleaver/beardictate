@@ -18,6 +18,7 @@ bd-audio = { path = "crates/bd-audio" }
 bd-models = { path = "crates/bd-models" }
 bd-platform = { path = "crates/bd-platform" }
 bd-pipeline = { path = "crates/bd-pipeline" }
+bd-vocab = { path = "crates/bd-vocab" }
 
 thiserror = "2"
 anyhow = "1"

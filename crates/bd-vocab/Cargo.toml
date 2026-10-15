@@ -1,0 +1,11 @@
+[package]
+name = "bd-vocab"
+description = "beardictate: the user's own words (names, invented words): hotword list and a deterministic fix-up pass"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true

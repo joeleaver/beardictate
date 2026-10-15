@@ -177,10 +177,17 @@ fn required(store: &Store, id: &str) -> Result<&'static ModelEntry> {
     Ok(entry)
 }
 
-pub fn load_asr(store: &Store) -> Result<ParakeetAsr> {
+/// Loads Parakeet, listening for `hotwords` at `boost` when both are given.
+pub fn load_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<ParakeetAsr> {
     required(store, ASR_MODEL)?;
     let dir = store.model_dir(ASR_MODEL);
-    ParakeetAsr::new(&dir, &ParakeetConfig::default()).with_context(|| format!("loading ASR from {}", dir.display()))
+    let use_hotwords = !hotwords.is_empty() && boost > 0.0;
+    let config = ParakeetConfig { hotword_boost: use_hotwords.then_some(boost), ..ParakeetConfig::default() };
+    let asr = ParakeetAsr::new(&dir, &config).with_context(|| format!("loading ASR from {}", dir.display()))?;
+    if use_hotwords {
+        asr.set_hotwords(hotwords)?;
+    }
+    Ok(asr)
 }
 
 pub fn load_segmenter(store: &Store) -> Result<Segmenter> {

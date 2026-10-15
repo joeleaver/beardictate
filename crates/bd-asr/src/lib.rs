@@ -2,13 +2,15 @@
 //!
 //! - [`ParakeetAsr`]: NVIDIA Parakeet TDT 0.6B v3 (int8 ONNX) behind
 //!   [`bd_core::Asr`]. Transcribes one finished segment at a time, with the
-//!   model's own casing and punctuation.
+//!   model's own casing and punctuation, optionally listening harder for a
+//!   list of names and invented words (hotwords).
 //! - [`Segmenter`]: Silero VAD that cuts a stream of 16 kHz chunks into
 //!   utterance-sized [`bd_core::AudioSegment`]s.
 //!
 //! Both take model paths directly, so this crate doesn't depend on how the
 //! models were downloaded.
 
+mod hotwords;
 mod parakeet;
 mod segmenter;
 
@@ -32,6 +34,12 @@ pub enum AsrError {
     NoResult,
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
+    #[error("{context}: {source}")]
+    Io {
+        context: String,
+        #[source]
+        source: std::io::Error,
+    },
 }
 
 /// `path` as a UTF-8 string for sherpa-onnx, after checking the file exists

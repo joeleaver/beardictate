@@ -66,6 +66,10 @@ struct Rig {
 }
 
 fn rig(script: Vec<&'static str>, cleanup: bool, gated: bool) -> Rig {
+    rig_with(script, cleanup, gated, PipelineConfig::default())
+}
+
+fn rig_with(script: Vec<&'static str>, cleanup: bool, gated: bool, config: PipelineConfig) -> Rig {
     let contexts = Arc::new(Mutex::new(Vec::new()));
     let (started_tx, started) = unbounded();
     let (go, go_rx) = bounded(0);
@@ -73,7 +77,7 @@ fn rig(script: Vec<&'static str>, cleanup: bool, gated: bool) -> Rig {
         Box::new(FakeCleanup { contexts: contexts.clone(), gate: gated.then_some((started_tx, go_rx)) }) as _
     });
     let parts = Parts { segmenter: Box::new(ChunkSegmenter { seq: 0 }), asr: Box::new(ScriptAsr(script)), cleanup };
-    let pipeline = Pipeline::spawn(parts, PipelineConfig::default()).unwrap();
+    let pipeline = Pipeline::spawn(parts, config).unwrap();
     Rig { pipeline, contexts, started, go }
 }
 
@@ -228,4 +232,14 @@ fn finishing_without_audio_since_the_last_session_adds_no_session_end() {
     r.pipeline.end_session();
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(events.iter().filter(|e| **e == Event::SessionEnded).count(), 1);
+}
+
+#[test]
+fn the_vocabulary_fixes_words_before_commands_and_cleanup() {
+    let vocabulary = bd_vocab::Vocabulary::parse("wyrmstone: worm stone\nYsolde: Ussel").unwrap();
+    let config = PipelineConfig { vocabulary, ..PipelineConfig::default() };
+    let r = rig_with(vec!["Open quote. Ussel, take the worm stone. Close quote."], true, false, config);
+    say(&r.pipeline, 0);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "\u{201C}Ysolde, take the wyrmstone.\u{201D}");
 }

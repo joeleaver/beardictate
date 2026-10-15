@@ -90,3 +90,17 @@ fn real_time_factor() {
         }
     }
 }
+
+#[test]
+fn hotwords_need_the_boost_and_leave_known_speech_alone() {
+    let Some(models) = models_dir() else { return };
+    let greedy = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
+    assert!(matches!(greedy.set_hotwords(&["Ysolde"]), Err(AsrError::InvalidConfig(_))));
+
+    let config = ParakeetConfig { hotword_boost: Some(2.5), ..ParakeetConfig::default() };
+    let asr = ParakeetAsr::new(&parakeet_dir(&models), &config).unwrap();
+    asr.set_hotwords(&["Ysolde", "wyrmstone", "Port Varrow"]).unwrap();
+    let samples = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let text = asr.transcribe_samples(&samples).unwrap();
+    assert_eq!(text, EN_TEXT);
+}

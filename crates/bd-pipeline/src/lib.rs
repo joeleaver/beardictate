@@ -1,7 +1,7 @@
 //! The dictation pipeline, headless: 16 kHz audio in, text to deliver out.
 //!
 //! ```text
-//!  push_audio ─▶ [segment] ─▶ [ASR] ─▶ [commands → cleanup → join] ─▶ events
+//!  push_audio ─▶ [segment] ─▶ [ASR] ─▶ [vocabulary → commands → cleanup → join] ─▶ events
 //! ```
 //!
 //! Each bracket is a thread, linked by channels, so segment N is cleaned
@@ -30,6 +30,7 @@ use std::time::Duration;
 
 use bd_commands::CommandConfig;
 use bd_core::{Asr, AudioSegment, BoxError, Cleanup, Style};
+use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
 pub use compose::{Composer, join};
@@ -68,6 +69,9 @@ pub struct Parts {
 pub struct PipelineConfig {
     pub style: Style,
     pub commands: CommandConfig,
+    /// The user's names and invented words, fixed up in the ASR text before
+    /// the command pass. (Their hotwords are the ASR's business.)
+    pub vocabulary: Vocabulary,
     /// Characters of delivered text kept as context. The cleanup prompt
     /// trims this further to its own budget.
     pub context_chars: usize,
@@ -75,7 +79,7 @@ pub struct PipelineConfig {
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), context_chars: 4000 }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), context_chars: 4000 }
     }
 }
 

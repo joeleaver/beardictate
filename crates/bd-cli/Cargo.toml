@@ -25,6 +25,7 @@ bd-asr.workspace = true
 bd-audio.workspace = true
 bd-models.workspace = true
 bd-pipeline.workspace = true
+bd-vocab.workspace = true
 bd-platform.workspace = true
 anyhow.workspace = true
 clap.workspace = true

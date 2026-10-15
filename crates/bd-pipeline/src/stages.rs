@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use bd_commands::{CommandOutput, CommandPass};
 use bd_core::{Asr, AudioSegment, BoxError, Cleanup, CleanupRequest, SAMPLE_RATE, Style};
+use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
 use crate::compose::Composer;
@@ -124,12 +125,14 @@ struct InFlight {
     cancelled: bool,
 }
 
-/// Stage 3: spoken commands, cleanup, joining, delivery.
+/// Stage 3: the user's vocabulary, spoken commands, cleanup, joining,
+/// delivery.
 ///
 /// Commands run as soon as a segment arrives, so a "scratch that" can drop
 /// queued segments and the one being cleaned. Cleanup runs one segment at a
 /// time, with the delivered text as context.
 struct Finisher {
+    vocabulary: Vocabulary,
     pass: CommandPass,
     cleanup: Option<Box<dyn Cleanup>>,
     style: Style,
@@ -144,6 +147,7 @@ struct Finisher {
 impl Finisher {
     fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>) -> Self {
         Self {
+            vocabulary: config.vocabulary,
             pass: CommandPass::new(config.commands, config.style.clone()),
             cleanup,
             style: config.style,
@@ -221,6 +225,7 @@ impl Finisher {
                 return self.queue.push_back(Item::NewPassage);
             }
         };
+        let text = self.vocabulary.apply(&text);
         let mut out = self.pass.apply(&text, self.quote_open);
         let scratches = out.scratch_previous();
         if scratches > 0 {

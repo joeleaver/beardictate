@@ -402,6 +402,7 @@ dependencies = [
  "bd-models",
  "bd-pipeline",
  "bd-platform",
+ "bd-vocab",
  "clap",
  "crossbeam-channel",
  "hound",
@@ -450,6 +451,7 @@ dependencies = [
  "bd-asr",
  "bd-commands",
  "bd-core",
+ "bd-vocab",
  "crossbeam-channel",
  "tracing",
 ]
@@ -470,6 +472,14 @@ dependencies = [
  "x11rb 0.14.0",
  "xkbcommon",
  "zbus",
+]
+
+[[package]]
+name = "bd-vocab"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

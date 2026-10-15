@@ -40,6 +40,7 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | `bd-platform` | **Committed.** Windows SendInput/paste/UIPI (cross-checked with `cargo xwin clippy`, **never run on real Windows** — see `crates/bd-platform/WINDOWS_TESTING.md`); Linux XTest + RemoteDesktop portal/libei (live-tested only in a nested KWin). `prepare()` triggers the Wayland permission dialog; `INJECTED_MARKER` in `dwExtraInfo` lets rinch's keyboard hook ignore our own keystrokes. |
 | `eval/`, `training/` | **Committed.** ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
 | `bd-pipeline` | **Committed.** Threads segment → ASR → (commands, cleanup, join), `Event` stream out, `Feeder` handle in. Scratch-that drops queued/in-cleanup segments, restores quote state; `ScratchTooLate` otherwise. The caller delivers text (so hold-to-talk can queue until key-up). |
+| `bd-vocab` | **Committed.** The user's names/invented words: a list (`Ysolde: Ussel, Isolde`) giving ASR hotwords plus a whole-word fix-up pass before the command pass. See `eval/vocab/README.md` for the measurements. |
 | `bd-cli` | **Committed.** Binary `bd`: `file`, `mic` (Enter toggles, `--inject`), `models list/download/verify/import`, `devices`, `eval` (outputs.jsonl for `score.py`). Features `vulkan`, `pipewire`. |
 | `design/` | **Committed.** Design-canvas source (`.dc.html` artboards). |
 
@@ -114,6 +115,9 @@ $B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases
   sherpa's build script copies `libsherpa-onnx-c-api.so` and
   `libonnxruntime.so` (DLLs on Windows) next to the binary; `bd-cli/build.rs`
   sets rpath `$ORIGIN`. **Packaging must ship those libraries with the app.**
+- `--words FILE` turns on hotwords (`ParakeetConfig::hotword_boost`, beam
+  search, per-stream word list) and the fix-up list. Not yet in the cleanup
+  prompt: the guardrail already stops the model changing those words.
 - Qwen3 1.7B mostly echoes its input (keeps fillers). 4B cleans fine.
 - With cleanup **off**, delivery is immediate, so "scratch that" is always
   too late (`ScratchTooLate`). By design, per DESIGN.md; revisit if it bites.

@@ -9,6 +9,7 @@ use bd_audio::{AudioError, Capture, CaptureConfig, CaptureEvent, downmix_into, r
 use bd_core::SAMPLE_RATE;
 use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
 use bd_platform::{InjectorConfig, PlatformInjector};
+use bd_vocab::Vocabulary;
 use clap::Args;
 use crossbeam_channel::Receiver;
 
@@ -24,6 +25,15 @@ pub struct DictateArgs {
     /// Treat spoken "comma", "period", "question mark" etc. as marks.
     #[arg(long)]
     pub literal_punctuation: bool,
+    /// Your names and invented words, one per line, optionally with what
+    /// the ASR hears instead: `wyrmstone: worm stone, wormstone`.
+    #[arg(long, value_name = "FILE")]
+    pub words: Option<PathBuf>,
+    /// How strongly the ASR listens for --words (score per matching token).
+    /// 0 keeps only the fix-up list. Higher finds more names but starts
+    /// changing ordinary words (2.5 turned "whispered" into "whisper").
+    #[arg(long, default_value_t = 2.0)]
+    pub hotword_boost: f32,
     /// Report each segment's transcript and timings on stderr.
     #[arg(short, long)]
     pub verbose: bool,
@@ -51,9 +61,18 @@ pub struct MicArgs {
 }
 
 fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
+    let vocabulary = match &args.words {
+        Some(path) => {
+            let list = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+            let v = Vocabulary::parse(&list).with_context(|| path.display().to_string())?;
+            eprintln!("words: {} from {}", v.words().len(), path.display());
+            v
+        }
+        None => Vocabulary::default(),
+    };
     let store = bd_models::Store::from_env()?;
     let segmenter = setup::load_segmenter(&store)?;
-    let asr = setup::load_asr(&store)?;
+    let asr = setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?;
     let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
     match &cleanup {
         Some(c) => eprintln!("cleanup: {}", c.description),
@@ -64,7 +83,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         asr: Box::new(asr),
         cleanup: cleanup.map(|c| Box::new(c.engine) as _),
     };
-    let mut config = PipelineConfig { style: args.style.style(), ..PipelineConfig::default() };
+    let mut config = PipelineConfig { style: args.style.style(), vocabulary, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
     Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))
 }

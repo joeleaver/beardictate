@@ -1,11 +1,12 @@
 //! Parakeet TDT 0.6B v3 through sherpa-onnx's offline transducer recognizer.
 
 use std::path::Path;
+use std::sync::RwLock;
 
 use bd_core::{Asr, AudioSegment, BoxError, SAMPLE_RATE};
 use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineTransducerModelConfig};
 
-use crate::{AsrError, existing};
+use crate::{AsrError, existing, hotwords};
 
 /// Runtime options for [`ParakeetAsr`].
 #[derive(Debug, Clone)]
@@ -17,6 +18,13 @@ pub struct ParakeetConfig {
     pub provider: String,
     /// Let sherpa-onnx print model metadata and timing to stderr.
     pub debug: bool,
+    /// Enables [`ParakeetAsr::set_hotwords`]: decode with beam search and
+    /// add this score per matching token to hypotheses that spell a hotword.
+    /// `None` decodes greedily and takes no hotwords. On 22 invented names
+    /// read by a TTS voice, 2.0 got 10 right (greedy: 4) and changed no
+    /// ordinary words, though it capitalized a few ("Fog", "Twins"); 2.5–3
+    /// got 12–15 but began changing words ("whispered" to "whisper").
+    pub hotword_boost: Option<f32>,
 }
 
 impl Default for ParakeetConfig {
@@ -26,6 +34,7 @@ impl Default for ParakeetConfig {
             threads: cores.clamp(1, 8),
             provider: "cpu".into(),
             debug: false,
+            hotword_boost: None,
         }
     }
 }
@@ -37,6 +46,8 @@ impl Default for ParakeetConfig {
 /// as in the `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` release.
 pub struct ParakeetAsr {
     recognizer: OfflineRecognizer,
+    /// The encoded hotword list; `None` when boosting is off.
+    hotwords: Option<RwLock<String>>,
 }
 
 impl ParakeetAsr {
@@ -54,16 +65,40 @@ impl ParakeetAsr {
             decoder: Some(onnx_file(model_dir, "decoder")?),
             joiner: Some(onnx_file(model_dir, "joiner")?),
         };
-        c.model_config.tokens = Some(existing(&model_dir.join("tokens.txt"))?);
+        let tokens = model_dir.join("tokens.txt");
+        c.model_config.tokens = Some(existing(&tokens)?);
         c.model_config.model_type = Some("nemo_transducer".into());
         c.model_config.num_threads = i32::try_from(config.threads)
             .map_err(|_| AsrError::InvalidConfig("too many threads".into()))?;
         c.model_config.provider = Some(config.provider.clone());
         c.model_config.debug = config.debug;
         c.decoding_method = Some("greedy_search".into());
+        let hotwords = match config.hotword_boost {
+            None => None,
+            Some(boost) if boost.is_finite() && boost > 0.0 => {
+                c.decoding_method = Some("modified_beam_search".into());
+                c.max_active_paths = 4;
+                c.hotwords_score = boost;
+                c.model_config.modeling_unit = Some("bpe".into());
+                c.model_config.bpe_vocab = Some(hotwords::bpe_vocab(&tokens)?);
+                Some(RwLock::new(String::new()))
+            }
+            Some(boost) => return Err(AsrError::InvalidConfig(format!("hotword boost must be positive, got {boost}"))),
+        };
         let recognizer =
             OfflineRecognizer::create(&c).ok_or(AsrError::CreateFailed("Parakeet recognizer"))?;
-        Ok(Self { recognizer })
+        Ok(Self { recognizer, hotwords })
+    }
+
+    /// Replaces the words and phrases to listen for (names, invented words).
+    /// Takes effect from the next segment. Needs
+    /// [`ParakeetConfig::hotword_boost`].
+    pub fn set_hotwords<S: AsRef<str>>(&self, words: &[S]) -> Result<(), AsrError> {
+        let Some(lock) = &self.hotwords else {
+            return Err(AsrError::InvalidConfig("hotwords need ParakeetConfig::hotword_boost".into()));
+        };
+        *lock.write().unwrap_or_else(|e| e.into_inner()) = hotwords::encode(words);
+        Ok(())
     }
 
     /// Transcribes 16 kHz mono samples. Returns an empty string for empty
@@ -72,7 +107,10 @@ impl ParakeetAsr {
         if samples.is_empty() {
             return Ok(String::new());
         }
-        let stream = self.recognizer.create_stream();
+        let stream = match self.hotwords.as_ref().map(|l| l.read().unwrap_or_else(|e| e.into_inner())) {
+            Some(words) if !words.is_empty() => self.recognizer.create_stream_with_hotwords(&words),
+            _ => self.recognizer.create_stream(),
+        };
         stream.accept_waveform(SAMPLE_RATE as i32, samples);
         self.recognizer.decode(&stream);
         let result = stream.get_result().ok_or(AsrError::NoResult)?;
