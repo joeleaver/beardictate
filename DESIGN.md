@@ -142,6 +142,25 @@ Each catalog entry ships with its own tuned prompt (prompt + sampling live in
 the manifest next to the weights), so swapping models doesn't mean retuning by
 hand. Custom models get the generic prompt, which the user can edit.
 
+**Prefix reuse on recurrent models.** Each request reuses the KV cache for
+the prompt prefix it shares with the previous one (~180 of ~225 tokens with
+short-v2). Qwen3.5 is hybrid: its gated-delta-net layers keep one running
+state, not per-token entries, so llama.cpp can't cut the cache back to the
+prefix and every request decoded the whole prompt (reused 0). That's why on
+Windows its CPU steady time equalled its first request. For hybrid and
+recurrent models, `llama/engine.rs` now saves the recurrent state
+(`state_seq_get`, `PARTIAL_ONLY`, ~53 MB for Qwen3.5 4B) just before the
+last message's text, and restores it on the next request. The attention
+layers' cache keeps the prefix as before. Outputs are unchanged. Medians over
+45–60 sentences on the Linux dev box (load average ~30 from other jobs, so
+CPU numbers are noisy), 2026-10-15:
+
+| Model, device | Prefill before → after | Per sentence before → after |
+|---|---|---|
+| Qwen3.5 4B, Radeon 890M (Vulkan) | 1.29 s → 0.44 s | 3.20 s → 2.41 s |
+| Qwen3.5 4B, CPU (12 threads) | 2.55 s → 1.86 s | 13.2 s → 9.4 s (load-dominated) |
+| Gemma 4 E2B | already reused 203 tokens; unaffected | |
+
 **Picking the default: probe, then measure.**
 1. *Probe* (instant, at first run): total/free RAM; ggml backend enumeration
    (each Vulkan/Metal device, discrete vs integrated, VRAM / shared memory);
