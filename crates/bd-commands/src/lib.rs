@@ -131,7 +131,7 @@ impl CommandPass {
             i += 1;
         }
         resolve_bare_quotes(&mut items, quote_open);
-        let (text, mut actions) = render::render(&items, &self.style);
+        let (text, mut actions) = render::render(&items, &self.style, quote_open);
         let mut open = quote_open;
         for a in &actions {
             match a.kind {
@@ -150,7 +150,7 @@ impl CommandPass {
         if items.is_empty() {
             return Action { kind: ActionKind::ScratchPreviousSegment, offset: 0 };
         }
-        let (discarded, _) = render::render(items, &self.style);
+        let (discarded, _) = render::render(items, &self.style, false);
         items.clear();
         Action { kind: ActionKind::ScratchWithinSegment { discarded }, offset: 0 }
     }

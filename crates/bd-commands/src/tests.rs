@@ -203,3 +203,25 @@ fn break_commands_can_be_turned_off() {
     let on = CommandPass::default();
     assert_eq!(on.apply("It ended. New paragraph. Morning came.", false).text, "It ended.\n\nMorning came.");
 }
+
+#[test]
+fn speech_running_on_into_a_new_paragraph() {
+    let line = "Open quote. It rose all night. New paragraph. And by morning it was gone. Close quote.";
+    // Book style: no closing mark on the first paragraph; the next opens.
+    assert_eq!(pass().apply(line, false).text, "\u{201C}It rose all night.\n\n\u{201C}And by morning it was gone.\u{201D}");
+    // Closing each paragraph instead.
+    let closed = CommandPass::new(
+        CommandConfig::default(),
+        Style { close_continued_speech: true, ..Style::default() },
+    );
+    assert_eq!(closed.apply(line, false).text, "\u{201C}It rose all night.\u{201D}\n\n\u{201C}And by morning it was gone.\u{201D}");
+    // Across segments, and a spoken "open quote" after the break isn't doubled.
+    let first = pass().apply("Open quote. It rose all night. New paragraph.", false);
+    assert_eq!(first.text, "\u{201C}It rose all night.\n\n\u{201C}");
+    assert!(first.quote_open);
+    let second = pass().apply("Open quote. And by morning it was gone.", first.quote_open);
+    assert_eq!(second.text, "And by morning it was gone.");
+    assert_eq!(pass().apply("It rose. New paragraph. Open quote, gone.", true).text, "It rose.\n\n\u{201C}Gone.");
+    // Outside a quotation a break is just a break.
+    assert_eq!(pass().apply("It ended. New paragraph. Morning came.", false).text, "It ended.\n\nMorning came.");
+}

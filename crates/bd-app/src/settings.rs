@@ -71,6 +71,9 @@ pub struct Settings {
     pub curly_quotes: bool,
     /// A blank line between paragraphs (two returns); off, one return.
     pub blank_line_paragraphs: bool,
+    /// Speech running on into a new paragraph: close the quote at each
+    /// paragraph's end too. Off, the usual book style: only the next opens.
+    pub close_continued_speech: bool,
     pub punctuation: Punctuation,
     /// How strongly the speech recognizer listens for the special words.
     pub hotword_boost: f32,
@@ -113,6 +116,7 @@ impl Default for Settings {
             voice_wake: true,
             microphone_on: true,
             blank_line_paragraphs: true,
+            close_continued_speech: false,
             punctuation: Punctuation::Inside,
             hotword_boost: 2.0,
             microphone: String::new(),
@@ -187,6 +191,7 @@ impl Settings {
             },
             dialog_paragraphs: self.paragraph_on_speaker,
             topic_paragraphs: self.paragraph_on_topic,
+            close_continued_speech: self.close_continued_speech,
         }
     }
 
@@ -324,6 +329,8 @@ const SETTINGS_HEADER: &str = "\
 #   `bd models list`, or the path to a .gguf file.
 # quote_marks: \"double\" or \"single\"; curly_quotes: true or false.
 # blank_line_paragraphs: true for a blank line between paragraphs, false for one return.
+# close_continued_speech: true to close a quote at the end of each paragraph when
+#   the same speaker carries on into the next; false (book style) leaves it open.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.
 # word_groups: [[word_groups]] with name and enabled, each with

@@ -248,6 +248,8 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let t2 = toggle(__scope, s, "When a different character speaks", "The cleanup model follows the dialog.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The cleanup model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
+    let r1 = run_on(__scope, s, "Leave it open, and open the next paragraph: \u{201C}…the river.  \u{201C}And then…", false);
+    let r2 = run_on(__scope, s, "Close it, and open the next paragraph: \u{201C}…the river.\u{201D}  \u{201C}And then…", true);
     let b1 = breaks(__scope, s, "A blank line (two returns)", true);
     let b2 = breaks(__scope, s, "One return, for editors that space paragraphs themselves", false);
     let (s1, s2, s3) = (s.clone(), s.clone(), s.clone());
@@ -288,9 +290,25 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 {t4}
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "When a character keeps speaking into a new paragraph" }
+                {r1} {r2}
+            }
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Between paragraphs" }
                 {b1} {b2}
             }
+        }
+    }
+}
+
+fn run_on(__scope: &mut RenderScope, s: &Shared, label: &'static str, value: bool) -> NodeHandle {
+    let (a, b) = (s.clone(), s.clone());
+    rsx! {
+        Radio {
+            name: "run-on",
+            label: label,
+            checked_fn: move || a.settings.with(|st| st.close_continued_speech == value),
+            onchange: move || change(&b, |st| st.close_continued_speech = value),
         }
     }
 }

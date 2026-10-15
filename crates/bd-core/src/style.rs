@@ -57,6 +57,11 @@ pub struct Style {
     /// Let the cleanup model also start a new paragraph where the prose
     /// calls for one: a shift of topic, place, time or focus.
     pub topic_paragraphs: bool,
+    /// When one character's speech runs on into a new paragraph: close the
+    /// quotation at the end of each paragraph too. Off (the usual book
+    /// style), the paragraph ends with no closing mark and only the next one
+    /// opens: “…the river.¶“And then…
+    pub close_continued_speech: bool,
 }
 
 impl Style {
@@ -73,6 +78,7 @@ impl Default for Style {
             punctuation: PunctuationPlacement::default(),
             dialog_paragraphs: true,
             topic_paragraphs: false,
+            close_continued_speech: false,
         }
     }
 }

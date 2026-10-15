@@ -194,8 +194,15 @@ pub fn style_rule(style: &Style) -> String {
     } else {
         ""
     };
+    // Only the non-default choice adds words, so the usual prompt stays the
+    // one the eval measured.
+    let run_on = if style.close_continued_speech {
+        format!(" When one character's speech runs on into a new paragraph, close it with {close} at the end of each paragraph and open the next with {open}.")
+    } else {
+        String::new()
+    };
     format!(
-        "Quote dialog with {kind}: {open} to open and {close} to close. Write apostrophes as plain ' (don't, Mara's). {placement}{topic}"
+        "Quote dialog with {kind}: {open} to open and {close} to close. Write apostrophes as plain ' (don't, Mara's). {placement}{topic}{run_on}"
     )
 }
 
@@ -288,6 +295,9 @@ mod tests {
     #[test]
     fn topic_paragraphs_add_a_sentence_only_when_on() {
         assert!(!style_rule(&Style::default()).contains("narration moves on"));
+        assert!(!style_rule(&Style::default()).contains("runs on"));
+        let closed = Style { close_continued_speech: true, ..Style::default() };
+        assert!(style_rule(&closed).ends_with("open the next with \u{201C}."));
         let topic = Style { topic_paragraphs: true, ..Style::default() };
         assert!(style_rule(&topic).ends_with("a new topic, place, time or focus."));
     }

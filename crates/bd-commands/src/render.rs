@@ -46,8 +46,12 @@ pub(crate) enum Item {
 const ASR_PUNCT: &[char] = &[',', '.', ';', ':', '!', '?', '\u{2026}'];
 
 /// Renders items into text, returning the actions with their offsets.
-pub(crate) fn render(items: &[Item], style: &Style) -> (String, Vec<Action>) {
+/// `quote_open`: a quotation is open coming in. A paragraph break inside a
+/// quotation is speech running on: the next paragraph opens with a mark (and
+/// the one before closes, with [`Style::close_continued_speech`]).
+pub(crate) fn render(items: &[Item], style: &Style, quote_open: bool) -> (String, Vec<Action>) {
     let (open_mark, close_mark) = style.quotes.marks();
+    let mut open = quote_open;
     let mut out = String::new();
     let mut actions = Vec::new();
     let mut space = false;
@@ -73,7 +77,11 @@ pub(crate) fn render(items: &[Item], style: &Style) -> (String, Vec<Action>) {
             Item::Cmd { cmd, trail } => {
                 let terminal = trail_terminal(trail);
                 let kind = match *cmd {
+                    // Already open and at a paragraph's start: the mark is
+                    // there (a run-on paragraph opened it), so this is a no-op.
+                    Cmd::OpenQuote if open && (out.is_empty() || out.ends_with(open_mark) || out.ends_with('\n')) => None,
                     Cmd::OpenQuote => {
+                        open = true;
                         if space {
                             out.push(' ');
                         }
@@ -83,6 +91,7 @@ pub(crate) fn render(items: &[Item], style: &Style) -> (String, Vec<Action>) {
                         None
                     }
                     Cmd::CloseQuote => {
+                        open = false;
                         if let (Some(t), true) = (terminal, last_was_word) {
                             end_sentence(&mut out, t);
                         }
@@ -115,8 +124,15 @@ pub(crate) fn render(items: &[Item], style: &Style) -> (String, Vec<Action>) {
                         end_sentence(&mut out, t);
                     }
                     trim_trailing_spaces(&mut out);
+                    let run_on = open && kind == ActionKind::ParagraphBreak;
+                    if run_on && style.close_continued_speech && !out.is_empty() && !out.ends_with(close_mark) {
+                        out.push(close_mark);
+                    }
                     actions.push(Action { kind, offset: out.len() });
                     out.push_str(brk);
+                    if run_on {
+                        out.push(open_mark);
+                    }
                     space = false;
                     capitalize = true;
                 }
