@@ -13,6 +13,7 @@ mod mic;
 mod notify;
 mod settings;
 mod ui;
+mod window;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -81,6 +82,16 @@ fn main() {
             std::process::exit(1);
         }
     };
+    let mut settings = settings;
+    match paths.import_old_words(&mut settings) {
+        Ok(true) => {
+            if let Err(e) = paths.save(&settings) {
+                eprintln!("beardictate: saving the imported special words: {e:#}");
+            }
+        }
+        Ok(false) => {}
+        Err(e) => eprintln!("beardictate: importing the old word list: {e:#}"),
+    }
     let shared = Shared::new(paths, settings);
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
@@ -106,9 +117,9 @@ fn main() {
     };
 
     let props = WindowProps {
-        title: "beardictate".into(),
-        width: 460,
-        height: 340,
+        title: "beardictate settings".into(),
+        width: 780,
+        height: 600,
         visible: !has_tray,
         // With a tray, closing hides the window; without one it quits.
         on_close_requested: has_tray.then(|| {
@@ -151,9 +162,9 @@ fn init_logging(log: &std::path::Path) {
         .init();
 }
 
-/// The status window, hidden until "About beardictate" opens it. Mounted at
-/// startup, so it also starts the engine and the hotkey and keeps the tray
-/// in step with the state.
+/// The settings window, hidden until the tray's "Settings…" opens it.
+/// Mounted at startup, so it also starts the engine and the hotkey and keeps
+/// the tray in step with the state.
 #[component]
 fn app() -> NodeHandle {
     let shared = SHARED.with(|s| s.borrow().clone()).expect("made in main");
@@ -167,23 +178,5 @@ fn app() -> NodeHandle {
         }
     });
     ui::wire(&shared);
-    let words = format!("Word list: {}", shared.paths.words.display());
-    let settings_file = format!("Settings: {}", shared.paths.settings.display());
-    let log_file = format!("Log: {}", shared.paths.log.display());
-    let listening = shared.clone();
-    rsx! {
-        div { style: "padding: 24px; display: flex; flex-direction: column; gap: 12px;",
-            Title { order: 3, "beardictate" }
-            Text { {move || ui::status_line(&shared)} }
-            Text { color: "dimmed", {words} }
-            Text { color: "dimmed", {settings_file} }
-            Text { color: "dimmed", {log_file} }
-            Group {
-                Button { onclick: || engine_send(engine::Command::Toggle),
-                    {move || if ui::is_listening(&listening) { "Stop dictating" } else { "Start dictating" }}
-                }
-                Button { variant: "light", onclick: hide_current_window, "Hide" }
-            }
-        }
-    }
+    window::view(__scope, &shared)
 }

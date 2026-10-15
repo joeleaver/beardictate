@@ -13,7 +13,7 @@ use rinch::tray::TrayIconImage;
 
 use crate::engine::{self, State, Status};
 use crate::icon::{self, Taskbar};
-use crate::settings::{Paragraphs, Paths, QuoteConvention, Settings, TrayTheme};
+use crate::settings::{Paths, Settings, TrayTheme};
 use crate::{engine_send, tray};
 
 /// State the UI shares between the menu, the effects and the window. The
@@ -25,12 +25,36 @@ pub struct Shared {
     pub status: Signal<Status>,
     /// How the hotkey reads in the menu and tooltip.
     pub hotkey_text: Signal<String>,
-    // The menu's radio groups, mirrored into `settings`.
-    cleanup: Signal<String>,
-    paragraphs: Signal<Paragraphs>,
-    quotes: Signal<QuoteConvention>,
+    /// The settings window's current section.
+    pub section: Signal<Section>,
     /// Installed catalog cleanup models: (id, name), smallest first.
-    installed: Rc<Vec<(String, String)>>,
+    pub installed: Rc<Vec<(String, String)>>,
+}
+
+/// The settings window's sections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Section {
+    General,
+    Microphone,
+    Cleanup,
+    Writing,
+    Words,
+    About,
+}
+
+/// Changes the settings: saved at once, and sent to the engine.
+pub fn change(s: &Shared, edit: impl FnOnce(&mut Settings)) {
+    let current = untracked(|| s.settings.get());
+    let mut new = current.clone();
+    edit(&mut new);
+    if new == current {
+        return;
+    }
+    if let Err(e) = s.paths.save(&new) {
+        tracing::warn!("saving settings: {e:#}");
+    }
+    s.settings.set(new.clone());
+    engine_send(engine::Command::Apply(new));
 }
 
 impl Shared {
@@ -49,10 +73,8 @@ impl Shared {
             .unwrap_or_default();
         Shared {
             paths,
-            cleanup: Signal::new(settings.cleanup.clone()),
-            paragraphs: Signal::new(settings.paragraphs),
-            quotes: Signal::new(settings.quotes),
-            hotkey_text: Signal::new(settings.hotkey.clone()),
+            section: Signal::new(Section::General),
+            hotkey_text: Signal::new(readable(&settings.hotkey)),
             status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None }),
             settings: Signal::new(settings),
             installed: Rc::new(installed),
@@ -121,37 +143,23 @@ pub fn tray_menu(shared: &Shared) -> Menu {
         menu = menu.item(MenuItem::new(shorten(&status.detail, 70)).enabled(false));
     }
 
-    let mut cleanup = Menu::new()
-        .item(MenuItem::radio("Off (raw dictation)", shared.cleanup, "off".to_string()))
-        .item(MenuItem::radio("Automatic (largest installed)", shared.cleanup, "auto".to_string()));
-    for (id, name) in shared.installed.iter() {
-        cleanup = cleanup.item(MenuItem::radio(name.clone(), shared.cleanup, id.clone()));
-    }
-    let current = shared.cleanup.get();
-    let known = ["off", "auto"].contains(&current.as_str()) || shared.installed.iter().any(|(id, _)| *id == current);
-    if !known {
-        let label = Path::new(&current).file_name().map_or(current.clone(), |f| f.to_string_lossy().into_owned());
-        cleanup = cleanup.item(MenuItem::radio(format!("Custom: {label}"), shared.cleanup, current));
-    }
-
-    let paragraphs = Menu::new()
-        .item(MenuItem::radio("Only when I say “new paragraph”", shared.paragraphs, Paragraphs::Off))
-        .item(MenuItem::radio("When a new character speaks", shared.paragraphs, Paragraphs::Dialog))
-        .item(MenuItem::radio("New speaker, and after long pauses", shared.paragraphs, Paragraphs::Auto));
-    let quotes = Menu::new()
-        .item(MenuItem::radio("“Double” (US)", shared.quotes, QuoteConvention::Us))
-        .item(MenuItem::radio("‘Single’ (UK)", shared.quotes, QuoteConvention::Uk));
-
-    let words = shared.paths.words.clone();
-    let settings_file = shared.paths.settings.clone();
+    let open_settings = {
+        let s = shared.clone();
+        move || {
+            s.section.set(Section::General);
+            show_current_window();
+        }
+    };
+    let open_words = {
+        let s = shared.clone();
+        move || {
+            s.section.set(Section::Words);
+            show_current_window();
+        }
+    };
     menu.separator()
-        .submenu("Cleanup", cleanup)
-        .submenu("Paragraphs", paragraphs)
-        .submenu("Quotation marks", quotes)
-        .separator()
-        .item(MenuItem::new("Edit word list…").on_click(move || open_path(&words)))
-        .item(MenuItem::new("Open settings file…").on_click(move || open_path(&settings_file)))
-        .item(MenuItem::new("About beardictate").on_click(show_current_window))
+        .item(MenuItem::new("Settings…").on_click(open_settings))
+        .item(MenuItem::new("Special word list…").on_click(open_words))
         .separator()
         .item(MenuItem::new("Quit beardictate").on_click(close_current_window))
 }
@@ -166,7 +174,7 @@ fn shorten(text: &str, max: usize) -> String {
 }
 
 /// Opens a file in the user's default app for it.
-fn open_path(path: &Path) {
+pub fn open_path(path: &Path) {
     #[cfg(target_os = "windows")]
     let result = std::process::Command::new("cmd").args(["/C", "start", ""]).arg(path).spawn();
     #[cfg(target_os = "macos")]
@@ -212,39 +220,6 @@ pub fn wire(shared: &Shared) {
     }
     tick(shared.clone());
 
-    // Menu choices → settings (saved, and sent to the engine).
-    let s = shared.clone();
-    Effect::new(move || {
-        let (cleanup, paragraphs, quotes) = (s.cleanup.get(), s.paragraphs.get(), s.quotes.get());
-        let current = untracked(|| s.settings.get());
-        let new = Settings { cleanup, paragraphs, quotes, ..current.clone() };
-        if new == current {
-            return;
-        }
-        if let Err(e) = s.paths.save(&new) {
-            tracing::warn!("saving settings: {e:#}");
-        }
-        s.settings.set(new.clone());
-        engine_send(engine::Command::Apply(new));
-    });
-
-    // Settings edited on disk → the menu's choices.
-    let s = shared.clone();
-    Effect::new(move || {
-        let st = s.settings.get();
-        untracked(|| {
-            if s.cleanup.get() != st.cleanup {
-                s.cleanup.set(st.cleanup.clone());
-            }
-            if s.paragraphs.get() != st.paragraphs {
-                s.paragraphs.set(st.paragraphs);
-            }
-            if s.quotes.get() != st.quotes {
-                s.quotes.set(st.quotes);
-            }
-        });
-    });
-
     wire_hotkey(shared);
 }
 
@@ -252,11 +227,11 @@ pub fn wire(shared: &Shared) {
 fn wire_hotkey(shared: &Shared) {
     let text = shared.hotkey_text;
     let describe = move |b: &Binding, wanted: &str| match b {
-        Binding::Exact(sc) => sc.to_string(),
-        Binding::SystemChosen { description } => description.clone().unwrap_or_else(|| wanted.to_string()),
-        Binding::Pending => format!("{wanted} (waiting for your approval)"),
+        Binding::Exact(sc) => readable(&sc.to_string()),
+        Binding::SystemChosen { description } => description.clone().unwrap_or_else(|| readable(wanted)),
+        Binding::Pending => format!("{} (waiting for your approval)", readable(wanted)),
         Binding::Declined => "no hotkey (declined; click the bear)".into(),
-        _ => wanted.to_string(),
+        _ => readable(wanted),
     };
     let handle: Rc<RefCell<Option<hotkey::Hotkey>>> = Rc::new(RefCell::new(None));
     let s = shared.clone();
@@ -300,8 +275,13 @@ fn wire_hotkey(shared: &Shared) {
     });
 }
 
+/// A shortcut as people write it: `Ctrl+Backquote` is `Ctrl+\``.
+pub fn readable(shortcut: &str) -> String {
+    shortcut.replace("Backquote", "`")
+}
+
 /// Every binding is at least two keys (DESIGN.md "Hotkey").
-fn check_hotkey(shortcut: &str) -> Result<(), &'static str> {
+pub fn check_hotkey(shortcut: &str) -> Result<(), &'static str> {
     let keys = shortcut.split('+').filter(|k| !k.trim().is_empty()).count();
     if keys < 2 { Err("use at least two keys, e.g. Ctrl+Alt+Space") } else { Ok(()) }
 }
@@ -325,6 +305,7 @@ mod tests {
         assert!(check_hotkey("Super+D").is_ok());
         assert!(check_hotkey("RightCtrl").is_err());
         assert!(check_hotkey("F9").is_err());
+        assert_eq!(readable("Ctrl+Backquote"), "Ctrl+`");
     }
 
     #[test]

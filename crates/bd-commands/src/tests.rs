@@ -9,7 +9,7 @@ fn pass() -> CommandPass {
 }
 
 fn punct_pass() -> CommandPass {
-    CommandPass::new(CommandConfig { literal_punctuation: true }, Style::default())
+    CommandPass::new(CommandConfig { literal_punctuation: true, ..CommandConfig::default() }, Style::default())
 }
 
 /// (ASR text, expected output) with structural commands only.
@@ -107,6 +107,7 @@ fn quote_marks_follow_style() {
         (QuoteStyle::CurlyDouble, "“run”"),
         (QuoteStyle::CurlySingle, "‘run’"),
         (QuoteStyle::Straight, "\"run\""),
+        (QuoteStyle::StraightSingle, "'run'"),
     ];
     for (quotes, expected) in cases {
         let style = Style { quotes, ..Style::default() };
@@ -193,4 +194,12 @@ fn text_without_commands_is_unchanged() {
     ] {
         assert_eq!(pass().apply(input, false).text, input);
     }
+}
+
+#[test]
+fn break_commands_can_be_turned_off() {
+    let off = CommandPass::new(CommandConfig { break_commands: false, ..CommandConfig::default() }, Style::default());
+    assert_eq!(off.apply("It ended. New paragraph. Morning came.", false).text, "It ended. New paragraph. Morning came.");
+    let on = CommandPass::default();
+    assert_eq!(on.apply("It ended. New paragraph. Morning came.", false).text, "It ended.\n\nMorning came.");
 }

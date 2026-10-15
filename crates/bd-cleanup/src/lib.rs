@@ -188,7 +188,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
                 }
             },
         };
-        let text = if request.style.dialog_paragraphs || text == request.raw {
+        let text = if request.style.model_paragraphs() || text == request.raw {
             text
         } else {
             guardrail::keep_dictated_breaks(request.context, request.raw, &text)

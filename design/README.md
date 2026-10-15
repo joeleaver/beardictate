@@ -16,6 +16,7 @@ the nose. Final files are in [`logo/`](logo/):
 | `mark.svg` | 48 px and up: full detail |
 | `mark-small.svg` | 24–32 px: no sound bars |
 | `glyph-16-light.svg`, `glyph-16-dark.svg` | 16 px: no tile, silhouette with a cobalt snout |
+| `mark-96.png` | The mark rasterized (ImageMagick, from `mark.svg`) for the app's settings window |
 | `tray-32-light.svg`, `tray-32-dark.svg` | Tray glyph; the snout colour and corner dot carry state (see `canvas/Tray.dc.html`) |
 
 | Token | Hex | Role |

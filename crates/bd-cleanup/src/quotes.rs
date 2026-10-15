@@ -4,7 +4,7 @@
 //! pass use curly marks. Which way each one faces follows from what is
 //! before it, as in any "smart quotes" feature.
 
-use bd_core::{QuoteStyle, Style};
+use bd_core::Style;
 
 /// Characters after which a `"` opens a quotation.
 const BEFORE_OPENING: &[char] = &['(', '[', '\u{2014}', '\u{2013}', '\u{201C}', '\u{2018}'];
@@ -12,9 +12,9 @@ const BEFORE_OPENING: &[char] = &['(', '[', '\u{2014}', '\u{2013}', '\u{201C}', 
 /// Replaces each straight `"` in `text` with the style's opening or closing
 /// dialog mark. A `"` at the very start closes only if `previous`, the text
 /// delivered before this segment, leaves a quotation open. Unchanged for
-/// [`QuoteStyle::Straight`].
+/// straight styles.
 pub fn smarten(previous: &str, text: &str, style: &Style) -> String {
-    if style.quotes == QuoteStyle::Straight || !text.contains('"') {
+    if style.quotes.is_straight() || !text.contains('"') {
         return text.to_string();
     }
     let (open, close) = style.quotes.marks();
@@ -47,7 +47,7 @@ fn open_at_end(text: &str, open: char, close: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bd_core::PunctuationPlacement;
+    use bd_core::{PunctuationPlacement, QuoteStyle};
 
     #[test]
     fn straight_quotes_face_the_right_way() {

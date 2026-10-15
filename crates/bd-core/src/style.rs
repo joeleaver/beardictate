@@ -11,17 +11,25 @@ pub enum QuoteStyle {
     CurlyDouble,
     /// ‘Curly single’ — UK default.
     CurlySingle,
-    /// "Straight"
+    /// "Straight" double.
     Straight,
+    /// 'Straight' single.
+    StraightSingle,
 }
 
 impl QuoteStyle {
+    /// Typewriter marks, which face neither way.
+    pub fn is_straight(self) -> bool {
+        matches!(self, QuoteStyle::Straight | QuoteStyle::StraightSingle)
+    }
+
     /// The (open, close) marks for dialog.
     pub fn marks(self) -> (char, char) {
         match self {
             QuoteStyle::CurlyDouble => ('\u{201C}', '\u{201D}'),
             QuoteStyle::CurlySingle => ('\u{2018}', '\u{2019}'),
             QuoteStyle::Straight => ('"', '"'),
+            QuoteStyle::StraightSingle => ('\'', '\''),
         }
     }
 }
@@ -46,10 +54,25 @@ pub struct Style {
     /// character speaks. Off, the only breaks are the dictated ones ("new
     /// paragraph", "new line") and any the pipeline adds at long pauses.
     pub dialog_paragraphs: bool,
+    /// Let the cleanup model also start a new paragraph where the prose
+    /// calls for one: a shift of topic, place, time or focus.
+    pub topic_paragraphs: bool,
+}
+
+impl Style {
+    /// Whether the cleanup model may add paragraph breaks at all.
+    pub fn model_paragraphs(&self) -> bool {
+        self.dialog_paragraphs || self.topic_paragraphs
+    }
 }
 
 impl Default for Style {
     fn default() -> Self {
-        Self { quotes: QuoteStyle::default(), punctuation: PunctuationPlacement::default(), dialog_paragraphs: true }
+        Self {
+            quotes: QuoteStyle::default(),
+            punctuation: PunctuationPlacement::default(),
+            dialog_paragraphs: true,
+            topic_paragraphs: false,
+        }
     }
 }

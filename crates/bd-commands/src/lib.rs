@@ -38,14 +38,23 @@ use bd_core::Style;
 pub use render::{Action, ActionKind};
 
 /// Which optional commands are recognized.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct CommandConfig {
+    /// Obey spoken `new paragraph` and `new line`. On by default; off, they
+    /// are typed as the words they are.
+    pub break_commands: bool,
     /// Treat spoken `comma`, `period`, `question mark`, `exclamation point`,
     /// `colon`, `semicolon`, `em dash` and `ellipsis` as marks. Off by
     /// default: the ASR already punctuates, and these words are common in
     /// prose ("a period of calm", "a question mark hung over it").
     pub literal_punctuation: bool,
+}
+
+impl Default for CommandConfig {
+    fn default() -> Self {
+        Self { break_commands: true, literal_punctuation: false }
+    }
 }
 
 /// The result of running the pass over one segment.
@@ -106,7 +115,9 @@ impl CommandPass {
         let mut i = 0;
         while i < toks.len() {
             let after_command = matches!(items.last(), Some(render::Item::Cmd { .. }));
-            if let Some(m) = rules::match_at(&toks, i, self.config.literal_punctuation, after_command) {
+            let matched = rules::match_at(&toks, i, self.config.literal_punctuation, after_command)
+                .filter(|m| self.config.break_commands || !matches!(m.cmd, rules::Cmd::NewParagraph | rules::Cmd::NewLine));
+            if let Some(m) = matched {
                 let last = &toks[i + m.len - 1];
                 if m.cmd == rules::Cmd::Scratch {
                     leading.push(self.scratch(&mut items));

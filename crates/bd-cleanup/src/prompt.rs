@@ -169,6 +169,7 @@ pub fn style_rule(style: &Style) -> String {
         QuoteStyle::CurlyDouble => "curly double quotation marks",
         QuoteStyle::CurlySingle => "curly single quotation marks",
         QuoteStyle::Straight => "straight double quotation marks",
+        QuoteStyle::StraightSingle => "straight single quotation marks",
     };
     let placement = match style.punctuation {
         PunctuationPlacement::Inside => format!(
@@ -178,8 +179,13 @@ pub fn style_rule(style: &Style) -> String {
             "A comma or period goes inside the closing mark only when it belongs to the speech, as with a dialog tag: {open}To the river,{close} he said. A quoted fragment keeps it outside: she called it {open}the end{close}."
         ),
     };
+    let topic = if style.topic_paragraphs {
+        " Also start a new paragraph where the narration moves on, as a novelist would: a new topic, place, time or focus."
+    } else {
+        ""
+    };
     format!(
-        "Quote dialog with {kind}: {open} to open and {close} to close. Write apostrophes as plain ' (don't, Mara's). {placement}"
+        "Quote dialog with {kind}: {open} to open and {close} to close. Write apostrophes as plain ' (don't, Mara's). {placement}{topic}"
     )
 }
 
@@ -267,6 +273,13 @@ mod tests {
             assert!(last.content.contains("RAW") && last.content.contains(NO_CONTEXT));
         }
         assert_eq!(template(DEFAULT_TEMPLATE).map(|t| t.id), Some(DEFAULT_TEMPLATE));
+    }
+
+    #[test]
+    fn topic_paragraphs_add_a_sentence_only_when_on() {
+        assert!(!style_rule(&Style::default()).contains("narration moves on"));
+        let topic = Style { topic_paragraphs: true, ..Style::default() };
+        assert!(style_rule(&topic).ends_with("a new topic, place, time or focus."));
     }
 
     #[test]

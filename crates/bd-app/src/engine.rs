@@ -25,7 +25,7 @@ use crossbeam_channel::{Receiver, Sender, bounded, never, select, tick, unbounde
 
 use crate::mic::Mic;
 use crate::notify::Notifier;
-use crate::settings::{Paths, Settings};
+use crate::settings::{Paths, Settings, vocabulary};
 
 /// After this long without dictating, the next dictation is a new passage:
 /// the cleanup model gets no context from before (you have probably moved on,
@@ -143,21 +143,14 @@ struct Worker<U> {
     injected: Receiver<Injected>,
     injector_error: Option<String>,
     settings_mtime: Option<SystemTime>,
-    words_mtime: Option<SystemTime>,
 }
 
 impl<U: Ui> Worker<U> {
     fn new(paths: Paths, settings: Settings, ui: U, commands: Receiver<Command>) -> Self {
-        // Create the word list now, so its first appearance doesn't look
-        // like an edit to the file watcher.
-        if let Err(e) = paths.load_words() {
-            tracing::warn!("word list: {e:#}");
-        }
         let (type_text, injected) = spawn_injector(&paths);
         Worker {
             notifier: Notifier::new(settings.notifications),
             settings_mtime: mtime(&paths.settings),
-            words_mtime: mtime(&paths.words),
             ui,
             paths,
             settings,
@@ -228,12 +221,12 @@ impl<U: Ui> Worker<U> {
         self.load_error = None;
         // Dropping the old pipeline joins its threads, which are idle.
         self.pipeline = None;
-        let (paths, settings) = (self.paths.clone(), self.settings.clone());
+        let settings = self.settings.clone();
         let (tx, rx) = bounded(1);
         thread::Builder::new()
             .name("bd-load".into())
             .spawn(move || {
-                let _ = tx.send(load(&paths, &settings).map_err(|e| format!("{e:#}")));
+                let _ = tx.send(load(&settings).map_err(|e| format!("{e:#}")));
             })
             .expect("spawning the loader");
         self.loading = Some(rx);
@@ -402,12 +395,7 @@ impl<U: Ui> Worker<U> {
                 self.capture = None;
             }
         }
-        let reload = old.cleanup != s.cleanup
-            || old.paragraphs != s.paragraphs
-            || old.pause_paragraph_secs != s.pause_paragraph_secs
-            || old.quotes != s.quotes
-            || old.hotword_boost != s.hotword_boost;
-        if reload {
+        if old.pipeline() != s.pipeline() {
             self.request_reload();
         }
     }
@@ -434,12 +422,6 @@ impl<U: Ui> Worker<U> {
                 Err(e) => self.notifier.notify("settings", "Settings file has a mistake", &format!("{e:#}")),
             }
         }
-        let now = mtime(&self.paths.words);
-        if now != self.words_mtime {
-            self.words_mtime = now;
-            tracing::info!("word list changed");
-            self.request_reload();
-        }
     }
 }
 
@@ -448,12 +430,12 @@ fn mtime(path: &Path) -> Option<SystemTime> {
 }
 
 /// Loads every model and starts a pipeline. Runs on its own thread.
-fn load(paths: &Paths, settings: &Settings) -> Result<Loaded> {
+fn load(settings: &Settings) -> Result<Loaded> {
     let store = match settings.models_dir.trim() {
         "" => Store::from_env()?,
         dir => Store::at(dir),
     };
-    let words = paths.load_words()?;
+    let words = vocabulary(&settings.special_words);
     let segmenter = setup::load_segmenter(&store)?;
     let asr = setup::load_asr(&store, &words.hotwords(), settings.hotword_boost)?;
     let source = CleanupSource::parse(&settings.cleanup);
@@ -469,6 +451,7 @@ fn load(paths: &Paths, settings: &Settings) -> Result<Loaded> {
     };
     let config = PipelineConfig {
         style: settings.style(),
+        commands: settings.commands(),
         vocabulary: words,
         pause_paragraph: settings.pause_paragraph(),
         ..PipelineConfig::default()

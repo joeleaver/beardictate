@@ -67,7 +67,7 @@ const PUNCTUATION_PROSE: &[&str] = &[
 
 #[test]
 fn punctuation_words_in_prose_stay_literal_even_when_enabled() {
-    let pass = CommandPass::new(CommandConfig { literal_punctuation: true }, Style::default());
+    let pass = CommandPass::new(CommandConfig { literal_punctuation: true, ..CommandConfig::default() }, Style::default());
     for input in PUNCTUATION_PROSE {
         let out = pass.apply(input, false);
         assert_eq!(out.text, *input, "rewrote prose");
@@ -109,7 +109,7 @@ fn commands_next_to_the_same_words_in_prose() {
 /// default.
 #[test]
 fn known_false_positive_of_literal_punctuation() {
-    let pass = CommandPass::new(CommandConfig { literal_punctuation: true }, Style::default());
+    let pass = CommandPass::new(CommandConfig { literal_punctuation: true, ..CommandConfig::default() }, Style::default());
     assert_eq!(pass.apply("He had colon cancer.", false).text, "He had: cancer.");
     assert_eq!(CommandPass::default().apply("He had colon cancer.", false).text, "He had colon cancer.");
 }
