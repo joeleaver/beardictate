@@ -11,6 +11,7 @@ file is *where things stand*.
   word-diff **guardrail** → text injection (type, else paste).
 - **No floating overlay.** Tray icon is the only live status display (Joe,
   2026-10-14). Hotkey is a **toggle** by default; hold-to-talk is optional.
+  Bindings are **always at least two keys**, no lone modifiers, on every OS.
   Exceptions → rate-limited OS notifications. Windows first-run has a
   "pin the bear to the taskbar" step; optional start/stop click sound.
 - **Windows is first-class**; Linux (KDE Wayland is Joe's desktop) and macOS follow.

@@ -163,6 +163,12 @@ modifier-only bindings. The table above is what rinch implements underneath.
 Default binding must avoid common app shortcuts; something like
 Ctrl+Alt+Space, checked against conflicts at first run.
 
+**Every binding is at least two keys, on every platform** (Joe,
+2026-10-14). No single keys and no lone modifiers (RightCtrl, a bare
+Super): the rebinding UI rejects them. One key is too easy to hit by
+accident, and on the Wayland portal a lone modifier can't even tell a tap
+from Right Ctrl+C (rinch's `chorded` flag is always false there).
+
 ## UI (rinch)
 
 - **Tray icon = the status display.** States: idle / listening / cleaning /
