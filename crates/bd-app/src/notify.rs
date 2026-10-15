@@ -1,6 +1,8 @@
 //! OS notifications for things that need the user, rate-limited per kind.
 //!
-//! Uses `notify-rust` until rinch's notification API (rinch#1522) lands.
+//! Through rinch's notifications, shown from the UI thread (the engine
+//! calls from its own). The desktop finds the icon and name from
+//! `beardictate.desktop`.
 
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -34,14 +36,15 @@ impl Notifier {
             return;
         }
         self.last.insert(kind, now);
-        let shown = notify_rust::Notification::new()
-            .appname("beardictate")
-            .summary(title)
-            .body(body)
-            .icon("beardictate")
-            .show();
-        if let Err(e) = shown {
-            tracing::warn!("could not show a notification: {e}");
-        }
+        let (title, body) = (title.to_string(), body.to_string());
+        rinch::run_on_main_thread(move || {
+            let shown = rinch::notification::Notification::new(title)
+                .body(body)
+                .on_error(|e| tracing::warn!("notification not shown: {e}"))
+                .show();
+            if let Err(e) = shown {
+                tracing::warn!("could not show a notification: {e}");
+            }
+        });
     }
 }

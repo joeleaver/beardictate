@@ -494,7 +494,6 @@ dependencies = [
  "crossbeam-channel",
  "directories",
  "hound",
- "notify-rust",
  "rinch",
  "serde",
  "toml 1.1.8+spec-1.1.0",
@@ -3000,20 +2999,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mac-notification-sys"
-version = "0.6.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd604973958ddcc11b561193c0fb96ba146506ef2f231ef2e7c35fd2cbc9beca"
-dependencies = [
- "cc",
- "log",
- "objc2 0.6.5",
- "objc2-foundation 0.3.2",
- "time",
- "uuid",
-]
-
-[[package]]
 name = "mach2"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3270,20 +3255,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "notify-rust"
-version = "4.18.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4587364a9a0074333429b3df75a30a205340c56a536ca3eb6ca0e59b87bbf8af"
-dependencies = [
- "futures-lite",
- "log",
- "mac-notification-sys",
- "serde",
- "tauri-winrt-notification",
- "zbus",
 ]
 
 [[package]]
@@ -4370,9 +4341,10 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 [[package]]
 name = "rinch"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "base64 0.22.1",
+ "block2 0.6.2",
  "bytemuck",
  "futures-lite",
  "gtk",
@@ -4401,6 +4373,7 @@ dependencies = [
  "tray-icon",
  "wasm-bindgen",
  "web-sys",
+ "windows 0.62.2",
  "windows-sys 0.59.0",
  "winit",
  "x11rb 0.13.2",
@@ -4410,7 +4383,7 @@ dependencies = [
 [[package]]
 name = "rinch-components"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "rinch-core",
  "rinch-macros",
@@ -4422,7 +4395,7 @@ dependencies = [
 [[package]]
 name = "rinch-core"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "thiserror 1.0.69",
  "tracing",
@@ -4432,7 +4405,7 @@ dependencies = [
 [[package]]
 name = "rinch-dom"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "app_units",
  "atomic_refcell",
@@ -4472,12 +4445,12 @@ dependencies = [
 [[package]]
 name = "rinch-editable"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 
 [[package]]
 name = "rinch-editor-core"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "regex",
  "thiserror 1.0.69",
@@ -4486,7 +4459,7 @@ dependencies = [
 [[package]]
 name = "rinch-editor-view"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "rinch-core",
  "rinch-editor-core",
@@ -4495,7 +4468,7 @@ dependencies = [
 [[package]]
 name = "rinch-macros"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4505,7 +4478,7 @@ dependencies = [
 [[package]]
 name = "rinch-platform"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "peniko",
  "vello",
@@ -4515,7 +4488,7 @@ dependencies = [
 [[package]]
 name = "rinch-tabler-icons"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 dependencies = [
  "heck 0.5.0",
  "rinch-core",
@@ -4527,7 +4500,7 @@ dependencies = [
 [[package]]
 name = "rinch-theme"
 version = "0.1.0"
-source = "git+https://github.com/joeleaver/rinch?rev=2421e4ec#2421e4ecf83781e04613623dd07999181e520148"
+source = "git+https://github.com/joeleaver/rinch?rev=60c05b74#60c05b744e083021e551567e1f02fa830cb8c84a"
 
 [[package]]
 name = "ring"
@@ -5377,17 +5350,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
-name = "tauri-winrt-notification"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f37a6c354fd28fc9e322ed9bd47e3959576dad28c9d58ea1cf888cce1c7ccb36"
-dependencies = [
- "thiserror 2.0.21",
- "windows 0.62.2",
- "windows-version",
-]
-
-[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5979,7 +5941,6 @@ version = "1.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cc1186384beb7dd8eedea376413fd654937285ea6c9cfbb928dc3043ea4b606"
 dependencies = [
- "getrandom 0.4.3",
  "js-sys",
  "serde_core",
  "wasm-bindgen",
@@ -6760,15 +6721,6 @@ name = "windows-threading"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3949bd5b99cafdf1c7ca86b43ca564028dfe27d66958f2470940f73d86d75b37"
-dependencies = [
- "windows-link",
-]
-
-[[package]]
-name = "windows-version"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4060a1da109b9d0326b7262c8e12c84df67cc0dbc9e33cf49e01ccc2eb63631"
 dependencies = [
  "windows-link",
 ]

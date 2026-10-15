@@ -204,9 +204,8 @@ from Right Ctrl+C (rinch's `chorded` flag is always false there).
     guardrail fallback ("typed the raw text"), elevated-window clipboard
     fallback ("press Ctrl+V"), hotkey conflict, mic lost, model missing.
     Rate-limited; never one per sentence.
-    Will use rinch's notification API
-    ([rinch#1522](https://github.com/joeleaver/rinch/issues/1522)); until it
-    lands, `notify-rust` directly behind a small trait so the swap is trivial.
+    Uses rinch's notification API
+    ([rinch#1522](https://github.com/joeleaver/rinch/issues/1522)).
 - **Settings window** — hotkey, mode, mic, cleanup tier, models (download
   state, disk usage, delete), per-app paste overrides, start at login.
 - **First-run** — mic permission/selection, pick hotkey, download ASR model

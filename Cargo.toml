@@ -44,10 +44,9 @@ sherpa-onnx = { version = "1.13", default-features = false, features = ["shared"
 llama-cpp-2 = "0.1.159"
 arboard = "3"
 windows-sys = "0.61"
-notify-rust = "4"
 # The UI toolkit, pinned to a main commit with global hotkeys (rinch#1530)
-# and tray runtime updates (rinch#1527, #1531).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "2421e4ec", default-features = false }
+# tray runtime updates (rinch#1527, #1531) and notifications (rinch#1535).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "60c05b74", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]
