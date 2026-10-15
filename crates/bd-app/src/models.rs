@@ -129,9 +129,9 @@ impl Models {
                 {
                     last = Instant::now();
                     let (id, done) = (model.id.clone(), p.model_done);
-                    on_ui(move || states.update(|s| {
+                    states.update_send(move |s| {
                         s.insert(id, ModelState::Downloading { done, total });
-                    }));
+                    });
                 }
             };
             let result = downloader.download(&store, model, &cancel, &mut on_event);
@@ -148,9 +148,9 @@ impl Models {
                 }
             };
             let id = model.id.clone();
-            on_ui(move || states.update(|s| {
+            states.update_send(move |s| {
                 s.insert(id, state);
-            }));
+            });
             rinch::run_on_main_thread(|| crate::engine_send(Command::ModelsChanged));
         });
         if let Err(e) = spawned {
@@ -182,17 +182,12 @@ impl Models {
                 }
                 Err(e) => ModelState::Failed(format!("couldn't delete: {e}")),
             };
-            on_ui(move || states.update(|s| {
+            states.update_send(move |s| {
                 s.insert(id, state);
-            }));
+            });
             rinch::run_on_main_thread(|| crate::engine_send(Command::ModelsChanged));
         });
     }
-}
-
-/// Runs `f` on the UI thread, where signals live, and wakes it to repaint.
-fn on_ui(f: impl FnOnce() + Send + 'static) {
-    rinch::run_on_main_thread(f);
 }
 
 /// "2.3 GB", "610 MB".

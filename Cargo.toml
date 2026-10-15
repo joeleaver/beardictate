@@ -45,9 +45,10 @@ llama-cpp-2 = "0.1.159"
 arboard = "3"
 windows-sys = "0.61"
 # The UI toolkit, pinned to a main commit with global hotkeys (rinch#1530)
-# tray runtime updates (rinch#1527, #1531), notifications (rinch#1535) and a
-# stable Linux tray title (rinch#1537).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "d750c53e", default-features = false }
+# tray runtime updates (rinch#1527, #1531), notifications (rinch#1535), a
+# stable Linux tray title (rinch#1537) and cross-thread writes that always
+# wake the window (rinch#1542).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "422eaa56", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]
