@@ -23,6 +23,7 @@ use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
 
 mod inject;
+mod mic_check;
 mod standby;
 use inject::{Injected, TypeJob, spawn_injector};
 
@@ -135,6 +136,10 @@ struct Worker<U> {
     standby: bool,
     /// Turn dictation on when the models first load.
     start_on_load: bool,
+    /// Measuring a just-opened microphone (see `mic_check.rs`).
+    mic_check: Option<mic_check::MicCheck>,
+    /// A different microphone was chosen mid-dictation: reopen after.
+    reopen_mic: bool,
     /// What the status says while models load: which, and whether a switch.
     loading_detail: String,
     /// Always listening was awake when a reload started: wake it again.
@@ -166,6 +171,8 @@ impl<U: Ui> Worker<U> {
             listening_since: None,
             standby: false,
             start_on_load: true,
+            mic_check: None,
+            reopen_mic: false,
             loading_detail: String::new(),
             wake_after_load: false,
             cleaning: false,
@@ -202,7 +209,10 @@ impl<U: Ui> Worker<U> {
                 recv(events) -> ev => if let Ok(ev) = ev { self.on_pipeline(ev) },
                 recv(loading) -> loaded => self.on_loaded(loaded.unwrap_or_else(|_| Err("model loading stopped".into()))),
                 recv(injected) -> report => if let Ok(report) = report { self.on_injected(report) },
-                recv(ticks) -> _ => self.watch_files(),
+                recv(ticks) -> _ => {
+                    self.watch_files();
+                    self.check_mic_level();
+                }
             }
         }
         if let Some(capture) = self.capture.as_mut() {
@@ -270,6 +280,7 @@ impl<U: Ui> Worker<U> {
             };
             let capture = Mic::open(config).context("opening the microphone")?;
             tracing::info!(device = %capture.name(), "microphone open");
+            self.mic_check = Some(mic_check::MicCheck::new(capture.name()));
             self.capture = Some(capture);
         }
         Ok(())
@@ -302,7 +313,10 @@ impl<U: Ui> Worker<U> {
     fn on_audio(&mut self, event: CaptureEvent) {
         let Some(pipeline) = self.pipeline.as_ref() else { return };
         match event {
-            CaptureEvent::Chunk(chunk) => pipeline.push_audio(chunk.samples),
+            CaptureEvent::Chunk(chunk) => {
+                pipeline.push_audio(chunk.samples);
+                self.note_level(chunk.rms);
+            }
             CaptureEvent::Stopped { dropped_frames } => {
                 if dropped_frames > 0 {
                     tracing::warn!(dropped_frames, "audio dropped");
@@ -339,6 +353,10 @@ impl<U: Ui> Worker<U> {
             }
             Event::SessionEnded => {
                 self.cleaning = false;
+                if std::mem::take(&mut self.reopen_mic) && !self.standby {
+                    // The next dictation opens the newly chosen microphone.
+                    self.capture = None;
+                }
                 if self.reload_when_idle && !self.busy() {
                     self.start_load();
                     return;
@@ -395,11 +413,13 @@ impl<U: Ui> Worker<U> {
         }
         if self.standby && old.microphone != s.microphone {
             // A different microphone: reopen it, staying asleep or awake.
+            let awake = self.listening_since.is_some();
             self.leave_standby();
-            self.stand_by(false);
+            self.stand_by(awake);
         } else if old.microphone != s.microphone || old.keep_mic_open != s.keep_mic_open {
             if self.busy() {
                 tracing::info!("microphone change applies after this dictation");
+                self.reopen_mic = true;
             } else {
                 self.capture = None;
             }

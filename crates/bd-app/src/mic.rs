@@ -114,7 +114,8 @@ impl FileMic {
                     vec![0.0; chunk]
                 };
                 let len = part.len();
-                let _ = tx.send(CaptureEvent::Chunk(AudioChunk { rms: 0.0, offset: offset as u64, samples: part }));
+                let rms = bd_audio::rms(&part);
+                let _ = tx.send(CaptureEvent::Chunk(AudioChunk { rms, offset: offset as u64, samples: part }));
                 offset += len;
                 thread::sleep(Duration::from_millis(100));
             }
