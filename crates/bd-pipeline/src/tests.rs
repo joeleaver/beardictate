@@ -177,14 +177,36 @@ fn scratch_that_drops_the_segment_being_cleaned() {
 }
 
 #[test]
-fn scratch_that_after_delivery_is_reported() {
-    let r = rig(vec!["Already typed.", "Scratch that."], false, false);
+fn scratch_that_after_delivery_erases_within_the_session() {
+    let r = rig(vec!["First.", "Second.", "Scratch that.", "Scratch that.", "Third."], true, false);
     let rx = r.pipeline.events().clone();
     say(&r.pipeline, 0);
-    until(&rx, |e| matches!(e, Event::Text { .. }));
+    until(&rx, |e| matches!(e, Event::Text { id: 0, .. }));
+    say(&r.pipeline, 1);
+    until(&rx, |e| matches!(e, Event::Text { id: 1, .. }));
+    say(&r.pipeline, 2);
+    let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 1, text: " Second.".into() }));
+    say(&r.pipeline, 3);
+    let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 0, text: "First.".into() }));
+    say(&r.pipeline, 4);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    // Everything was taken back, so the next sentence starts the text.
+    assert_eq!(texts(&events), "Third.");
+    assert_eq!(r.contexts.lock().unwrap().last().map(String::as_str), Some(""));
+}
+
+#[test]
+fn scratch_that_never_reaches_into_an_earlier_dictation() {
+    let r = rig(vec!["Typed before the stop.", "Scratch that."], false, false);
+    let rx = r.pipeline.events().clone();
+    say(&r.pipeline, 0);
+    r.pipeline.end_session();
+    until(&rx, |e| *e == Event::SessionEnded);
     say(&r.pipeline, 1);
     let events = until(&rx, |e| *e == Event::ScratchTooLate);
-    assert_eq!(texts(&events), "");
+    assert!(!events.iter().any(|e| matches!(e, Event::Erase { .. })));
 }
 
 #[test]

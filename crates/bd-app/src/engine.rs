@@ -20,7 +20,7 @@ use bd_core::InjectOutcome;
 use bd_models::Store;
 use bd_pipeline::setup::{self, CleanupOptions, CleanupSource};
 use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
-use bd_platform::{InjectorConfig, PlatformInjector};
+use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use crossbeam_channel::{Receiver, Sender, bounded, never, select, tick, unbounded};
 
 use crate::mic::Mic;
@@ -106,11 +106,20 @@ struct Loaded {
     cleanup: String,
 }
 
+/// Work for the typing thread.
+enum TypeJob {
+    Type(String),
+    /// Take back text typed earlier in this dictation.
+    Erase(String),
+}
+
 /// What the typing thread reports.
 enum Injected {
     /// Typing works; the backend's name.
     Ready(&'static str),
     LeftOnClipboard(String),
+    /// "Scratch that" couldn't take the text back.
+    NotErased(String),
     Failed(String),
 }
 
@@ -130,7 +139,7 @@ struct Worker<U> {
     listening_since: Option<Instant>,
     cleaning: bool,
     last_dictation: Option<Instant>,
-    type_text: Sender<String>,
+    type_text: Sender<TypeJob>,
     injected: Receiver<Injected>,
     injector_error: Option<String>,
     settings_mtime: Option<SystemTime>,
@@ -330,7 +339,7 @@ impl<U: Ui> Worker<U> {
         match event {
             Event::Text { id, text, .. } => {
                 tracing::info!(segment = id, chars = text.chars().count(), "typing");
-                let _ = self.type_text.send(text);
+                let _ = self.type_text.send(TypeJob::Type(text));
             }
             Event::SessionEnded => {
                 self.cleaning = false;
@@ -340,8 +349,16 @@ impl<U: Ui> Worker<U> {
                 }
                 self.publish();
             }
+            Event::Erase { id, text } => {
+                tracing::info!(segment = id, chars = text.chars().count(), "erasing (scratch that)");
+                let _ = self.type_text.send(TypeJob::Erase(text));
+            }
             Event::ScratchTooLate => {
-                self.notifier.notify("scratch", "Already typed", "\"Scratch that\" came after the sentence was typed.");
+                self.notifier.notify(
+                    "scratch",
+                    "Nothing to scratch",
+                    "\"Scratch that\" only takes back text from the current dictation; earlier text is left as is.",
+                );
             }
             Event::Error { stage, message } => {
                 self.notifier.notify("pipeline", &format!("{stage:?} failed on a sentence"), &message);
@@ -360,6 +377,9 @@ impl<U: Ui> Worker<U> {
             }
             Injected::LeftOnClipboard(reason) => {
                 self.notifier.notify("clipboard", "Text is on the clipboard", &format!("Couldn't type it ({reason}). Press Ctrl+V to paste."));
+            }
+            Injected::NotErased(reason) => {
+                self.notifier.notify("erase", "Couldn't scratch that", &format!("The text is still there ({reason})."));
             }
             Injected::Failed(e) => {
                 self.notifier.notify("inject", "Couldn't type the text", &e);
@@ -460,8 +480,8 @@ fn load(paths: &Paths, settings: &Settings) -> Result<Loaded> {
 /// Starts the typing thread. It sets up the platform injector first, which
 /// on Wayland asks the desktop for permission (once; the approval is kept in
 /// [`Paths::portal_token`]).
-fn spawn_injector(paths: &Paths) -> (Sender<String>, Receiver<Injected>) {
-    let (text_tx, text_rx) = unbounded::<String>();
+fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Injected>) {
+    let (text_tx, text_rx) = unbounded::<TypeJob>();
     let (report_tx, report_rx) = unbounded();
     let token_path = paths.portal_token.clone();
     let token = paths.load_portal_token();
@@ -489,11 +509,18 @@ fn spawn_injector(paths: &Paths) -> (Sender<String>, Receiver<Injected>) {
                 }
             };
             let _ = report_tx.send(Injected::Ready(injector.backend_name()));
-            for text in text_rx {
-                let report = match injector.inject_text(&text) {
-                    Ok(InjectOutcome::LeftOnClipboard { reason }) => Some(Injected::LeftOnClipboard(reason)),
-                    Ok(_) => None,
-                    Err(e) => Some(Injected::Failed(e.to_string())),
+            for job in text_rx {
+                let report = match job {
+                    TypeJob::Type(text) => match injector.inject_text(&text) {
+                        Ok(InjectOutcome::LeftOnClipboard { reason }) => Some(Injected::LeftOnClipboard(reason)),
+                        Ok(_) => None,
+                        Err(e) => Some(Injected::Failed(e.to_string())),
+                    },
+                    TypeJob::Erase(text) => match injector.erase(&text) {
+                        Ok(Erased::Done) => None,
+                        Ok(Erased::Refused { reason }) => Some(Injected::NotErased(reason)),
+                        Err(e) => Some(Injected::NotErased(e.to_string())),
+                    },
                 };
                 if let Some(r) = report {
                     let _ = report_tx.send(r);

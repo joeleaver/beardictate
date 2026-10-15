@@ -59,8 +59,11 @@ makes a 1–3 s cleanup tolerable during narration.
 ### 4. Command pass (deterministic, before the LLM)
 Spoken commands are matched by rules, not left to the model, so they are
 *always* right: `open quote` / `close quote` / `quote … end quote`,
-`new paragraph`, `new line`, `scratch that` (drop previous segment, only if it
-hasn't been typed yet). The LLM sees commands already applied as literal marks.
+`new paragraph`, `new line`, `scratch that` (drop the previous segment; if it
+was already typed in this dictation, erase it with Backspace: the user is
+talking, not typing, so the cursor is still after it. Repeats reach further
+back. Text from an earlier dictation is left alone; the cursor may have
+moved. Joe, 2026-10-15). The LLM sees commands already applied as literal marks.
 
 ### 5. Cleanup LLM
 Input: the raw segment + the last ~2 paragraphs of *our own* output (kept in

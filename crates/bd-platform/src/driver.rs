@@ -121,6 +121,39 @@ pub(crate) fn inject<B: Backend>(
     }
 }
 
+/// Whether [`erase`] removed the text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Erased {
+    Done,
+    /// Nothing, or not all of it, was erased.
+    Refused { reason: String },
+}
+
+/// Erases `typed`, text we delivered last, with one Backspace per character
+/// it typed (a line break is one). Only sound while the cursor is still
+/// right after that text; the caller decides when that holds.
+pub(crate) fn erase<B: Backend>(backend: &mut B, config: &InjectorConfig, typed: &str) -> Result<Erased, PlatformError> {
+    let count = tokenize(typed).len();
+    if count == 0 {
+        return Ok(Erased::Done);
+    }
+    let app = match backend.target()? {
+        Target::Ready(app) => app,
+        Target::Blocked { reason } => return Ok(Erased::Refused { reason }),
+    };
+    let settings = config.resolve(app.as_ref());
+    if !backend.wait_modifiers_released(settings.modifier_release_timeout)? {
+        return Ok(Erased::Refused { reason: "modifier keys were still held".to_owned() });
+    }
+    Ok(match backend.type_tokens(&vec![Token::Backspace; count], &settings)? {
+        Typed::Done => Erased::Done,
+        Typed::Impossible { reason } => Erased::Refused { reason },
+        Typed::Partial { delivered, reason } => {
+            Erased::Refused { reason: format!("erased {delivered} of {count} characters ({reason})") }
+        }
+    })
+}
+
 fn leave_on_clipboard<B: Backend>(
     backend: &mut B,
     text: &str,
@@ -200,6 +233,7 @@ mod tests {
         foreign_change: bool,
         log: Vec<String>,
         seen_newline: Option<NewlineKey>,
+        backspaces: usize,
     }
 
     impl Backend for Fake {
@@ -212,6 +246,7 @@ mod tests {
         }
         fn type_tokens(&mut self, t: &[Token], s: &Settings) -> Result<Typed, PlatformError> {
             self.seen_newline = Some(s.newline);
+            self.backspaces += t.iter().filter(|t| **t == Token::Backspace).count();
             self.log.push(format!("type:{}", detokenize(t)));
             Ok(self.typed.clone().unwrap_or(Typed::Done))
         }
@@ -242,6 +277,25 @@ mod tests {
             self.clipboard = s;
             Ok(())
         }
+    }
+
+    #[test]
+    fn erase_presses_backspace_per_typed_character() {
+        let mut b = fake();
+        let erased = erase(&mut b, &config(Strategy::Auto), " \u{201C}Hi.\u{201D}\r\n").unwrap();
+        assert_eq!(erased, Erased::Done);
+        assert_eq!(b.backspaces, 7);
+        assert_eq!(erase(&mut b, &config(Strategy::Auto), "").unwrap(), Erased::Done);
+        assert_eq!(b.backspaces, 7);
+    }
+
+    #[test]
+    fn erase_refuses_with_held_modifiers_or_a_blocked_target() {
+        let mut b = Fake { modifiers_released: false, ..fake() };
+        assert!(matches!(erase(&mut b, &config(Strategy::Auto), "x").unwrap(), Erased::Refused { .. }));
+        let mut b = Fake { target: Some(Target::Blocked { reason: "elevated".into() }), ..fake() };
+        assert_eq!(erase(&mut b, &config(Strategy::Auto), "x").unwrap(), Erased::Refused { reason: "elevated".into() });
+        assert_eq!(b.backspaces, 0);
     }
 
     fn fake() -> Fake {

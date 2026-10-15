@@ -47,6 +47,17 @@ impl Composer {
         delta
     }
 
+    /// Takes back `delivered`, the most recent [`Composer::append`]'s
+    /// result, after it was erased. If it is no longer all in the context
+    /// (trimmed away), the context is dropped rather than left wrong.
+    pub fn retract(&mut self, delivered: &str) {
+        if self.tail.ends_with(delivered) {
+            self.tail.truncate(self.tail.len() - delivered.len());
+        } else {
+            self.tail.clear();
+        }
+    }
+
     fn trim(&mut self) {
         let len = self.tail.chars().count();
         if len <= self.max_chars {
@@ -106,5 +117,11 @@ mod tests {
         assert!(c.context().chars().count() <= 10);
         c.clear();
         assert_eq!(c.append("Fresh."), "Fresh.");
+        let mut c = Composer::new(100);
+        c.append("Kept.");
+        let d = c.append("Gone.");
+        c.retract(&d);
+        assert_eq!(c.context(), "Kept.");
+        assert_eq!(c.append("Back."), " Back.");
     }
 }

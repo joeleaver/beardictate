@@ -41,6 +41,7 @@ pub use config::{
     AppOverride, AppPolicy, ForegroundApp, InjectorConfig, NewlineKey, PasteChord,
     RestoreTokenSink, Strategy,
 };
+pub use driver::Erased;
 pub use error::PlatformError;
 /// Value of `KEYBDINPUT::dwExtraInfo` on every event we inject, so a
 /// low-level keyboard hook can tell our keystrokes from the user's.
@@ -101,6 +102,13 @@ impl PlatformInjector {
     /// Like [`Injector::inject`] but with the concrete error type.
     pub fn inject_text(&mut self, text: &str) -> Result<InjectOutcome, PlatformError> {
         driver::inject(&mut self.backend, &self.config, text)
+    }
+
+    /// Erases `typed`, the text this injector delivered last, with
+    /// Backspace. The caller must know the cursor is still right after it
+    /// (nothing else typed or clicked since).
+    pub fn erase(&mut self, typed: &str) -> Result<Erased, PlatformError> {
+        driver::erase(&mut self.backend, &self.config, typed)
     }
 }
 

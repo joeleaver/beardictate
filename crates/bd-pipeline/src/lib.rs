@@ -12,8 +12,11 @@
 //! modifiers to come up).
 //!
 //! A segment counts as delivered once its [`Event::Text`] is sent. A spoken
-//! "scratch that" drops earlier segments that have not reached that point;
-//! for one that has, the pipeline sends [`Event::ScratchTooLate`].
+//! "scratch that" drops the latest segment: before delivery by not
+//! delivering it ([`Event::Scratched`]); after, within the same dictation
+//! session, by asking the caller to erase it ([`Event::Erase`]). Text from
+//! an earlier session stays ([`Event::ScratchTooLate`]): the user may have
+//! moved the cursor since.
 //!
 //! The context the cleanup model sees is the pipeline's own delivered text
 //! for the current passage (see [`Pipeline::new_passage`]), never text read
@@ -117,7 +120,14 @@ pub enum Event {
     },
     /// A spoken "scratch that" dropped this segment before delivery.
     Scratched { id: u64 },
-    /// "scratch that" came after the segment it meant had been delivered.
+    /// "scratch that" for a segment already delivered in this dictation
+    /// session: take `text` back (with Backspace, one per character typed;
+    /// the cursor is still right after it, since the user is talking, not
+    /// typing). Repeated, it reaches further back within the session.
+    Erase { id: u64, text: String },
+    /// "scratch that" with nothing left to take back in this session (the
+    /// text it meant was typed in an earlier dictation, where the cursor
+    /// may have moved).
     ScratchTooLate,
     /// Everything spoken before [`Pipeline::end_session`] has been
     /// delivered.

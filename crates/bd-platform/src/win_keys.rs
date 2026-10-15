@@ -4,6 +4,7 @@
 use crate::config::{NewlineKey, PasteChord};
 use crate::text::Token;
 
+pub(crate) const VK_BACK: u16 = 0x08;
 pub(crate) const VK_TAB: u16 = 0x09;
 pub(crate) const VK_RETURN: u16 = 0x0D;
 pub(crate) const VK_SHIFT: u16 = 0x10;
@@ -66,6 +67,7 @@ pub(crate) fn token_events(token: Token, newline: NewlineKey) -> Vec<KeyEvent> {
             NewlineKey::ShiftEnter => chord(&[VK_SHIFT], VK_RETURN),
         },
         Token::Tab => chord(&[], VK_TAB),
+        Token::Backspace => chord(&[], VK_BACK),
     }
 }
 

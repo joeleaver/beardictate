@@ -9,7 +9,7 @@ use anyhow::{Context, Result, bail};
 use bd_audio::{AudioError, Capture, CaptureConfig, CaptureEvent, downmix_into, resample_to_16k};
 use bd_core::SAMPLE_RATE;
 use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
-use bd_platform::{InjectorConfig, PlatformInjector};
+use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use bd_vocab::Vocabulary;
 use clap::{Args, ValueEnum};
 use crossbeam_channel::Receiver;
@@ -121,9 +121,16 @@ struct Reporter {
     verbose: bool,
 }
 
+/// What a pipeline event asks of the focused window.
+enum Output {
+    Type(String),
+    Erase(String),
+}
+
 impl Reporter {
-    /// Handles one event; returns the text to deliver, if any.
-    fn report(&self, event: &Event) -> Option<String> {
+    /// Handles one event; returns what to do in the focused window, if
+    /// anything.
+    fn report(&self, event: &Event) -> Option<Output> {
         match event {
             Event::Transcribed { id, text, audio, pause, elapsed } if self.verbose => {
                 let pause = pause.map_or(String::new(), |p| format!(" after {:.1}s pause", p.as_secs_f32()));
@@ -140,10 +147,15 @@ impl Reporter {
                 }
                 print!("{text}");
                 let _ = std::io::stdout().flush();
-                return Some(text.clone());
+                return Some(Output::Type(text.clone()));
+            }
+            Event::Erase { id, text } => {
+                // Stdout can't take text back; say what went.
+                eprintln!("\n[{id}] scratched after typing: {text:?}");
+                return Some(Output::Erase(text.clone()));
             }
             Event::Scratched { id } => eprintln!("[{id}] scratched"),
-            Event::ScratchTooLate => eprintln!("scratch that: the previous segment was already delivered"),
+            Event::ScratchTooLate => eprintln!("scratch that: nothing left to take back in this dictation"),
             Event::SessionEnded => {
                 println!();
             }
@@ -286,13 +298,19 @@ fn spawn_output(events: Receiver<Event>, verbose: bool, inject: bool) -> Result<
         };
         let reporter = Reporter { verbose };
         for event in events {
-            let Some(text) = reporter.report(&event) else { continue };
-            if let Some(injector) = injector.as_mut() {
-                match injector.inject_text(&text) {
+            let Some(output) = reporter.report(&event) else { continue };
+            let Some(injector) = injector.as_mut() else { continue };
+            match output {
+                Output::Type(text) => match injector.inject_text(&text) {
                     Ok(outcome) if verbose => eprintln!("(injected: {outcome:?})"),
                     Ok(_) => {}
                     Err(e) => eprintln!("could not type the text: {e}"),
-                }
+                },
+                Output::Erase(text) => match injector.erase(&text) {
+                    Ok(Erased::Done) => {}
+                    Ok(Erased::Refused { reason }) => eprintln!("could not erase it: {reason}"),
+                    Err(e) => eprintln!("could not erase it: {e}"),
+                },
             }
         }
     });

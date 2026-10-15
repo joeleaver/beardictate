@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use xkbcommon::xkb::{self, Keycode, Keymap, State};
 
 use crate::config::NewlineKey;
-use crate::linux::keysym::{XK_INSERT, XK_RETURN, XK_TAB, XK_V};
+use crate::linux::keysym::{XK_BACKSPACE, XK_INSERT, XK_RETURN, XK_TAB, XK_V};
 use crate::text::Token;
 
 const XK_SHIFT_L: u32 = 0xffe1;
@@ -110,6 +110,7 @@ impl ReverseMap {
         match token {
             Token::Char(c) => self.by_char.get(&c).cloned(),
             Token::Tab => self.by_keysym.get(&XK_TAB).cloned(),
+            Token::Backspace => self.by_keysym.get(&XK_BACKSPACE).cloned(),
             Token::Newline => {
                 let mut combo = self.by_keysym.get(&XK_RETURN)?.clone();
                 if newline == NewlineKey::ShiftEnter {

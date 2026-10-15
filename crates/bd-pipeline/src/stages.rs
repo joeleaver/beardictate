@@ -128,6 +128,17 @@ enum Item {
     NewPassage,
 }
 
+/// How many delivered segments "scratch that" can reach back through.
+const MAX_ERASABLE: usize = 20;
+
+/// A segment delivered in the current dictation session.
+struct Typed {
+    id: u64,
+    /// Exactly what was delivered, separator included.
+    text: String,
+    quote_before: bool,
+}
+
 /// The segment being cleaned: past the queue, not yet delivered.
 struct InFlight {
     id: u64,
@@ -150,6 +161,8 @@ struct Finisher {
     events: Sender<Event>,
     queue: VecDeque<Item>,
     in_flight: Option<InFlight>,
+    /// This session's delivered segments, oldest first, for "scratch that".
+    typed: Vec<Typed>,
     /// Whether a commanded quotation is open after the last segment taken in.
     quote_open: bool,
     /// Start a paragraph after a pause this long (see
@@ -171,6 +184,7 @@ impl Finisher {
             events,
             queue: VecDeque::new(),
             in_flight: None,
+            typed: Vec::new(),
             quote_open: false,
             pause_paragraph: config.pause_paragraph,
             passage_has_text: false,
@@ -188,8 +202,14 @@ impl Finisher {
             self.take_in_ready(&input);
             let Some(item) = self.queue.pop_front() else { continue };
             match item {
-                Item::EndSession => self.emit(Event::SessionEnded),
-                Item::NewPassage => self.composer.clear(),
+                Item::EndSession => {
+                    self.typed.clear();
+                    self.emit(Event::SessionEnded);
+                }
+                Item::NewPassage => {
+                    self.typed.clear();
+                    self.composer.clear();
+                }
                 Item::Segment(p) => self.finish(p, &input),
             }
         }
@@ -207,6 +227,10 @@ impl Finisher {
         }
         let text = self.composer.append(&text);
         if !text.is_empty() {
+            if self.typed.len() == MAX_ERASABLE {
+                self.typed.remove(0);
+            }
+            self.typed.push(Typed { id: p.id, text: text.clone(), quote_before: p.quote_before });
             self.emit(Event::Text { id: p.id, text, commanded, cleanup });
         }
     }
@@ -280,10 +304,13 @@ impl Finisher {
     /// Drops the most recent undelivered segment of this passage, returning
     /// the quotation state from before it. `None` when there is none left.
     fn drop_latest(&mut self) -> Option<bool> {
+        // A segment from before a stop may be dropped while it's untyped,
+        // but typed text is only erased within the dictation it came from.
+        let mut crossed_session = false;
         for i in (0..self.queue.len()).rev() {
             match &self.queue[i] {
                 Item::NewPassage => return None,
-                Item::EndSession => continue,
+                Item::EndSession => crossed_session = true,
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
                     self.emit(Event::Scratched { id: p.id });
@@ -291,11 +318,19 @@ impl Finisher {
                 }
             }
         }
-        let flight = self.in_flight.as_mut().filter(|f| !f.cancelled)?;
-        flight.cancelled = true;
-        let (id, quote_before) = (flight.id, flight.quote_before);
-        self.emit(Event::Scratched { id });
-        Some(quote_before)
+        if let Some(flight) = self.in_flight.as_mut().filter(|f| !f.cancelled) {
+            flight.cancelled = true;
+            let (id, quote_before) = (flight.id, flight.quote_before);
+            self.emit(Event::Scratched { id });
+            return Some(quote_before);
+        }
+        if crossed_session {
+            return None;
+        }
+        let typed = self.typed.pop()?;
+        self.composer.retract(&typed.text);
+        self.emit(Event::Erase { id: typed.id, text: typed.text });
+        Some(typed.quote_before)
     }
 
     fn emit(&self, event: Event) {

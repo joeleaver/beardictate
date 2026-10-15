@@ -12,6 +12,9 @@ pub(crate) enum Token {
     Newline,
     /// `'\t'`: typed as the Tab key.
     Tab,
+    /// The Backspace key, for erasing text we typed. Never produced by
+    /// [`tokenize`].
+    Backspace,
 }
 
 /// Splits `text` into tokens. Line endings are normalized to one
@@ -44,10 +47,11 @@ pub(crate) fn tokenize(text: &str) -> Vec<Token> {
 pub(crate) fn detokenize(tokens: &[Token]) -> String {
     tokens
         .iter()
-        .map(|t| match t {
-            Token::Char(c) => *c,
-            Token::Newline => '\n',
-            Token::Tab => '\t',
+        .filter_map(|t| match t {
+            Token::Char(c) => Some(*c),
+            Token::Newline => Some('\n'),
+            Token::Tab => Some('\t'),
+            Token::Backspace => None,
         })
         .collect()
 }
@@ -63,6 +67,7 @@ pub(crate) fn untypeable(tokens: &[Token], mut typeable: impl FnMut(&Token) -> b
                 Token::Char(c) => *c,
                 Token::Newline => '\n',
                 Token::Tab => '\t',
+                Token::Backspace => '\u{8}',
             };
             if !missing.contains(&c) {
                 missing.push(c);
@@ -80,6 +85,7 @@ pub(crate) fn describe_chars(chars: &[char]) -> String {
         .map(|c| match c {
             '\n' => "newline".to_owned(),
             '\t' => "tab".to_owned(),
+            '\u{8}' => "backspace".to_owned(),
             c => format!("'{c}' (U+{:04X})", *c as u32),
         })
         .collect::<Vec<_>>()

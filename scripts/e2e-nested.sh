@@ -17,7 +17,8 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="${CARGO_TARGET_DIR:-$repo/target}/release/beardictate"
 models="${BD_MODELS_DIR:-/mnt/data/beardictate-dev/models}"
 work="$(mktemp -d)"
-mkdir -p "$work/config/beardictate"
+mkdir -p "$work/config/beardictate" "$work/run"
+chmod 700 "$work/run"
 printf 'models_dir = "%s"\nparagraphs = "auto"\nnotifications = false\n' "$models" > "$work/config/beardictate/settings.toml"
 
 cat > "$work/inner.sh" <<INNER
@@ -27,18 +28,25 @@ sleep 2
 export DISPLAY=:99
 unset WAYLAND_DISPLAY
 : > "$work/typed.txt"
-xterm -geometry 100x20+0+0 -e bash -c "stty -icanon -echo; cat > '$work/typed.txt'" &
+# Canonical mode, so Backspace really erases ("scratch that"); each line
+# reaches the file when it ends, and the last one at the final Return.
+xterm -geometry 100x20+0+0 -e bash -c "stty -echo; cat > '$work/typed.txt'" &
 sleep 2
+# Its own runtime dir: the control socket lives there, so neither the test
+# app nor `--toggle` can ever reach a beardictate the user is running.
+export XDG_RUNTIME_DIR="$work/run"
 XDG_SESSION_TYPE=x11 XDG_CONFIG_HOME="$work/config" XDG_DATA_HOME="$work/data" XDG_STATE_HOME="$work/state" \
     BD_TEST_WAV="$wav" "$bin" > "$work/app.log" 2>&1 &
 app=\$!
-for i in \$(seq 1 120); do grep -q "models loaded" "$work/app.log" && break; sleep 1; done
+for i in \$(seq 1 120); do grep -q "models loaded" "$work/app.log" && break; kill -0 \$app 2>/dev/null || break; sleep 1; done
+if ! grep -q "models loaded" "$work/app.log"; then echo "app did not start" >&2; kill %1 %2 2>/dev/null; exit 1; fi
 xdotool search --class xterm windowfocus; sleep 1
 xdotool key F24; sleep 0.5          # the first XTEST key on a fresh server is lost
 xdotool key ctrl+alt+space          # start (the global hotkey)
 sleep $listen
-XDG_RUNTIME_DIR="\$XDG_RUNTIME_DIR" "$bin" --toggle   # stop
+"$bin" --toggle                     # stop (via this test's own socket)
 sleep 25                            # let the last sentences be cleaned and typed
+xdotool key Return                  # hand the last line to the file
 kill \$app; sleep 2; kill %1 %2 2>/dev/null || true
 INNER
 chmod +x "$work/inner.sh"

@@ -3,6 +3,7 @@
 use crate::config::{NewlineKey, PasteChord};
 use crate::text::Token;
 
+pub(crate) const XK_BACKSPACE: u32 = 0xff08;
 pub(crate) const XK_TAB: u32 = 0xff09;
 pub(crate) const XK_RETURN: u32 = 0xff0d;
 pub(crate) const XK_INSERT: u32 = 0xff63;
@@ -44,6 +45,7 @@ pub(crate) fn token_stroke(token: Token, newline: NewlineKey) -> Stroke {
     match token {
         Token::Char(c) => Stroke::plain(keysym_for_char(c)),
         Token::Tab => Stroke::plain(XK_TAB),
+        Token::Backspace => Stroke::plain(XK_BACKSPACE),
         Token::Newline => Stroke {
             keysym: XK_RETURN,
             shift: newline == NewlineKey::ShiftEnter,
