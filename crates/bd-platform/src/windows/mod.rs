@@ -1,7 +1,9 @@
-//! Windows backend: `SendInput` with `KEYEVENTF_UNICODE`, the Win32
+//! Windows backend: `EM_REPLACESEL` into standard text controls,
+//! `SendInput` with `KEYEVENTF_UNICODE` everywhere else, the Win32
 //! clipboard, and UIPI detection.
 
 mod clipboard;
+mod edit_control;
 mod process;
 mod sendinput;
 
@@ -105,6 +107,17 @@ impl Backend for WindowsBackend {
         tokens: &[Token],
         settings: &Settings,
     ) -> Result<Typed, PlatformError> {
+        // A standard Edit/RichEdit control (Notepad, WordPad, many classic
+        // apps) takes the whole text at once; keystrokes come out mangled in
+        // some (edit_control.rs). Backspaces still go as key presses.
+        if let Some(control) = edit_control::focused(self.hwnd)
+            && let Some(text) = edit_control::text_for(&control, tokens)
+        {
+            if edit_control::insert(&control, &text) {
+                return Ok(Typed::Done);
+            }
+            tracing::warn!("the focused text control didn't answer; typing instead");
+        }
         Ok(sendinput::type_tokens(tokens, settings, self.hwnd))
     }
 

@@ -63,9 +63,12 @@ if ($Stage) {
     }
     $release = "$target\release"
     # llama-cpp-sys copies its DLLs next to the exes only when none is there
-    # yet, so take them from its newest build folder.
-    $llama = Get-ChildItem -Directory "$release\build\llama-cpp-sys-2-*\out" | Sort-Object LastWriteTime | Select-Object -Last 1
-    if (-not (Test-Path "$($llama.FullName)\backends\ggml-vulkan.dll")) { throw "no vulkan-dl build of llama.cpp in $release" }
+    # yet, so take them from its newest vulkan-dl build folder (other feature
+    # sets leave folders without backends).
+    $llama = Get-ChildItem -Directory "$release\build\llama-cpp-sys-2-*\out" |
+        Where-Object { Test-Path "$($_.FullName)\backends\ggml-vulkan.dll" } |
+        Sort-Object { (Get-Item "$($_.FullName)\backends\ggml-vulkan.dll").LastWriteTime } | Select-Object -Last 1
+    if (-not $llama) { throw "no vulkan-dl build of llama.cpp in $release" }
     foreach ($f in "beardictate.exe", "bd.exe", "sherpa-onnx-c-api.dll", "onnxruntime.dll", "onnxruntime_providers_shared.dll") {
         Copy-Item "$release\$f" $out
     }

@@ -66,6 +66,10 @@ pub struct FileArgs {
     /// WAV files (any rate, any channel count). Each is its own passage.
     #[arg(required = true)]
     pub wavs: Vec<PathBuf>,
+    /// Type the text into the focused window as well as printing it, as the
+    /// app would (for testing typing into a given app).
+    #[arg(long)]
+    pub inject: bool,
     #[command(flatten)]
     pub dictate: DictateArgs,
 }
@@ -172,6 +176,19 @@ pub fn file(args: &FileArgs) -> Result<()> {
     let audio: Vec<Vec<f32>> = args.wavs.iter().map(|p| read_wav(p)).collect::<Result<_>>()?;
     let pipeline = spawn_pipeline(&args.dictate)?;
     let reporter = Reporter { verbose: args.dictate.verbose };
+    let mut injector = if args.inject {
+        let mut injector = PlatformInjector::new(InjectorConfig::default())?;
+        injector.prepare()?;
+        eprintln!("typing into the focused window via {}", injector.backend_name());
+        Some(injector)
+    } else {
+        None
+    };
+    let mut handle = |event: &Event| {
+        if let (Some(output), Some(injector)) = (reporter.report(event), injector.as_mut()) {
+            deliver(injector, output, args.dictate.verbose);
+        }
+    };
     let chunk = SAMPLE_RATE as usize / 10;
     for (path, samples) in args.wavs.iter().zip(audio) {
         if args.wavs.len() > 1 {
@@ -183,14 +200,14 @@ pub fn file(args: &FileArgs) -> Result<()> {
         }
         pipeline.end_session();
         for event in pipeline.events() {
-            reporter.report(&event);
+            handle(&event);
             if event == Event::SessionEnded {
                 break;
             }
         }
     }
     for event in pipeline.finish().iter() {
-        reporter.report(&event);
+        handle(&event);
     }
     Ok(())
 }
@@ -276,6 +293,22 @@ pub fn mic(args: &MicArgs) -> Result<()> {
     Ok(())
 }
 
+/// Types (or erases) one piece of delivered text.
+fn deliver(injector: &mut PlatformInjector, output: Output, verbose: bool) {
+    match output {
+        Output::Type(text) => match injector.inject_text(&text) {
+            Ok(outcome) if verbose => eprintln!("(injected: {outcome:?})"),
+            Ok(_) => {}
+            Err(e) => eprintln!("could not type the text: {e}"),
+        },
+        Output::Erase(text) => match injector.erase(&text) {
+            Ok(Erased::Done) => {}
+            Ok(Erased::Refused { reason }) => eprintln!("could not erase it: {reason}"),
+            Err(e) => eprintln!("could not erase it: {e}"),
+        },
+    }
+}
+
 /// Prints (and with `inject`, types) delivered text until the pipeline's
 /// event stream closes. The injector lives on this thread, and asks for any
 /// permission it needs before dictation starts.
@@ -302,18 +335,7 @@ fn spawn_output(events: Receiver<Event>, verbose: bool, inject: bool) -> Result<
         for event in events {
             let Some(output) = reporter.report(&event) else { continue };
             let Some(injector) = injector.as_mut() else { continue };
-            match output {
-                Output::Type(text) => match injector.inject_text(&text) {
-                    Ok(outcome) if verbose => eprintln!("(injected: {outcome:?})"),
-                    Ok(_) => {}
-                    Err(e) => eprintln!("could not type the text: {e}"),
-                },
-                Output::Erase(text) => match injector.erase(&text) {
-                    Ok(Erased::Done) => {}
-                    Ok(Erased::Refused { reason }) => eprintln!("could not erase it: {reason}"),
-                    Err(e) => eprintln!("could not erase it: {e}"),
-                },
-            }
+            deliver(injector, output, verbose);
         }
     });
     match ready.recv() {

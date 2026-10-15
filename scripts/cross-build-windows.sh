@@ -39,8 +39,12 @@ cargo xwin build --release --locked --target "$triple" -p bd-cli -p bd-app \
     --features bd-cli/vulkan-dl,bd-app/vulkan-dl
 release="$target/$triple/release"
 # llama-cpp-sys hard-links its DLLs next to the exes only when none is there
-# yet, so take them from its newest build folder instead.
-out="$(ls -td "$release"/build/llama-cpp-sys-2-*/out | head -1)"
+# yet, so take them from its newest vulkan-dl build folder instead (other
+# feature sets, e.g. a clippy run without vulkan-dl, leave folders without
+# backends).
+out="$(ls -td "$release"/build/llama-cpp-sys-2-*/out/backends/ggml-vulkan.dll 2>/dev/null | head -1)"
+out="${out%/backends/ggml-vulkan.dll}"
+test -n "$out" || { echo "no vulkan-dl build of llama.cpp in $release" >&2; exit 1; }
 
 rm -rf "$stage"
 mkdir -p "$stage"
