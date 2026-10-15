@@ -39,6 +39,8 @@ pub enum Command {
     Toggle,
     /// The settings changed (from the tray menu; already saved).
     Apply(Settings),
+    /// A cleanup model was downloaded or deleted.
+    ModelsChanged,
     Shutdown,
 }
 
@@ -181,6 +183,13 @@ impl<U: Ui> Worker<U> {
                 recv(commands) -> cmd => match cmd {
                     Ok(Command::Toggle) => self.toggle(),
                     Ok(Command::Apply(settings)) => self.apply(settings),
+                    Ok(Command::ModelsChanged) => {
+                        // "auto" may now mean a different model; a failed load
+                        // may now succeed.
+                        if self.settings.cleanup == "auto" || self.load_error.is_some() {
+                            self.request_reload();
+                        }
+                    }
                     Ok(Command::Shutdown) | Err(_) => break,
                 },
                 recv(audio) -> ev => if let Ok(ev) = ev { self.on_audio(ev) },

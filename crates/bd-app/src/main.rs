@@ -10,6 +10,7 @@ mod control;
 mod engine;
 mod icon;
 mod mic;
+mod models;
 mod notify;
 mod settings;
 mod ui;

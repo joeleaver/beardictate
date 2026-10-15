@@ -12,7 +12,9 @@ use rinch::prelude::*;
 use crate::settings::{Punctuation, QuoteMarks, Settings, TrayTheme};
 use crate::ui::{self, Section, Shared, change, check_hotkey};
 
+mod cleanup;
 mod words;
+use cleanup::cleanup_page;
 use words::words;
 
 /// The window's content.
@@ -227,63 +229,6 @@ fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 checked_fn: move || s3.settings.with(|st| st.keep_mic_open),
                 onchange: move || change(&s4, |st| st.keep_mic_open = !st.keep_mic_open),
             }
-        }
-    }
-}
-
-fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
-    let mut options: Vec<(String, String, &'static str)> = vec![
-        ("off".into(), "Off".into(), "Your words as heard, with spoken commands. Fastest."),
-        ("auto".into(), "Automatic".into(), "The largest model installed."),
-    ];
-    for (id, name) in s.installed.iter() {
-        options.push((id.clone(), name.clone(), "Installed on this computer."));
-    }
-    let custom = Signal::new(s.settings.with(|st| {
-        if st.cleanup.ends_with(".gguf") { st.cleanup.clone() } else { String::new() }
-    }));
-    let (s1, s2, s3) = (s.clone(), s.clone(), s.clone());
-    rsx! {
-        div { style: "display: flex; flex-direction: column; gap: 18px;",
-            Title { order: 3, "Cleanup" }
-            Text { size: "sm", color: "dimmed",
-                "After each sentence is transcribed, a small model on your computer drops the ums, fixes punctuation and quotes your dialog."
-            }
-            Stack { gap: "sm",
-                for (value, label, description) in options.clone() {
-                    Radio {
-                        name: "cleanup",
-                        label: label,
-                        description: description,
-                        checked_fn: {
-                            let s = s1.clone();
-                            let value = value.clone();
-                            move || s.settings.with(|st| st.cleanup == value)
-                        },
-                        onchange: {
-                            let s = s2.clone();
-                            let value = value.clone();
-                            move || change(&s, |st| st.cleanup = value.clone())
-                        },
-                    }
-                }
-            }
-            TextInput {
-                label: "Or a model file of your own (.gguf)",
-                placeholder: "/path/to/model.gguf",
-                value_fn: move || custom.get(),
-                oninput: move |v: String| custom.set(v),
-                onsubmit: {
-                    let s = s.clone();
-                    move || {
-                        let path = custom.get();
-                        if !path.trim().is_empty() {
-                            change(&s, |st| st.cleanup = path.trim().to_string());
-                        }
-                    }
-                },
-            }
-            Text { size: "sm", color: "dimmed", {move || ui::status_line(&s3)} }
         }
     }
 }

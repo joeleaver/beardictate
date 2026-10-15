@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 
-use bd_models::Store;
+use crate::models::{self, Models};
 use rinch::hotkey::{self, Binding, HotkeySpec, HotkeyState};
 use rinch::menu::{Menu, MenuItem};
 use rinch::prelude::*;
@@ -27,8 +27,8 @@ pub struct Shared {
     pub hotkey_text: Signal<String>,
     /// The settings window's current section.
     pub section: Signal<Section>,
-    /// Installed catalog cleanup models: (id, name), smallest first.
-    pub installed: Rc<Vec<(String, String)>>,
+    /// The cleanup models: what's downloaded, downloads in progress.
+    pub models: Models,
 }
 
 /// The settings window's sections.
@@ -59,25 +59,14 @@ pub fn change(s: &Shared, edit: impl FnOnce(&mut Settings)) {
 
 impl Shared {
     pub fn new(paths: Paths, settings: Settings) -> Shared {
-        let store = match settings.models_dir.trim() {
-            "" => Store::from_env().ok(),
-            dir => Some(Store::at(dir)),
-        };
-        let installed = store
-            .map(|s| {
-                bd_pipeline::setup::installed_cleanup_models(&s)
-                    .into_iter()
-                    .map(|m| (m.id.clone(), m.name.clone()))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let models = Models::new(models::store(&settings.models_dir).as_ref());
         Shared {
             paths,
             section: Signal::new(Section::General),
             hotkey_text: Signal::new(readable(&settings.hotkey)),
             status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false }),
             settings: Signal::new(settings),
-            installed: Rc::new(installed),
+            models,
         }
     }
 
@@ -211,6 +200,16 @@ pub fn wire(shared: &Shared) {
         untracked(move || {
             tray.set_menu(Some(tray_menu(&s)));
         });
+    });
+
+    // Opening the Cleanup page reads the models folder again, to catch
+    // downloads made with `bd models download` or a changed folder.
+    let s = shared.clone();
+    Effect::new(move || {
+        let dir = s.settings.with(|st| st.models_dir.clone());
+        if s.section.get() == Section::Cleanup {
+            untracked(|| s.models.refresh(models::store(&dir).as_ref()));
+        }
     });
 
     // While listening, the tooltip's clock ticks.
