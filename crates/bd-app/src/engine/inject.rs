@@ -9,6 +9,7 @@ use bd_core::InjectOutcome;
 use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
+use super::{Ui, Worker};
 use crate::settings::Paths;
 
 /// Work for the typing thread.
@@ -80,4 +81,28 @@ pub(super) fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Inject
         })
         .expect("spawning the typing thread");
     (text_tx, report_rx)
+}
+
+impl<U: Ui> Worker<U> {
+    pub(super) fn on_injected(&mut self, report: Injected) {
+        match report {
+            Injected::Ready(backend) => {
+                tracing::info!(backend, "typing ready");
+                if self.injector_error.take().is_some() {
+                    self.publish();
+                }
+            }
+            Injected::LeftOnClipboard(reason) => {
+                self.notifier.notify("clipboard", "Text is on the clipboard", &format!("Couldn't type it ({reason}). Press Ctrl+V to paste."));
+            }
+            Injected::NotErased(reason) => {
+                self.notifier.notify("erase", "Couldn't scratch that", &format!("The text is still there ({reason})."));
+            }
+            Injected::Failed(e) => {
+                self.notifier.notify("inject", "Couldn't type the text", &e);
+                self.injector_error = Some(format!("Can't type into other windows: {e}"));
+                self.publish();
+            }
+        }
+    }
 }
