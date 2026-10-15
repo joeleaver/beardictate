@@ -16,7 +16,7 @@ use std::time::{Duration, Instant, SystemTime};
 use anyhow::{Context, Result};
 use bd_audio::{AudioError, CaptureConfig, CaptureEvent, StreamPolicy};
 use bd_pipeline::{Event, Pipeline};
-use crossbeam_channel::{Receiver, Sender, bounded, never, select, tick, unbounded};
+use crossbeam_channel::{Receiver, Sender, never, select, tick, unbounded};
 
 use crate::mic::Mic;
 use crate::notify::Notifier;
@@ -27,7 +27,7 @@ mod standby;
 use inject::{Injected, TypeJob, spawn_injector};
 
 mod load;
-use load::{load, pipeline_config};
+use load::pipeline_config;
 
 /// After this long without dictating, the next dictation is a new passage:
 /// the cleanup model gets no context from before (you have probably moved on,
@@ -135,6 +135,8 @@ struct Worker<U> {
     standby: bool,
     /// Turn dictation on when the models first load.
     start_on_load: bool,
+    /// What the status says while models load: which, and whether a switch.
+    loading_detail: String,
     /// Always listening was awake when a reload started: wake it again.
     wake_after_load: bool,
     cleaning: bool,
@@ -164,6 +166,7 @@ impl<U: Ui> Worker<U> {
             listening_since: None,
             standby: false,
             start_on_load: true,
+            loading_detail: String::new(),
             wake_after_load: false,
             cleaning: false,
             last_dictation: None,
@@ -211,11 +214,16 @@ impl<U: Ui> Worker<U> {
 
     fn publish(&self) {
         let (state, detail) = if self.loading.is_some() {
-            (State::Loading, "Loading models…".to_string())
+            (State::Loading, self.loading_detail.clone())
         } else if let Some(e) = self.load_error.as_ref().or(self.injector_error.as_ref()) {
             (State::NeedsYou, e.clone())
         } else if self.listening_since.is_some() {
-            (State::Listening, self.cleanup_name.clone())
+            let detail = match (self.reload_when_idle, load::cleanup_label(&self.settings)) {
+                (true, Some(next)) => format!("{} · {next} loads when you stop dictating", self.cleanup_name),
+                (true, None) => format!("{} · cleanup turns off when you stop dictating", self.cleanup_name),
+                _ => self.cleanup_name.clone(),
+            };
+            (State::Listening, detail)
         } else if self.cleaning {
             (State::Cleaning, self.cleanup_name.clone())
         } else if self.standby {
@@ -226,62 +234,6 @@ impl<U: Ui> Worker<U> {
             (State::Idle, self.cleanup_name.clone())
         };
         self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
-    }
-
-    // ---- loading ------------------------------------------------------------
-
-    fn start_load(&mut self) {
-        self.reload_when_idle = false;
-        self.wake_after_load = self.standby && self.listening_since.is_some();
-        self.load_error = None;
-        // Dropping the old pipeline joins its threads, which are idle.
-        self.pipeline = None;
-        let settings = self.settings.clone();
-        let (tx, rx) = bounded(1);
-        thread::Builder::new()
-            .name("bd-load".into())
-            .spawn(move || {
-                let _ = tx.send(load(&settings).map_err(|e| format!("{e:#}")));
-            })
-            .expect("spawning the loader");
-        self.loading = Some(rx);
-        self.publish();
-    }
-
-    fn on_loaded(&mut self, loaded: Result<Loaded, String>) {
-        self.loading = None;
-        match loaded {
-            Ok(l) => {
-                tracing::info!(cleanup = %l.cleanup, "models loaded");
-                self.cleanup_name = format!("Cleanup: {}", l.cleanup);
-                // Settings changed while loading reach it now.
-                l.pipeline.reconfigure(pipeline_config(&self.settings));
-                self.pipeline = Some(l.pipeline);
-                // The first load after starting: dictation comes on, in either
-                // mode. Later loads (a settings change) keep what was.
-                let starting = std::mem::take(&mut self.start_on_load);
-                if starting && self.settings.voice_wake {
-                    self.record_mic(true);
-                }
-                if self.wants_standby() {
-                    let wake = starting || std::mem::take(&mut self.wake_after_load);
-                    self.stand_by(wake);
-                } else if starting
-                    && !self.settings.voice_wake
-                    && let Err(e) = self.start()
-                {
-                    self.notifier.notify("mic", "Microphone problem", &format!("{e:#}"));
-                    self.capture = None;
-                }
-            }
-            Err(e) => {
-                if e != load::NOT_DOWNLOADED {
-                    self.notifier.notify("load", "beardictate can't start", &e);
-                }
-                self.load_error = Some(e);
-            }
-        }
-        self.publish();
     }
 
     fn busy(&self) -> bool {
@@ -475,6 +427,7 @@ impl<U: Ui> Worker<U> {
         let waits = self.cleaning || (self.listening_since.is_some() && !self.standby);
         if waits {
             self.reload_when_idle = true;
+            self.publish();
         } else {
             self.start_load();
         }

@@ -87,12 +87,15 @@ fn row(__scope: &mut RenderScope, s: &Shared, model: &'static bd_models::ModelEn
             }
             match state() {
                 ModelState::Installed => {
-                    let used = in_use(&c.settings.with(|st| st.cleanup.clone()), &states.get()).as_deref() == Some(id);
+                    // Follows the setting, which can change while this stays Installed.
+                    let settings = c.settings;
+                    // Signals and a &'static str: the closure is Copy.
+                    let used = move || in_use(&settings.with(|st| st.cleanup.clone()), &states.get()).as_deref() == Some(id);
                     let c = c.clone();
                     div { style: "display: flex; gap: 8px; align-items: center;",
-                        Text { size: "xs", color: "dimmed", {if used { "In use" } else { "Downloaded" }} }
-                        Button { variant: "subtle", color: "red", size: "xs", disabled: used,
-                            onclick: move || if let Some(st) = store(&c) { c.models.delete(st, id) },
+                        Text { size: "xs", color: "dimmed", {move || if used() { "In use" } else { "Downloaded" }} }
+                        Button { variant: "subtle", color: "red", size: "xs", disabled: {move || in_use(&settings.with(|st| st.cleanup.clone()), &states.get()).as_deref() == Some(id)},
+                            onclick: {let c = c.clone(); move || if let Some(st) = store(&c) { c.models.delete(st, id) }},
                             "Delete"
                         }
                     }

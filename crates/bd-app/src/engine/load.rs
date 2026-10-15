@@ -6,7 +6,11 @@ use bd_models::Store;
 use bd_pipeline::setup::{self, CleanupOptions, CleanupSource};
 use bd_pipeline::{Parts, Pipeline, PipelineConfig};
 
-use super::Loaded;
+use std::thread;
+
+use crossbeam_channel::bounded;
+
+use super::{Loaded, Ui, Worker};
 use crate::settings::{Settings, vocabulary};
 
 /// Why loading stopped on first run. The settings window is open with its
@@ -51,5 +55,81 @@ pub(super) fn pipeline_config(settings: &Settings) -> PipelineConfig {
         voice_wake: live.voice_wake,
         pause_paragraph: live.pause_paragraph,
         ..PipelineConfig::default()
+    }
+}
+
+/// The cleanup model `settings` will load, by name; `None` for none.
+pub(super) fn cleanup_label(settings: &Settings) -> Option<String> {
+    let manifest = bd_models::Manifest::builtin();
+    match settings.cleanup.as_str() {
+        "off" => None,
+        "auto" => {
+            let store = crate::models::store(&settings.models_dir)?;
+            setup::auto_cleanup_model(&store).map(|m| m.name.clone())
+        }
+        id if !id.ends_with(".gguf") => manifest.get(id).map(|m| m.name.clone()),
+        path => std::path::Path::new(path).file_stem().map(|s| s.to_string_lossy().into_owned()),
+    }
+}
+
+impl<U: Ui> Worker<U> {
+    pub(super) fn start_load(&mut self) {
+        self.reload_when_idle = false;
+        self.wake_after_load = self.standby && self.listening_since.is_some();
+        self.load_error = None;
+        let name = cleanup_label(&self.settings);
+        self.loading_detail = match (self.cleanup_name.is_empty(), name) {
+            (true, Some(name)) => format!("Loading {name}…"),
+            (false, Some(name)) => format!("Switching to {name}…"),
+            (_, None) => "Loading the speech models…".into(),
+        };
+        // Dropping the old pipeline joins its threads, which are idle.
+        self.pipeline = None;
+        let settings = self.settings.clone();
+        let (tx, rx) = bounded(1);
+        thread::Builder::new()
+            .name("bd-load".into())
+            .spawn(move || {
+                let _ = tx.send(load(&settings).map_err(|e| format!("{e:#}")));
+            })
+            .expect("spawning the loader");
+        self.loading = Some(rx);
+        self.publish();
+    }
+
+    pub(super) fn on_loaded(&mut self, loaded: Result<Loaded, String>) {
+        self.loading = None;
+        match loaded {
+            Ok(l) => {
+                tracing::info!(cleanup = %l.cleanup, "models loaded");
+                self.cleanup_name = format!("Cleanup: {}", l.cleanup);
+                // Settings changed while loading reach it now.
+                l.pipeline.reconfigure(pipeline_config(&self.settings));
+                self.pipeline = Some(l.pipeline);
+                // The first load after starting: dictation comes on, in either
+                // mode. Later loads (a settings change) keep what was.
+                let starting = std::mem::take(&mut self.start_on_load);
+                if starting && self.settings.voice_wake {
+                    self.record_mic(true);
+                }
+                if self.wants_standby() {
+                    let wake = starting || std::mem::take(&mut self.wake_after_load);
+                    self.stand_by(wake);
+                } else if starting
+                    && !self.settings.voice_wake
+                    && let Err(e) = self.start()
+                {
+                    self.notifier.notify("mic", "Microphone problem", &format!("{e:#}"));
+                    self.capture = None;
+                }
+            }
+            Err(e) => {
+                if e != NOT_DOWNLOADED {
+                    self.notifier.notify("load", "beardictate can't start", &e);
+                }
+                self.load_error = Some(e);
+            }
+        }
+        self.publish();
     }
 }

@@ -102,17 +102,18 @@ pub fn tray_image(status: &Status, theme: TrayTheme) -> TrayIconImage {
 /// stays "beardictate", so the icon doesn't move as this changes.)
 fn tooltip(status: &Status, hotkey: &str) -> String {
     match status.state {
-        State::Loading => "Loading models…".into(),
+        // "Loading Qwen3.5 4B…", "Switching to Gemma 4 E2B…".
+        State::Loading => status.detail.clone(),
         State::Idle => format!("{hotkey} to dictate\n{}", status.detail),
         State::Asleep => format!("Asleep · say \u{201C}bear, wake up\u{201D} or press {hotkey}\n{}", status.detail),
         State::MicOff => "Microphone off · turn it on from this menu".into(),
         State::Listening if status.voice => {
             let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
-            format!("Listening {}:{:02} · say \u{201C}bear, go to sleep\u{201D} or press {hotkey}", secs / 60, secs % 60)
+            format!("Listening {}:{:02} · say \u{201C}bear, go to sleep\u{201D} or press {hotkey}\n{}", secs / 60, secs % 60, status.detail)
         }
         State::Listening => {
             let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
-            format!("Listening {}:{:02} · {hotkey} to stop", secs / 60, secs % 60)
+            format!("Listening {}:{:02} · {hotkey} to stop\n{}", secs / 60, secs % 60, status.detail)
         }
         State::Cleaning => "Finishing the last sentences…".into(),
         State::NeedsYou => format!("Needs you: {}", status.detail),
@@ -125,7 +126,7 @@ pub fn tray_menu(shared: &Shared) -> Menu {
     let hotkey = shared.hotkey_text.get();
     let toggle = || engine_send(engine::Command::Toggle);
     let first = match status.state {
-        State::Loading => MenuItem::new("Loading models…").enabled(false),
+        State::Loading => MenuItem::new(status.detail.clone()).enabled(false),
         State::Listening if status.voice => MenuItem::new(format!("Go to sleep   ({hotkey})")).on_click(toggle),
         State::Asleep => MenuItem::new(format!("Wake up   ({hotkey})")).on_click(toggle),
         State::MicOff => MenuItem::new("Microphone off").enabled(false),
@@ -301,6 +302,7 @@ pub fn is_listening(shared: &Shared) -> bool {
 pub fn main_button(shared: &Shared) -> (&'static str, bool) {
     let status = shared.status.get();
     match (status.state, status.voice) {
+        (State::Loading, _) => ("Loading…", false),
         (State::MicOff, _) => ("Turn microphone on", true),
         (State::Listening, true) => ("Go to sleep", false),
         (State::Asleep, _) => ("Wake up", false),
