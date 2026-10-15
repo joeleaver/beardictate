@@ -9,12 +9,19 @@ use bd_pipeline::{Parts, Pipeline, PipelineConfig};
 use super::Loaded;
 use crate::settings::{Settings, vocabulary};
 
+/// Why loading stopped on first run. The settings window is open with its
+/// download card then, so this needs no notification.
+pub(super) const NOT_DOWNLOADED: &str = "the speech models aren't downloaded yet (open Settings)";
+
 /// Loads every model and starts a pipeline. Runs on its own thread.
 pub(super) fn load(settings: &Settings) -> Result<Loaded> {
     let store = match settings.models_dir.trim() {
         "" => Store::from_env()?,
         dir => Store::at(dir),
     };
+    if crate::models::speech().iter().any(|m| !bd_pipeline::setup::installed(&store, m)) {
+        anyhow::bail!(NOT_DOWNLOADED);
+    }
     let config = pipeline_config(settings);
     let segmenter = setup::load_segmenter(&store)?;
     let asr = setup::load_asr(&store, &config.vocabulary.hotwords(), settings.hotword_boost)?;

@@ -6,6 +6,12 @@
 //! in the settings file, which the menu opens. The work happens in
 //! [`engine`], off the UI thread.
 
+// A tray app: no console window on Windows. (Output then goes only to the
+// log file; `--toggle` reports through its exit code.)
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
+#[cfg(windows)]
+mod autostart;
 mod control;
 mod engine;
 mod icon;
@@ -84,6 +90,7 @@ fn main() {
         }
     };
     let shared = Shared::new(paths, settings);
+    let first_run = shared.models.states.with(|s| !models::missing_speech(s).is_empty());
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
     let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false };
@@ -112,7 +119,8 @@ fn main() {
         title: "beardictate settings".into(),
         width: 780,
         height: 600,
-        visible: !has_tray,
+        // On first run the window opens to download the speech models.
+        visible: !has_tray || first_run,
         // With a tray, closing hides the window; without one it quits.
         on_close_requested: has_tray.then(|| {
             std::sync::Arc::new(|| {

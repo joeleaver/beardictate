@@ -270,7 +270,9 @@ impl<U: Ui> Worker<U> {
                 }
             }
             Err(e) => {
-                self.notifier.notify("load", "beardictate can't start", &e);
+                if e != load::NOT_DOWNLOADED {
+                    self.notifier.notify("load", "beardictate can't start", &e);
+                }
                 self.load_error = Some(e);
             }
         }

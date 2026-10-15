@@ -209,7 +209,9 @@ pub struct Paths {
     pub portal_token: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
-    /// Present while beardictate starts at login.
+    /// Present while beardictate starts at login (not on Windows, which
+    /// uses the registry: see [`crate::autostart`]).
+    #[cfg_attr(windows, allow(dead_code))]
     pub autostart: PathBuf,
 }
 
@@ -254,25 +256,39 @@ impl Paths {
     }
 
     pub fn starts_at_login(&self) -> bool {
-        self.autostart.exists()
+        #[cfg(windows)]
+        {
+            crate::autostart::enabled()
+        }
+        #[cfg(not(windows))]
+        {
+            self.autostart.exists()
+        }
     }
 
     /// Adds or removes the autostart entry, copied from the installed
     /// desktop entry (or written fresh, pointing at this executable).
     pub fn set_start_at_login(&self, on: bool) -> Result<()> {
-        if !on {
-            return match fs::remove_file(&self.autostart) {
-                Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
-                _ => Ok(()),
-            };
+        #[cfg(windows)]
+        {
+            crate::autostart::set(on).context("changing the Run registry value")
         }
-        let exe = std::env::current_exe().context("finding this program")?;
-        let entry = format!(
-            "[Desktop Entry]\nType=Application\nName=beardictate\nComment=Dictation for fiction writers\n\
-             Exec={}\nIcon=beardictate\nTerminal=false\nX-GNOME-Autostart-enabled=true\n",
-            exe.display()
-        );
-        write_atomic(&self.autostart, &entry)
+        #[cfg(not(windows))]
+        {
+            if !on {
+                return match fs::remove_file(&self.autostart) {
+                    Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
+                    _ => Ok(()),
+                };
+            }
+            let exe = std::env::current_exe().context("finding this program")?;
+            let entry = format!(
+                "[Desktop Entry]\nType=Application\nName=beardictate\nComment=Dictation for fiction writers\n\
+                 Exec={}\nIcon=beardictate\nTerminal=false\nX-GNOME-Autostart-enabled=true\n",
+                exe.display()
+            );
+            write_atomic(&self.autostart, &entry)
+        }
     }
 }
 

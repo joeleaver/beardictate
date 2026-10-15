@@ -2,19 +2,28 @@
 //! starts or stops dictation, so any desktop's own shortcut settings can
 //! drive it. The same socket keeps a second copy from starting.
 //!
-//! A Unix socket in `$XDG_RUNTIME_DIR` (or the temp directory), one line per
-//! request. Not on Windows yet, where the global hotkey covers it.
+//! A Unix socket in `$XDG_RUNTIME_DIR` (or the temp directory), or on
+//! Windows a named pipe ([`pipe`]), one line per request.
 
-use std::io::{self, BufRead, BufReader, Write};
-use std::path::PathBuf;
-use std::thread;
-
+#[cfg(not(windows))]
+use std::io;
+#[cfg(unix)]
+use std::io::{BufRead, BufReader, Write};
 #[cfg(unix)]
 use std::os::unix::net::{UnixListener, UnixStream};
+#[cfg(unix)]
+use std::path::PathBuf;
+#[cfg(unix)]
+use std::thread;
 
 use crossbeam_channel::Sender;
 
 use crate::engine::Command;
+
+#[cfg(windows)]
+mod pipe;
+#[cfg(windows)]
+pub use pipe::{listen, send};
 
 /// A request from the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +50,19 @@ impl Request {
     }
 }
 
+/// The reply to one request line.
+fn answer(line: &str, engine: &Sender<Command>) -> &'static str {
+    match Request::parse(line) {
+        Some(Request::Toggle) => {
+            let _ = engine.send(Command::Toggle);
+            "ok"
+        }
+        Some(Request::Ping) => "ok",
+        None => "unknown request",
+    }
+}
+
+#[cfg(unix)]
 fn socket_path() -> PathBuf {
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).unwrap_or_else(std::env::temp_dir);
     dir.join("beardictate.sock")
@@ -57,7 +79,7 @@ pub fn send(request: Request) -> io::Result<()> {
     if reply.trim() == "ok" { Ok(()) } else { Err(io::Error::other(format!("unexpected reply {reply:?}"))) }
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn send(_request: Request) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "not supported on this platform yet"))
 }
@@ -77,21 +99,13 @@ pub fn listen(engine: Sender<Command>) -> io::Result<()> {
             if reader.read_line(&mut line).is_err() {
                 continue;
             }
-            let reply = match Request::parse(&line) {
-                Some(Request::Toggle) => {
-                    let _ = engine.send(Command::Toggle);
-                    "ok"
-                }
-                Some(Request::Ping) => "ok",
-                None => "unknown request",
-            };
-            let _ = writeln!(&stream, "{reply}");
+            let _ = writeln!(&stream, "{}", answer(&line, &engine));
         }
     })?;
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn listen(_engine: Sender<Command>) -> io::Result<()> {
     Ok(())
 }

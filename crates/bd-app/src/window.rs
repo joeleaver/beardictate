@@ -13,8 +13,10 @@ use crate::settings::{Punctuation, QuoteMarks, Settings, TrayTheme};
 use crate::ui::{self, Section, Shared, change, check_hotkey};
 
 mod cleanup;
+mod setup;
 mod words;
 use cleanup::cleanup_page;
+use setup::setup_card;
 use words::words;
 
 /// The window's content.
@@ -32,6 +34,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let (listening, label, button) = (s.clone(), s.clone(), s.clone());
     let (general, mic, cleanup, writing, words, about) =
         (general(__scope, s), microphone(__scope, s), cleanup_page(__scope, s), writing(__scope, s), words(__scope, s), about(__scope, s));
+    let setup = setup_card(__scope, s);
     rsx! {
         div { style: "display: flex; height: 100%; font-size: 14px;",
             div { style: "width: 190px; flex: none; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--rinch-color-default-border);",
@@ -56,6 +59,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 }
             }
             div { style: "flex: 1; min-width: 0; padding: 24px 28px; overflow-y: auto;",
+                {setup}
                 div { style: {move || shown(section.get() == Section::General)}, {general} }
                 div { style: {move || shown(section.get() == Section::Microphone)}, {mic} }
                 div { style: {move || shown(section.get() == Section::Cleanup)}, {cleanup} }

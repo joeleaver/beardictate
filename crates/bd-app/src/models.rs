@@ -1,7 +1,9 @@
-//! The cleanup model manager: the catalog's cleanup models, what's on disk
-//! for each, and downloads and deletes on worker threads. The settings
-//! window's Cleanup page shows it; the engine hears when the set of
-//! downloaded models changes (`Command::ModelsChanged`).
+//! The model manager: the speech models dictation needs and the catalog's
+//! cleanup models, what's on disk for each, and downloads and deletes on
+//! worker threads. The settings window's Cleanup page shows the cleanup
+//! models; its first-run card (`window/setup.rs`) the speech models. The
+//! engine hears when the set of downloaded models changes
+//! (`Command::ModelsChanged`).
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,6 +34,21 @@ pub enum ModelState {
 /// The cleanup models a user can download, smallest first.
 pub fn catalog() -> Vec<&'static ModelEntry> {
     Manifest::builtin().of_kind(ModelKind::Cleanup).filter(|m| m.available).collect()
+}
+
+/// The models dictation can't start without (ASR, VAD).
+pub fn speech() -> Vec<&'static ModelEntry> {
+    Manifest::builtin().models.iter().filter(|m| m.required && m.available).collect()
+}
+
+/// Every model the manager tracks: the speech models, then the catalog.
+fn tracked() -> impl Iterator<Item = &'static ModelEntry> {
+    speech().into_iter().chain(catalog())
+}
+
+/// The speech models not yet downloaded and verified.
+pub fn missing_speech(states: &HashMap<String, ModelState>) -> Vec<&'static ModelEntry> {
+    speech().into_iter().filter(|m| states.get(&m.id) != Some(&ModelState::Installed)).collect()
 }
 
 /// The model store `models_dir` names, or the default one.
@@ -71,7 +88,7 @@ pub struct Models {
 
 impl Models {
     pub fn new(store: Option<&Store>) -> Models {
-        let states = catalog().into_iter().map(|m| (m.id.clone(), on_disk(store, m))).collect();
+        let states = tracked().map(|m| (m.id.clone(), on_disk(store, m))).collect();
         Models { states: Signal::new(states), cancels: Arc::default(), downloader: Downloader::default() }
     }
 
@@ -79,7 +96,7 @@ impl Models {
     /// being downloaded or deleted alone.
     pub fn refresh(&self, store: Option<&Store>) {
         self.states.update(|states| {
-            for m in catalog() {
+            for m in tracked() {
                 let busy = matches!(states.get(&m.id), Some(ModelState::Downloading { .. } | ModelState::Deleting));
                 if !busy {
                     states.insert(m.id.clone(), on_disk(store, m));
@@ -90,7 +107,7 @@ impl Models {
 
     /// Starts (or resumes) downloading `id` into `store`.
     pub fn download(&self, store: Store, id: &str) {
-        let Some(model) = catalog().into_iter().find(|m| m.id == id) else { return };
+        let Some(model) = tracked().find(|m| m.id == id) else { return };
         let cancel = Arc::new(AtomicBool::new(false));
         self.cancels.lock().unwrap_or_else(|e| e.into_inner()).insert(id.to_string(), cancel.clone());
         let total = model.total_size();
@@ -196,5 +213,20 @@ mod tests {
         assert_eq!(in_use("off", &states), None);
         assert_eq!(size(2_300_000_000), "2.3 GB");
         assert_eq!(size(610_000_000), "610 MB");
+    }
+
+    #[test]
+    fn speech_models_are_tracked_and_missing_until_installed() {
+        let speech = speech();
+        let kinds: Vec<ModelKind> = speech.iter().map(|m| m.kind).collect();
+        assert!(kinds.contains(&ModelKind::Asr) && kinds.contains(&ModelKind::Vad));
+        let models = Models::new(None);
+        let mut states = models.states.get();
+        assert!(speech.iter().all(|m| states.contains_key(&m.id)));
+        assert_eq!(missing_speech(&states).len(), speech.len());
+        for m in &speech {
+            states.insert(m.id.clone(), ModelState::Installed);
+        }
+        assert!(missing_speech(&states).is_empty());
     }
 }
