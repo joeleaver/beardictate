@@ -75,6 +75,11 @@ pub const TEMPLATES: &[PromptTemplate] = &[
         source: include_str!("../prompts/short-v2.txt"),
     },
     PromptTemplate {
+        id: "short-turns-v2",
+        description: "short-v2's narration-first instructions with short-turns-v1's worked examples: Gemma 4 E2B's best (49% exact, 72% quotes ok, words changed in 21 cases, 2026-10-15 survey).",
+        source: include_str!("../prompts/short-turns-v2.txt"),
+    },
+    PromptTemplate {
         id: "eval-v0",
         description: "The 2026-10-14 seed-bench prompt, kept as a baseline for comparison.",
         source: include_str!("../prompts/eval-v0.txt"),

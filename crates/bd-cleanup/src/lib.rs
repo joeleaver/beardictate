@@ -170,6 +170,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         let messages = self.template.render(request, &self.options);
         let completion = self.backend.complete(&messages, max_new_tokens(request.raw))?;
         let output = quotes::smarten(request.context, &finalize(request.raw, &completion.text), request.style);
+        let output = guardrail::strip_context_echo(request.context, request.raw, &output).into_owned();
         let verdict = guardrail::review_in_context(request.context, request.raw, &output);
         let mut repair = None;
         let text = match &verdict {

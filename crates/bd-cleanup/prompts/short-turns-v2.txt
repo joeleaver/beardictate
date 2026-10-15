@@ -1,0 +1,68 @@
+=== SYSTEM ===
+An author is dictating a novel. Write the dictation the way it would be printed in the book: drop the ums, uhs and stumbles, and mend the sentence breaks.
+
+Most dictation is narration. Use the story so far to decide whether a sentence is a character speaking out loud. If it is, put it in quotation marks, and start a new paragraph when a different character speaks. Leave everything else unquoted, including the narrator's own questions, thoughts and remarks to the reader.
+
+Use only the author's words, in their order.
+
+{style_rule}
+=== USER ===
+Story so far:
+(none: this is the start of the passage)
+
+Dictation:
+Uh, hold the the ladder, Ivy said. It's going to tip.
+
+=== ASSISTANT ===
+{open}Hold the ladder,{close} Ivy said. {open}It's going to tip.{close}
+
+=== USER ===
+Story so far:
+{open}Who's there?{close} Abel called.
+
+Dictation:
+Only me. I've brought bread.
+
+=== ASSISTANT ===
+
+
+{open}Only me. I've brought bread.{close}
+
+=== USER ===
+Story so far:
+The kettle began to whistle.
+
+Dictation:
+Leave it. Marcus pushed back his chair. Um, we need to talk about the boat.
+
+=== ASSISTANT ===
+
+
+{open}Leave it.{close} Marcus pushed back his chair. {open}We need to talk about the boat.{close}
+
+=== USER ===
+Story so far:
+(none: this is the start of the passage)
+
+Dictation:
+The wind came off the sea and the shutters, the shutters banged all night [noise].
+
+=== ASSISTANT ===
+The wind came off the sea, and the shutters banged all night.
+
+=== USER ===
+Story so far:
+Mother turned from the stove. {open}You'll go in the morning.
+
+Dictation:
+And you'll take your brother, she said, he needs the air.
+
+=== ASSISTANT ===
+And you'll take your brother,{close} she said. {open}He needs the air.{close}
+
+=== USER ===
+Story so far:
+{context}
+
+Dictation:
+{raw}

@@ -82,6 +82,12 @@ Rules (enforced by prompt now, by training later): remove fillers/stutters/
 false starts/noise tags; fix caps & punctuation; quote dialog with correct
 dialog-tag punctuation and new paragraph per speaker; **change no other words**.
 
+Small models sometimes start the answer by re-typing the end of the context
+(Gemma 4 E2B in about one segment in ten). Before the guardrail reviews an
+answer, a leading run of at least four words matching the context's last
+words is cut off, keeping any paragraph break or opening quote after it,
+unless the dictation itself starts with those words (`guardrail/echo.rs`).
+
 Guardrail: diff the output against the input at the word level. If the model
 added/changed words beyond the allowed edits (fillers, repeats, casing,
 punctuation; but not turning words into ALL CAPS), the segment doesn't get the
@@ -127,7 +133,7 @@ auto-downloadable, which means ungated weights with a redistributable license.
 |---|---|---|---|
 | **Off** | — | 0 | ASR + spoken commands only. Weak machines, or people who only want raw dictation. |
 | **Qwen3.5 4B** (recommended) | stock Qwen3.5-4B, Q4_K_M, short-v2 prompt | 2.74 GB | The default: "auto" picks it once downloaded. 50% exact, 59% quotes ok on 171 cases; adds quotes to narration in 1 of 30 narration-only cases (short-v1: 11 of 30); changes words in 12 cases. ~1.5 s median on a Radeon 890M. |
-| **Gemma 4 E2B** | stock Gemma 4 E2B, Q4_0, narration-turns-v1 prompt | 2.84 GB | The best dialog recall (47% exact, 71% quotes ok) and about 40% faster, but quotes narration in 4 of 30 and changes words in 36 cases, so not the default. llama.cpp's template engine doesn't know Gemma 4's chat format, so bd-cleanup renders it (`llama/turns.rs`). |
+| **Gemma 4 E2B** | stock Gemma 4 E2B, Q4_0, short-turns-v2 prompt | 2.84 GB | The best dialog recall (49% exact, 72% quotes ok) and about 40% faster, but quotes narration in 5 of 30 and changes words in 21 cases, so not the default. llama.cpp's template engine doesn't know Gemma 4's chat format, so bd-cleanup renders it (`llama/turns.rs`). |
 | *Later: a small/fast tier* | e.g. Qwen3.5-2B with example turns (1.28 GB, ~0.7 s, 36% / 51%), or a Bear fine-tune | ≤ 1.3 GB | Added only when a small or much faster model earns it. The Qwen3 0.6B/1.7B/4B entries and the Bear placeholders were dropped from the catalog until then; saved settings naming them move to Automatic. |
 | **Bring your own GGUF** | user's file | — | Any llama.cpp-compatible model, e.g. Gemma 4 12B (gated on HF, so we can't fetch it for them). |
 | **External endpoint** | — | — | Any OpenAI-compatible server (Ollama, LM Studio, llama-server). Opt-in, with a clear "text leaves this app" note even for localhost. |

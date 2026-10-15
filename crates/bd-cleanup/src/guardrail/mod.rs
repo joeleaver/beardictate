@@ -29,6 +29,7 @@
 
 mod align;
 mod breaks;
+mod echo;
 mod repair;
 mod words;
 
@@ -39,6 +40,7 @@ use std::fmt;
 
 pub use align::RemovalReason;
 pub use breaks::keep_dictated_breaks;
+pub use echo::strip_context_echo;
 pub use repair::{Repair, repair};
 pub use words::{Gap, Tokens, Word, normalize, tokenize};
 
