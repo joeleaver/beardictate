@@ -12,7 +12,7 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     }));
     let choices = [
         ("off", "Off", "Your words as heard, with spoken commands. Fastest."),
-        ("auto", "Automatic", "The largest model you've downloaded."),
+        ("auto", "Automatic", "The recommended model once it's downloaded, otherwise the one you have."),
     ]
     .map(|(value, label, description)| choice(__scope, s, value, label, description));
     let [off, auto] = choices;
@@ -65,7 +65,12 @@ fn row(__scope: &mut RenderScope, s: &Shared, model: &'static bd_models::ModelEn
     let id: &'static str = &model.id;
     let states = s.models.states;
     let state = move || states.with(|m| m.get(id).cloned().unwrap_or(ModelState::Missing));
-    let details = format!("{} · {}", size(model.total_size()), model.license);
+    let details = format!(
+        "{}{} · {}",
+        if model.recommended { "Recommended · " } else { "" },
+        size(model.total_size()),
+        model.license
+    );
     let (a, b, c, d, e) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
     let store = move |s: &Shared| models::store(&s.settings.with(|st| st.models_dir.clone()));
     rsx! {

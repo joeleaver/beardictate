@@ -20,7 +20,7 @@ pub const VAD_MODEL: &str = "vad-silero";
 pub enum CleanupSource {
     /// No cleanup: ASR text with spoken commands applied.
     Off,
-    /// The largest installed catalog model, else off.
+    /// The recommended catalog model if installed, else the largest installed, else off.
     Auto,
     /// A catalog model by id.
     Catalog(String),
@@ -150,9 +150,7 @@ fn resolve_local(source: &CleanupSource, store: &Store) -> Result<Option<(PathBu
             }
             entry
         }
-        // The catalog lists cleanup models smallest first; take the largest
-        // installed one until a hardware probe picks for the user.
-        CleanupSource::Auto => match installed_cleanup_models(store).pop() {
+        CleanupSource::Auto => match auto_cleanup_model(store) {
             Some(entry) => entry,
             None => return Ok(None),
         },
@@ -164,6 +162,16 @@ fn resolve_local(source: &CleanupSource, store: &Store) -> Result<Option<(PathBu
         .ok_or_else(|| anyhow!("catalog entry {} has no .gguf file", entry.id))?;
     let path = store.file_path(entry, &file.path).ok_or_else(|| anyhow!("{} is missing from the store", file.path))?;
     Ok(Some((path, Some(entry))))
+}
+
+/// What "auto" loads: the recommended cleanup model if it's downloaded,
+/// otherwise the largest one that is (the catalog lists them smallest first).
+pub fn auto_cleanup_model(store: &Store) -> Option<&'static ModelEntry> {
+    let mut installed = installed_cleanup_models(store);
+    match installed.iter().position(|m| m.recommended) {
+        Some(i) => Some(installed.swap_remove(i)),
+        None => installed.pop(),
+    }
 }
 
 pub fn installed(store: &Store, model: &ModelEntry) -> bool {

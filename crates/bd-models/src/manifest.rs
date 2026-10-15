@@ -92,6 +92,10 @@ pub struct ModelEntry {
     /// False for catalog placeholders whose weights don't exist yet.
     #[serde(default = "default_true")]
     pub available: bool,
+    /// The one of its kind "auto" chooses when it's downloaded, and the one
+    /// the app suggests downloading. At most one per kind.
+    #[serde(default)]
+    pub recommended: bool,
     /// Base URLs ending in '/', tried in order.
     #[serde(default)]
     pub sources: Vec<String>,
@@ -166,6 +170,7 @@ impl Manifest {
     /// Checks every invariant the store and downloader rely on.
     pub fn validate(&self) -> Result<(), ManifestError> {
         let mut ids = HashSet::new();
+        let mut recommended = HashSet::new();
         for model in &self.models {
             let invalid = |reason: String| ManifestError::Invalid {
                 model: model.id.clone(),
@@ -179,6 +184,9 @@ impl Manifest {
             }
             if model.name.trim().is_empty() || model.license.trim().is_empty() {
                 return Err(invalid("name and license must be non-empty".into()));
+            }
+            if model.recommended && (!model.available || !recommended.insert(model.kind)) {
+                return Err(invalid("recommended: only one available model per kind".into()));
             }
             validate_payload(model).map_err(invalid)?;
             validate_cleanup(model).map_err(invalid)?;
@@ -302,6 +310,15 @@ mod tests {
                 assert!(model.total_size() > 0);
             }
         }
+    }
+
+    #[test]
+    fn only_one_recommended_model_per_kind() {
+        let two = format!("{GOOD}{}", GOOD.replace("vad-x", "vad-y"));
+        assert!(Manifest::parse(&two.replace("license = \"MIT\"", "license = \"MIT\"\n        recommended = true")).is_err());
+        assert!(Manifest::parse(&two).is_ok());
+        let builtin = Manifest::builtin();
+        assert_eq!(builtin.of_kind(ModelKind::Cleanup).filter(|m| m.recommended).count(), 1);
     }
 
     #[test]

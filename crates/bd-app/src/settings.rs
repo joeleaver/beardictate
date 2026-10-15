@@ -53,7 +53,8 @@ pub struct Settings {
     /// two keys (DESIGN.md "Hotkey"). On Wayland the desktop asks to approve
     /// it and may change it.
     pub hotkey: String,
-    /// `auto` (the largest installed), `off`, a catalog id, or a .gguf path.
+    /// `auto` (the recommended model if downloaded, else the largest), `off`,
+    /// a catalog id, or a .gguf path.
     pub cleanup: String,
     /// New paragraph when you say "new paragraph" (and a line break for
     /// "new line"). Off, those words are typed.
@@ -319,7 +320,7 @@ const SETTINGS_HEADER: &str = "\
 # reloads it when you save it here.
 #
 # hotkey: at least two keys, e.g. \"Ctrl+Backquote\" (Ctrl+`), \"Ctrl+Alt+Space\".
-# cleanup: \"auto\" (largest installed model), \"off\", a model id from
+# cleanup: \"auto\" (the recommended model, else the largest you have), \"off\", a model id from
 #   `bd models list`, or the path to a .gguf file.
 # quote_marks: \"double\" or \"single\"; curly_quotes: true or false.
 # blank_line_paragraphs: true for a blank line between paragraphs, false for one return.

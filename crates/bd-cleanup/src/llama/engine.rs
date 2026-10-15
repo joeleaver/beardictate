@@ -14,6 +14,7 @@ use llama_cpp_2::model::{LlamaChatMessage, LlamaChatTemplate, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
 use llama_cpp_2::token::LlamaToken;
 
+use super::turns::Turns;
 use super::{GpuLayers, Job, LlamaConfig, ModelInfo, Sampling, default_threads};
 use crate::{ChatMessage, CleanupError, Completion, GenerationStats};
 
@@ -67,6 +68,7 @@ pub(super) fn serve(
         .ok()
         .and_then(|t| t.to_string().ok());
     let fallback_template = template_source.is_none();
+    let turns = template_source.as_deref().and_then(Turns::detect);
     let template = model
         .chat_template(None)
         .or_else(|_| LlamaChatTemplate::new("chatml"))
@@ -78,7 +80,10 @@ pub(super) fn serve(
             return;
         }
     };
-    let suppress_thinking = template_source.as_deref().is_some_and(|s| s.contains("enable_thinking"));
+    // Qwen-style templates think unless told not to, with `<think>` blocks.
+    // Others (Gemma 4: `<|channel>thought`, off by default) need nothing.
+    let suppress_thinking =
+        template_source.as_deref().is_some_and(|s| s.contains("enable_thinking") && s.contains("<think>"));
     let info = ModelInfo {
         path: config.model_path.clone(),
         n_params: model.n_params(),
@@ -95,6 +100,7 @@ pub(super) fn serve(
         ctx,
         template,
         suppress_thinking,
+        turns,
         n_batch: config.n_batch as usize,
         sampling: config.sampling,
         cached: Vec::new(),
@@ -113,6 +119,8 @@ struct Engine<'m> {
     ctx: LlamaContext<'m>,
     template: LlamaChatTemplate,
     suppress_thinking: bool,
+    /// Rendered here: llama.cpp can't apply this model's template.
+    turns: Option<Turns>,
     n_batch: usize,
     sampling: Sampling,
     /// Tokens whose keys and values are in the KV cache, in order.
@@ -140,6 +148,11 @@ impl Engine<'_> {
     }
 
     fn render(&self, messages: &[ChatMessage]) -> Result<String, CleanupError> {
+        if let Some(turns) = self.turns {
+            let prompt = turns.render(messages);
+            tracing::trace!(%prompt, "rendered prompt");
+            return Ok(prompt);
+        }
         let chat = messages
             .iter()
             .map(|m| LlamaChatMessage::new(m.role.as_str().to_string(), m.content.clone()))

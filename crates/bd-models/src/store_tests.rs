@@ -15,6 +15,7 @@ fn entry(id: &str, files: &[(&str, &[u8])]) -> ModelEntry {
         homepage: None,
         required: false,
         available: true,
+        recommended: false,
         sources: vec!["https://example.invalid/".into()],
         files: files
             .iter()

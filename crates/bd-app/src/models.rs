@@ -68,11 +68,16 @@ fn on_disk(store: Option<&Store>, model: &ModelEntry) -> ModelState {
 }
 
 /// The model `cleanup` (a setting: "auto", "off", an id or a path) loads,
-/// if it is a catalog model: "auto" is the largest downloaded.
+/// if it is a catalog model: "auto" is the recommended one if downloaded,
+/// else the largest downloaded (as `setup::auto_cleanup_model` decides).
 pub fn in_use(cleanup: &str, states: &HashMap<String, ModelState>) -> Option<String> {
     let installed = |id: &str| states.get(id) == Some(&ModelState::Installed);
     match cleanup {
-        "auto" => catalog().iter().rev().map(|m| m.id.clone()).find(|id| installed(id)),
+        "auto" => {
+            let catalog = catalog();
+            let recommended = catalog.iter().find(|m| m.recommended && installed(&m.id));
+            recommended.or_else(|| catalog.iter().rev().find(|m| installed(&m.id))).map(|m| m.id.clone())
+        }
         id if installed(id) => Some(id.to_string()),
         _ => None,
     }
@@ -201,16 +206,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn auto_uses_the_largest_downloaded_model() {
-        let ids: Vec<String> = catalog().iter().map(|m| m.id.clone()).collect();
-        let largest = ids.last().expect("the catalog has a cleanup model").clone();
-        let mut states: HashMap<String, ModelState> = ids.iter().map(|id| (id.clone(), ModelState::Missing)).collect();
+    fn auto_prefers_the_recommended_model() {
+        let catalog = catalog();
+        let recommended = catalog.iter().find(|m| m.recommended).expect("a recommended cleanup model").id.clone();
+        let other = catalog.iter().find(|m| !m.recommended).expect("another cleanup model").id.clone();
+        let mut states: HashMap<String, ModelState> =
+            catalog.iter().map(|m| (m.id.clone(), ModelState::Missing)).collect();
         assert_eq!(in_use("auto", &states), None);
-        for id in &ids {
-            states.insert(id.clone(), ModelState::Installed);
-        }
-        assert_eq!(in_use("auto", &states), Some(largest));
-        assert_eq!(in_use(&ids[0], &states), Some(ids[0].clone()));
+        states.insert(other.clone(), ModelState::Installed);
+        assert_eq!(in_use("auto", &states), Some(other.clone()), "without the recommended one, what there is");
+        states.insert(recommended.clone(), ModelState::Installed);
+        assert_eq!(in_use("auto", &states), Some(recommended));
+        assert_eq!(in_use(&other, &states), Some(other));
         assert_eq!(in_use("off", &states), None);
         assert_eq!(in_use("cleanup-gone-from-the-catalog", &states), None);
         assert_eq!(size(2_300_000_000), "2.3 GB");

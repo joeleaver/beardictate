@@ -126,7 +126,8 @@ auto-downloadable, which means ungated weights with a redistributable license.
 | Choice | Weights | Approx. size | Who it's for |
 |---|---|---|---|
 | **Off** | — | 0 | ASR + spoken commands only. Weak machines, or people who only want raw dictation. |
-| **Qwen3.5 4B** (the catalog today) | stock Qwen3.5-4B, Q4_K_M, short-v1 prompt | 2.74 GB | Everyone, for now (Joe, 2026-10-15). Best stock model in the October 2026 survey: 51% exact, 64% quotes ok on 171 cases vs Qwen3-4B's 33% / 49%, at about the same latency (~1.5 s median on a Radeon 890M). |
+| **Gemma 4 E2B** (recommended) | stock Gemma 4 E2B, Q4_0, short-turns-v1 prompt | 2.84 GB | The default (Joe, 2026-10-15): "auto" picks it once downloaded. 47% exact, 71% quotes ok (the best quote score), ~0.85 s median: about 40% faster than Qwen3.5-4B. llama.cpp's template engine doesn't know Gemma 4's chat format, so bd-cleanup renders it (`llama/turns.rs`). |
+| **Qwen3.5 4B** | stock Qwen3.5-4B, Q4_K_M, short-v1 prompt | 2.74 GB | The most often fully right: 51% exact, 64% quotes ok on 171 cases vs Qwen3-4B's 33% / 49%, ~1.5 s median on a Radeon 890M. |
 | *Later: a small/fast tier* | e.g. Qwen3.5-2B with example turns (1.28 GB, ~0.7 s, 36% / 51%), or a Bear fine-tune | ≤ 1.3 GB | Added only when a small or much faster model earns it. The Qwen3 0.6B/1.7B/4B entries and the Bear placeholders were dropped from the catalog until then; saved settings naming them move to Automatic. |
 | **Bring your own GGUF** | user's file | — | Any llama.cpp-compatible model, e.g. Gemma 4 12B (gated on HF, so we can't fetch it for them). |
 | **External endpoint** | — | — | Any OpenAI-compatible server (Ollama, LM Studio, llama-server). Opt-in, with a clear "text leaves this app" note even for localhost. |

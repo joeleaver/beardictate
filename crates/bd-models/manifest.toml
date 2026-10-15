@@ -66,14 +66,15 @@ files = [
 
 # --- Cleanup ---------------------------------------------------------------
 #
-# One model for now (Joe, 2026-10-15): Qwen3.5-4B with the short-v1 prompt,
-# the best stock model in the October 2026 survey (51% exact, 64% quotes ok
-# on 171 cases, vs Qwen3-4B's 33% / 49%, at about the same latency). The
-# Qwen3 entries and the Bear placeholders were removed until a small or much
-# faster model earns a place. Unsloth's ungated, Apache-2.0 GGUF repo; hash
-# from the HF tree API `lfs.oid` at the pinned commit. Qwen3.5 is a hybrid
-# thinking model; cleanup runs it with thinking off. Sampling is greedy: the
-# task is copy-with-edits, not generation.
+# From the October 2026 survey (171 cases, Radeon 890M), Joe 2026-10-15:
+# - Gemma 4 E2B with short-turns-v1, recommended: 47% exact, 71% quotes ok,
+#   ~0.85 s median, about 40% faster than Qwen3.5-4B.
+# - Qwen3.5-4B with short-v1: 51% exact, 64% quotes ok, ~1.5 s median.
+# (Qwen3-4B, the old default, scored 33% / 49%.) The Qwen3 entries and the
+# Bear placeholders were removed until a small or much faster model earns a
+# place. Both repos are ungated and Apache-2.0; hashes from the HF tree API
+# `lfs.oid` at the pinned commits. Thinking stays off. Sampling is greedy:
+# the task is copy-with-edits, not generation.
 
 # Pinned commit e87f176479d0855a907a41277aca2f8ee7a09523 (2026-03-02).
 [[model]]
@@ -90,6 +91,34 @@ files = [
 ]
 [model.cleanup]
 prompt_template = "short-v1"
+thinking = false
+[model.cleanup.sampling]
+temperature = 0.0
+top_k = 0
+top_p = 1.0
+min_p = 0.0
+repeat_penalty = 1.0
+presence_penalty = 0.0
+max_tokens = 512
+
+# ggml-org's Q4_0 build. Pinned commit b4243c156154b6dca9324415f8c7ccc098b4aed1.
+# llama.cpp's built-in template engine doesn't know Gemma 4's chat format;
+# bd-cleanup renders it itself (llama/turns.rs).
+[[model]]
+id = "cleanup-gemma-4-e2b-q4_0"
+kind = "cleanup"
+name = "Gemma 4 E2B"
+license = "Apache-2.0"
+homepage = "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF"
+recommended = true
+sources = [
+    "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/",
+]
+files = [
+    { path = "gemma-4-E2B-it-Q4_0.gguf", size = 2841481184, sha256 = "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52" },
+]
+[model.cleanup]
+prompt_template = "short-turns-v1"
 thinking = false
 [model.cleanup.sampling]
 temperature = 0.0

@@ -205,6 +205,7 @@ pub fn model(id: &str, files: &[(&str, &[u8])], sources: Vec<String>) -> ModelEn
         homepage: None,
         required: false,
         available: true,
+        recommended: false,
         sources,
         files: files
             .iter()

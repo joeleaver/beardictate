@@ -29,7 +29,7 @@ impl StyleArg {
 #[derive(Debug, Args)]
 pub struct CleanupArgs {
     /// `off`, a catalog id (see `bd models list`), or a path to a .gguf
-    /// file. Default: the largest installed catalog cleanup model, else off.
+    /// file. Default: the recommended catalog cleanup model if installed, else the largest installed, else off.
     #[arg(long, value_name = "off|ID|PATH")]
     pub cleanup: Option<String>,
     /// Use an OpenAI-compatible server instead, e.g. http://localhost:8080/v1.

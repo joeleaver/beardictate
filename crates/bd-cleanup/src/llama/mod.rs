@@ -7,6 +7,7 @@
 //! channel, one at a time.
 
 mod engine;
+mod turns;
 
 use std::path::PathBuf;
 use std::sync::{OnceLock, mpsc};
