@@ -116,6 +116,8 @@ pub struct Paths {
     pub words: PathBuf,
     /// The Wayland remote-input approval, so the desktop asks only once.
     pub portal_token: PathBuf,
+    /// This run's log (replaced each start).
+    pub log: PathBuf,
 }
 
 impl Paths {
@@ -127,6 +129,7 @@ impl Paths {
             settings: config.join("settings.toml"),
             words: config.join("words.txt"),
             portal_token: dirs.data_local_dir().join("portal-token"),
+            log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
         })
     }
 

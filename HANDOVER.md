@@ -42,6 +42,7 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | `eval/`, `training/` | **Committed.** ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
 | `bd-pipeline` | **Committed.** Threads segment → ASR → (commands, cleanup, join), `Event` stream out, `Feeder` handle in. Scratch-that drops queued/in-cleanup segments, restores quote state; `ScratchTooLate` otherwise. The caller delivers text (so hold-to-talk can queue until key-up). |
 | `bd-vocab` | **Committed.** The user's names/invented words: a list (`Ysolde: Ussel, Isolde`) giving ASR hotwords plus a whole-word fix-up pass before the command pass. See `eval/vocab/README.md` for the measurements. |
+| `bd-app` | **Committed.** The tray app, binary `beardictate` (rinch main 2421e4ec). Tray glyph states, hotkey toggle (default Ctrl+Alt+Space), menu: cleanup / paragraphs / quotes / word list / settings file. Engine thread owns mic+pipeline; typing thread; settings + words files watched. `beardictate --toggle`, single instance, window fallback with no tray, log at `~/.local/state/beardictate/beardictate.log`. Install: `scripts/install-linux.sh`. E2E: `scripts/e2e-nested.sh <wav>`. |
 | `bd-cli` | **Committed.** Binary `bd`: `file`, `mic` (Enter toggles, `--inject`), `models list/download/verify/import`, `devices`, `eval` (outputs.jsonl for `score.py`). Features `vulkan`, `pipewire`. |
 | `design/` | **Committed.** Design-canvas source (`.dc.html` artboards). |
 
@@ -94,7 +95,10 @@ API + tests".
    far was under load avg 17–34).
 5. Fine-tune Bear models per `training/README.md` (rent a GPU; Joe has the
    JarvisLabs skill). They must beat Gemma 4 12B on the eval to ship.
-6. rinch app (tray, settings, first-run) once rinch#1521 + #1520 land.
+6. ~~rinch app~~ first version done (`bd-app`). Next for it: Joe's first run on
+   KDE Wayland (shortcut + remote-input portals untested), a settings window
+   (rebind hotkey, mic, models), first-run flow (DESIGN.md "UI"), rinch
+   notifications (#1535) instead of notify-rust, Windows build/test.
 
 ## Running it (Joe's machine)
 
@@ -128,6 +132,23 @@ $B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases
   PipeWire. Worth fixing in bd-audio.
 - Test audio: Piper TTS works through the venv's `sherpa_onnx`
   (`vits-piper-en_US-ryan-medium` in the dev models dir).
+
+## The app on Joe's machine
+
+Installed 2026-10-14 night under `~/.local` (`scripts/install-linux.sh`), not
+autostarted; `~/.config/beardictate/settings.toml` has
+`models_dir = "/mnt/data/beardictate-dev/models"`. First launch on KDE
+Wayland should ask twice: approve the global shortcut, and allow remote
+input (kept in `~/.local/share/beardictate/portal-token`). Reinstall after
+changes: `CARGO_TARGET_DIR=... scripts/install-linux.sh`.
+
+- Tested only in a nested KWin on a rootless Xwayland (X11 hotkey, XTest
+  typing), via `scripts/e2e-nested.sh`. XTEST from X clients does not reach
+  the Xwayland that a nested KWin starts; use a separate `Xwayland :99
+  -rootless`, and send a throwaway key (F24) first.
+- Mic opens only while dictating (`keep_mic_open = true` to keep pre-roll).
+- Changing cleanup/paragraphs/quotes/words reloads all models (~2–5 s).
+- After 60 s idle, the next dictation is a new passage (no context).
 
 ## External dependencies
 

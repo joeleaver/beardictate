@@ -65,11 +65,6 @@ fn main() {
         eprintln!("beardictate is already running (its bear is in the tray)");
         return;
     }
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("info,llama-cpp-2=warn")))
-        .with_writer(std::io::stderr)
-        .init();
-
     let paths = match Paths::locate() {
         Ok(p) => p,
         Err(e) => {
@@ -77,6 +72,7 @@ fn main() {
             std::process::exit(1);
         }
     };
+    init_logging(&paths.log);
     let settings = match paths.load() {
         Ok(s) => s,
         Err(e) => {
@@ -130,6 +126,31 @@ fn main() {
     TRAY.with(|t| t.borrow_mut().take());
 }
 
+/// Logs to stderr and to `log` (started fresh each run), so a run started
+/// from the app menu still leaves a trace.
+fn init_logging(log: &std::path::Path) {
+    use std::io::Write;
+    let file = log.parent().and_then(|d| std::fs::create_dir_all(d).ok()).and_then(|()| std::fs::File::create(log).ok());
+    let file = std::sync::Arc::new(std::sync::Mutex::new(file));
+    struct Tee(std::sync::Arc<std::sync::Mutex<Option<std::fs::File>>>);
+    impl Write for Tee {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if let Some(f) = self.0.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
+                let _ = f.write_all(buf);
+            }
+            std::io::stderr().write(buf)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            std::io::stderr().flush()
+        }
+    }
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("info,llama-cpp-2=warn")))
+        .with_ansi(false)
+        .with_writer(move || Tee(file.clone()))
+        .init();
+}
+
 /// The status window, hidden until "About beardictate" opens it. Mounted at
 /// startup, so it also starts the engine and the hotkey and keeps the tray
 /// in step with the state.
@@ -148,6 +169,7 @@ fn app() -> NodeHandle {
     ui::wire(&shared);
     let words = format!("Word list: {}", shared.paths.words.display());
     let settings_file = format!("Settings: {}", shared.paths.settings.display());
+    let log_file = format!("Log: {}", shared.paths.log.display());
     let listening = shared.clone();
     rsx! {
         div { style: "padding: 24px; display: flex; flex-direction: column; gap: 12px;",
@@ -155,6 +177,7 @@ fn app() -> NodeHandle {
             Text { {move || ui::status_line(&shared)} }
             Text { color: "dimmed", {words} }
             Text { color: "dimmed", {settings_file} }
+            Text { color: "dimmed", {log_file} }
             Group {
                 Button { onclick: || engine_send(engine::Command::Toggle),
                     {move || if ui::is_listening(&listening) { "Stop dictating" } else { "Start dictating" }}
