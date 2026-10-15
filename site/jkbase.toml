@@ -1,0 +1,8 @@
+[project]
+name = "beardictate"
+# The publish tooling and its notes stay on this machine; only public/ is served.
+ignore = ["README.md", "publish.sh", ".gitignore"]
+
+[hosting]
+public = "public"
+spa = false

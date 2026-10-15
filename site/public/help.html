@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>beardictate help</title>
+<meta name="description" content="How to use beardictate: the shortcut, waking and sleeping the bear, voice commands, special words, system requirements and common questions.">
+<meta name="theme-color" content="#0E1A30">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/mark-96.png" type="image/png" sizes="96x96">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/assets/mark.svg" alt="" width="34" height="34">beardictate</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#how">How it works</a>
+      <a href="/help.html" aria-current="page">Help</a>
+      <a href="/download.html">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="page-head">
+    <div class="wrap">
+      <h1>Using beardictate</h1>
+      <p>Everything you need to start dictating, in the order you’ll need it.</p>
+    </div>
+  </div>
+
+  <div class="help">
+    <nav class="toc" aria-label="On this page">
+      <ol>
+        <li><a href="#first-run">First run</a></li>
+        <li><a href="#talking">Starting and stopping</a></li>
+        <li><a href="#commands">Voice commands</a></li>
+        <li><a href="#words">Special words</a></li>
+        <li><a href="#settings">Settings worth knowing</a></li>
+        <li><a href="#requirements">System requirements</a></li>
+        <li><a href="#faq">Questions</a></li>
+      </ol>
+    </nav>
+
+    <article>
+      <section>
+        <h2 id="first-run">First run</h2>
+        <p>The first time you start beardictate, it downloads the models it needs: a speech model of about 640 MB, then a cleanup model of 0.6 to 2.5 GB. It picks the cleanup model by trying it on your computer, so a fast machine gets a bigger model and a laptop gets one that keeps up. Every file is checked against a known checksum, and an interrupted download resumes where it stopped.</p>
+        <p>You can start dictating as soon as the speech model is in. Until the cleanup model arrives, you get your words with punctuation but without the tidying.</p>
+        <p>beardictate lives in your system tray as a small bear. Its colour shows what it’s doing: loading, listening, cleaning up, or asleep. On Windows, new tray icons hide in the overflow menu, so drag the bear onto the taskbar where you can see it.</p>
+      </section>
+
+      <section>
+        <h2 id="talking">Starting and stopping</h2>
+        <p>Put your cursor where you want the text, in any app, and talk. beardictate types each sentence a moment after you finish it, while you’re already saying the next.</p>
+        <h3>Wake and sleep by voice</h3>
+        <p>The microphone stays on while beardictate runs. Say <q>bear, wake up</q> to start typing and <q>bear, go to sleep</q> to stop. While it’s asleep, nothing you say is typed or kept. Turn the microphone off completely from the tray menu.</p>
+        <h3>The shortcut</h3>
+        <p>Press <kbd>Ctrl</kbd>+<kbd>`</kbd> (the key left of <kbd>1</kbd>) to wake or sleep it. You can change the shortcut in Settings. It must use at least two keys, so you can’t set it off by accident.</p>
+        <p>If you’d rather the microphone were only on while you dictate, turn off <em>Always listening</em> in Settings. The shortcut then switches the microphone and typing on and off together.</p>
+      </section>
+
+      <section>
+        <h2 id="commands">Voice commands</h2>
+        <p>Say these as part of what you’re dictating. They’re recognised by fixed rules, so they always work the same way, and phrases like <q>the new paragraph</q> in your prose are left as words.</p>
+        <table>
+          <thead><tr><th scope="col">Say</th><th scope="col">What happens</th></tr></thead>
+          <tbody>
+            <tr><td>new paragraph</td><td>Starts a new paragraph.</td></tr>
+            <tr><td>new line</td><td>Starts a new line.</td></tr>
+            <tr><td>open quote … close quote</td><td>Puts what’s between them in quotation marks. Also <q>quote … end quote</q>, <q>unquote</q>.</td></tr>
+            <tr><td>scratch that</td><td>Removes the last sentence. If it’s already been typed, it’s erased. Say it again to go back further.</td></tr>
+            <tr><td>bear, wake up</td><td>Starts typing what you say.</td></tr>
+            <tr><td>bear, go to sleep</td><td>Stops typing. What you said before it is still typed.</td></tr>
+          </tbody>
+        </table>
+        <p>You usually don’t need the quote commands: beardictate recognises dialog and adds the quotes for you. Use them when it guesses wrong or when you want to be sure.</p>
+      </section>
+
+      <section>
+        <h2 id="words">Special words</h2>
+        <p>Fantasy names, invented places, a character called Ysolde: speech recognition has never heard them. Add them under <em>Special words</em> in Settings, with any ways it tends to mishear them:</p>
+        <pre><code>Ysolde: Isolde, Ussel</code></pre>
+        <p>beardictate listens harder for those words and corrects the mishearings to your spelling. Keep a group of words per book and switch groups on and off as you move between projects.</p>
+      </section>
+
+      <section>
+        <h2 id="settings">Settings worth knowing</h2>
+        <h3>Paragraphs</h3>
+        <p>By default a new paragraph starts where you say <q>new paragraph</q> and when a different character starts speaking. You can also have one start when you pause for a few seconds, and choose between a blank line or a single return between paragraphs.</p>
+        <h3>Quotation marks</h3>
+        <p>Double or single quotes, curly or straight, and US placement (<q>To the river,</q> he said) or UK placement, where punctuation goes inside the quotes only when it belongs to the speech. Match whatever your manuscript uses.</p>
+        <h3>Cleanup model</h3>
+        <p>Pick a smaller model if typing feels slow, or a larger one for better dialog. <em>Off</em> types exactly what the speech model heard, with only your voice commands applied.</p>
+      </section>
+
+      <section>
+        <h2 id="requirements">System requirements</h2>
+        <table>
+          <tbody>
+            <tr><td>Windows</td><td>Windows 10 or 11, 64-bit. The installer is coming soon.</td></tr>
+            <tr><td>Linux</td><td>64-bit x86. KDE Plasma or GNOME on Wayland, or X11.</td></tr>
+            <tr><td>macOS</td><td>Planned after Windows.</td></tr>
+            <tr><td>Memory</td><td>8 GB is enough. With 16 GB or more it can use a larger cleanup model.</td></tr>
+            <tr><td>Graphics</td><td>Not needed. A graphics card (NVIDIA, AMD or Intel, through Vulkan) makes cleanup faster.</td></tr>
+            <tr><td>Disk</td><td>About 640 MB for the speech model, plus 0.6 to 2.5 GB for the cleanup model.</td></tr>
+            <tr><td>Microphone</td><td>Any. A headset mic gives the cleanest results in a noisy room.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 id="faq">Questions</h2>
+        <dl class="faq">
+          <dt>Does anything I say get sent anywhere?</dt>
+          <dd>No. Speech recognition and cleanup run on your computer. The only time beardictate uses the internet is to download its models, and you can even import those from a folder instead.</dd>
+
+          <dt>Will it change what I wrote?</dt>
+          <dd>Only in the ways you’d want: punctuation, capitals, quotes, paragraphs, and removing ums and repeated words. Every sentence is compared with what you said, and if the cleanup changed any other word, you get your own words instead.</dd>
+
+          <dt>Which apps does it work in?</dt>
+          <dd>Anything you can type into: Word, Scrivener, Google Docs in a browser, Obsidian, a plain text editor.</dd>
+
+          <dt>Why does it need such a big download?</dt>
+          <dd>The models that understand speech and tidy prose are what let it work without the cloud. They download once, and the app itself stays small.</dd>
+
+          <dt>Windows warns me the installer is from an unknown publisher.</dt>
+          <dd>Early builds may not be code-signed yet. Check the file’s SHA-256 against the one on the <a href="/download.html#verify">download page</a>, then choose <em>More info</em> and <em>Run anyway</em>.</dd>
+
+          <dt>Does it work in languages other than English?</dt>
+          <dd>The speech model understands 25 European languages, but the cleanup and voice commands are built for English fiction for now.</dd>
+
+          <dt>Is it really free?</dt>
+          <dd>Yes. It’s open source under the MIT license, and the models it uses are openly licensed.</dd>
+        </dl>
+      </section>
+    </article>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>beardictate is free software under the MIT license. Models are downloaded separately under their own licenses.</p>
+    <p>This site sets no cookies and loads nothing from anyone else.</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "platforms": [
+    {
+      "id": "windows",
+      "name": "Windows",
+      "requirements": "Windows 10 or 11, 64-bit",
+      "pending": "The Windows installer is being tested now. It will appear here as soon as it’s ready."
+    },
+    {
+      "id": "linux",
+      "name": "Linux",
+      "requirements": "64-bit x86, KDE Plasma or GNOME on Wayland, or X11",
+      "pending": "There’s no ready-made Linux build yet. You can build and install it from source today: see below."
+    },
+    {
+      "id": "macos",
+      "name": "macOS",
+      "requirements": "Apple Silicon or Intel",
+      "pending": "macOS support is planned after Windows."
+    }
+  ],
+  "builds": [
+    {
+      "platform": "windows",
+      "version": "0.1.0",
+      "kind": "Installer",
+      "file": "beardictate-0.1.0-windows-x64-setup.exe",
+      "size": 0,
+      "sha256": "",
+      "date": "",
+      "placeholder": true
+    },
+    {
+      "platform": "linux",
+      "version": "0.1.0",
+      "kind": "AppImage",
+      "file": "beardictate-0.1.0-linux-x86_64.AppImage",
+      "size": 0,
+      "sha256": "",
+      "date": "",
+      "placeholder": true
+    }
+  ]
+}

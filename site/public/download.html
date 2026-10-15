@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Download beardictate</title>
+<meta name="description" content="Download beardictate for Windows, Linux and macOS, with SHA-256 checksums for every file.">
+<meta name="theme-color" content="#0E1A30">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/mark-96.png" type="image/png" sizes="96x96">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/assets/mark.svg" alt="" width="34" height="34">beardictate</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#how">How it works</a>
+      <a href="/help.html">Help</a>
+      <a href="/download.html" aria-current="page">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="page-head">
+    <div class="wrap">
+      <h1>Download beardictate</h1>
+      <p>Free, and yours to keep. The download is small. On first run, beardictate fetches its speech and cleanup models (about 1.3 to 3 GB, depending on your computer) and from then on works offline.</p>
+    </div>
+  </div>
+
+  <section>
+    <div class="wrap">
+      <ul class="platforms" id="platforms">
+        <li class="loading">Loading the download list…</li>
+      </ul>
+      <noscript><p>The download list needs JavaScript. You can read it directly at <a href="/downloads/releases.json">/downloads/releases.json</a>; each file is at /downloads/ followed by its name.</p></noscript>
+    </div>
+  </section>
+
+  <section id="source">
+    <div class="wrap"><div class="prose alt">
+      <h2>Build it from source on Linux</h2>
+      <p>Until a ready-made Linux build is published, you can build and install beardictate yourself. You need a <a href="https://rustup.rs">Rust toolchain</a>, CMake and a C++ compiler. The script installs it for your user only, under <code>~/.local</code>, and adds it to your app menu.</p>
+      <pre><code>git clone https://github.com/joeleaver/beardictate
+cd beardictate
+scripts/install-linux.sh --autostart</code></pre>
+      <p>Leave out <code>--autostart</code> if you don’t want it to start when you log in.</p>
+    </div></div>
+  </section>
+
+  <section id="verify">
+    <div class="wrap">
+      <h2>Check your download</h2>
+      <p class="sub">Each file has a SHA-256 checksum next to its download button. If the checksum of the file you downloaded matches it exactly, the file arrived complete and unchanged.</p>
+      <div class="verify">
+        <div>
+          <h3>Windows (PowerShell)</h3>
+          <pre><code>Get-FileHash .\beardictate-…-setup.exe</code></pre>
+        </div>
+        <div>
+          <h3>Linux</h3>
+          <pre><code>sha256sum beardictate-…</code></pre>
+        </div>
+        <div>
+          <h3>macOS</h3>
+          <pre><code>shasum -a 256 beardictate-…</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap"><div class="prose">
+      <h2>What your computer needs</h2>
+      <p>Any 64-bit computer from the last several years with 8 GB of memory will run it. With 16 GB or a graphics card, it picks a larger cleanup model that handles dialog better. The <a href="/help.html#requirements">help page</a> has the details.</p>
+    </div></div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>beardictate is free software under the MIT license. Models are downloaded separately under their own licenses.</p>
+    <p>This site sets no cookies and loads nothing from anyone else.</p>
+  </div>
+</footer>
+
+<script src="/assets/downloads.js" defer></script>
+</body>
+</html>

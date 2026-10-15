@@ -1,0 +1,3 @@
+# Release binaries are published with publish.sh, never committed. The manifest is.
+public/downloads/*
+!public/downloads/releases.json

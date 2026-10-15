@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>beardictate: dictation for fiction writers</title>
+<meta name="description" content="Talk your story and get clean prose: dialog in quotes, a new paragraph for each speaker, the ums gone. beardictate runs on your own computer, so nothing you say leaves it.">
+<meta name="theme-color" content="#0E1A30">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/mark-96.png" type="image/png" sizes="96x96">
+<link rel="stylesheet" href="/assets/site.css">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/assets/mark.svg" alt="" width="34" height="34">beardictate</a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="/#how">How it works</a>
+      <a href="/help.html">Help</a>
+      <a href="/download.html">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="hero">
+    <div class="wrap">
+      <h1>Talk your story.<br>It lands as prose.</h1>
+      <p class="lede">beardictate types what you say into whatever you write in, already cleaned up the way a novelist would: dialog in quotes, a new paragraph when someone else speaks, the ums and false starts gone. It runs on your own computer, so nothing you say leaves it.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/download.html">Download beardictate</a>
+        <a class="btn btn-quiet" href="#how">See what it fixes</a>
+      </div>
+
+      <div class="scene" id="scene" aria-label="An example: what you say, and what beardictate types">
+        <div class="said" aria-hidden="true">
+          <div class="who"><span class="mic"></span>You, talking</div>
+          <span class="w filler">um so</span> <span class="w">she stopped</span> <span class="w">at the door</span> <span class="w">and said</span>
+          <span class="w">are you coming</span> <span class="w">or not</span>
+          <span class="w filler">uh he</span> <span class="w">he didn't look up</span>
+          <span class="w filler">I'm I'm</span> <span class="w">I'm thinking</span> <span class="w">he said</span>
+        </div>
+        <div class="page">
+          <p class="chapter">Chapter seven</p>
+          <p><span class="s">She stopped at the door and said, “Are you coming or not?”</span></p>
+          <p><span class="s">He didn’t look up.</span> <span class="s">“I’m thinking,” he said.</span><span class="caret" aria-hidden="true"></span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <div class="wrap">
+      <h2>It cleans up as you talk, and leaves your words alone</h2>
+      <p class="sub">Speak the way you would to a friend. While you say the next sentence, beardictate is tidying the last one and typing it where your cursor is: Word, Scrivener, Google Docs, a plain text file, anything.</p>
+
+      <ul class="pairs">
+        <li class="pair">
+          <div><h3>Dialog goes in quotes</h3><p>You don’t say “open quote”. It hears which words are speech and quotes them, with the commas and capitals in the right places and a new paragraph when the speaker changes.</p></div>
+          <div class="heard">she said we're leaving now and he said fine go</div>
+          <div class="typed">She said, “We’re leaving now.”<br>And he said, “Fine. Go.”</div>
+        </li>
+        <li class="pair">
+          <div><h3>The ums disappear</h3><p>Fillers, stutters and false starts come out. Nothing else does.</p></div>
+          <div class="heard"><span class="filler">the the uh</span> the lighthouse was <span class="filler">um</span> dark</div>
+          <div class="typed">The lighthouse was dark.</div>
+        </li>
+        <li class="pair">
+          <div><h3>Commands when you want them</h3><p>Start a paragraph where you choose, or take back the last sentence. You can still say “open quote” if it ever guesses wrong.</p></div>
+          <div class="heard">it was raining <span class="cmd">new paragraph</span> it was snowing <span class="cmd">scratch that</span></div>
+          <div class="typed">It was raining.<span class="note">“It was snowing” is erased, and a new paragraph waits for what you say next.</span></div>
+        </li>
+        <li class="pair">
+          <div><h3>Your characters’ names</h3><p>Teach it the names and invented words of your book, and how it tends to mishear them.</p></div>
+          <div class="heard">isolde drew her sword</div>
+          <div class="typed">Ysolde drew her sword.</div>
+        </li>
+        <li class="pair">
+          <div><h3>It never rewrites you</h3><p>Every sentence is checked against what you actually said. If the cleanup changed a word, you get your own words instead.</p></div>
+          <div class="heard">the house was quiet as a held breath</div>
+          <div class="typed">The house was quiet as a held breath.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <h2>Your book stays on your computer</h2>
+      <p class="sub">Speech recognition and cleanup both run on your own machine. There’s no account and no subscription, and nothing to upload.</p>
+      <div class="facts">
+        <div><h3>No cloud</h3><p>Your voice and your text never leave your computer. Not to us, not to anyone.</p></div>
+        <div><h3>Works offline</h3><p>The first time it runs it downloads its speech and cleanup models. After that it needs no internet at all.</p></div>
+        <div><h3>No special hardware</h3><p>It runs on an ordinary CPU and uses your graphics card if you have one, but never needs one.</p></div>
+        <div><h3>Free and open source</h3><p>MIT licensed. <a href="https://github.com/joeleaver/beardictate">Read the code</a> if you want to know exactly what it does.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap wake">
+      <div>
+        <h2>Always listening, only when you want it to type</h2>
+        <p class="sub">Leave the microphone on while you work. Say “bear, wake up” and it starts typing. Say “bear, go to sleep” and it stops, and nothing you say while it’s asleep is typed or kept. A shortcut (<kbd>Ctrl</kbd>+<kbd>`</kbd> unless you change it) does the same, and the bear in your system tray shows you which it’s doing.</p>
+        <p class="sub">And if a bear in your story is told to go to sleep halfway through a sentence, dictation keeps going.</p>
+      </div>
+      <div class="bubbles" aria-hidden="true">
+        <q class="on">Bear, wake up.</q>
+        <q class="off">Bear, go to sleep.</q>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap">
+      <h2>Write your next chapter out loud</h2>
+      <p class="sub">beardictate is available for Linux today. Windows is being tested now, and macOS will follow.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/download.html">Download</a>
+        <a class="btn btn-quiet" href="/help.html">Read the guide</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p>beardictate is free software under the MIT license. Models are downloaded separately under their own licenses.</p>
+    <p>This site sets no cookies and loads nothing from anyone else.</p>
+  </div>
+</footer>
+
+<script src="/assets/hero.js" defer></script>
+</body>
+</html>
