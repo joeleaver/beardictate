@@ -180,6 +180,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "anyrender"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "499246bec8f10bfc70f5ca4dbcd4b95e448f0b68b3e93ede7f93e47f13f4c5dc"
+dependencies = [
+ "kurbo",
+ "peniko",
+ "raw-window-handle",
+]
+
+[[package]]
+name = "anyrender_vello"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b47ec304e9ee64601df694022e67bb05585351aae2fd6dcf1b6f3293a1713c3"
+dependencies = [
+ "anyrender",
+ "debug_timer",
+ "kurbo",
+ "peniko",
+ "pollster",
+ "rustc-hash 2.1.3",
+ "vello",
+ "wgpu",
+ "wgpu_context",
+]
+
+[[package]]
 name = "app_units"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1373,6 +1401,12 @@ name = "dasp_sample"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c87e182de0887fd5361989c677c4e8f5000cd9491d6d563161a8f3a5519fc7f"
+
+[[package]]
+name = "debug_timer"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da220af51a1a335e9a930beaaef53d261e41ea9eecfb3d973a3ddae1a7284b9c"
 
 [[package]]
 name = "deflate64"
@@ -4344,10 +4378,13 @@ name = "rinch"
 version = "0.1.0"
 source = "git+https://github.com/joeleaver/rinch?rev=422eaa56#422eaa561e4ccb07c014dae99547f37b56545ab6"
 dependencies = [
+ "anyrender",
+ "anyrender_vello",
  "base64 0.22.1",
  "block2 0.6.2",
  "bytemuck",
  "futures-lite",
+ "futures-util",
  "gtk",
  "js-sys",
  "keyboard-types 0.7.0",
@@ -4357,6 +4394,7 @@ dependencies = [
  "parley",
  "peniko",
  "png 0.17.16",
+ "pollster",
  "rinch-components",
  "rinch-core",
  "rinch-debug",
@@ -4366,6 +4404,7 @@ dependencies = [
  "rinch-editor-view",
  "rinch-macros",
  "rinch-platform",
+ "rinch-renderer",
  "rinch-theme",
  "serde_json",
  "softbuffer",
@@ -4373,8 +4412,10 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tray-icon",
+ "vello",
  "wasm-bindgen",
  "web-sys",
+ "wgpu",
  "windows 0.62.2",
  "windows-sys 0.59.0",
  "winit",
@@ -4495,6 +4536,18 @@ dependencies = [
  "peniko",
  "vello",
  "web-time",
+]
+
+[[package]]
+name = "rinch-renderer"
+version = "0.1.0"
+source = "git+https://github.com/joeleaver/rinch?rev=422eaa56#422eaa561e4ccb07c014dae99547f37b56545ab6"
+dependencies = [
+ "rinch-core",
+ "thiserror 1.0.69",
+ "tracing",
+ "vello",
+ "wgpu",
 ]
 
 [[package]]
@@ -6452,6 +6505,16 @@ dependencies = [
  "log",
  "thiserror 2.0.21",
  "web-sys",
+]
+
+[[package]]
+name = "wgpu_context"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7810fecc0b2ea658f21add46e5a8a65ddb310d00b52949a365496984b3f44db5"
+dependencies = [
+ "futures-intrusive",
+ "wgpu",
 ]
 
 [[package]]

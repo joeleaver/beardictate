@@ -42,7 +42,7 @@ toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 # No `file-dialogs`: with `system-tray` it panics on Linux (rinch#1526).
-rinch = { workspace = true, features = ["desktop", "components", "theme", "system-tray", "global-hotkeys", "notifications"] }
+rinch = { workspace = true, features = ["desktop", "components", "theme", "system-tray", "global-hotkeys", "notifications", "gpu"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
