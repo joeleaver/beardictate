@@ -184,22 +184,31 @@ changes: `CARGO_TARGET_DIR=... scripts/install-linux.sh`.
   The Rinch session said it would message the beardictate session as each
   lands; check `gh issue view <n> -R joeleaver/rinch` rather than relying on that.
 
-## Publishing installers (beardictate.jkbase.app)
+## Website and publishing installers (beardictate.jkbase.app)
 
-The website is jkbase project `beardictate`, source in
-`/home/joe/dev/jkbase/sites/beardictate` (jkbase branch
-`feat/beardictate-site`). Installers are hosted there; models still come from
-the pinned URLs in `crates/bd-models/manifest.toml`.
+The site is live as jkbase project `beardictate`: a static site with landing,
+download and help pages, source in `/home/joe/dev/jkbase/sites/beardictate`
+(on jkbase `main` locally as of 2026-10-15, not pushed; jkbase normally merges
+through GitHub PRs). It hosts only the installers; the app downloads models
+from the pinned URLs in `crates/bd-models/manifest.toml`. Deploys use Joe's
+`~/.jkbase` credentials. **Ask Joe before every deploy.**
+
+Publish a build (the download list is data, `public/downloads/releases.json`):
 
     cd /home/joe/dev/jkbase/sites/beardictate
     ./publish.sh add windows 0.1.0 <path/to/beardictate-0.1.0-windows-x64-setup.exe>
+    ./publish.sh add windows 0.1.0 <path/to/beardictate-0.1.0-windows-x64.zip>
     ./publish.sh check     # every listed file present, size + SHA-256 match
-    ./publish.sh deploy    # check, then `jkbase deploy` with Joe's ~/.jkbase credentials
+    ./publish.sh deploy    # check, then `jkbase deploy`
 
-Then commit `public/downloads/releases.json` on that branch (binaries are
-gitignored; the publishing checkout holds the only copy). Platforms:
-windows, linux, macos; `prune <platform> <n>` and `remove <file>` drop old
-builds. **Ask Joe before every deploy.** Details: that folder's README.md.
+Then commit `public/downloads/releases.json`. The binaries are gitignored, so
+the checkout you publish from holds the only copy; `deploy` refuses if a
+listed file is missing or its hash differs. Platforms: windows, linux, macos;
+the button label follows the extension (override with `--kind "…"`).
+`prune <platform> <n>` keeps the newest n versions, `remove <file>` drops
+one. A page-only change is the same `./publish.sh deploy`. The project was
+created with `jkbase project create beardictate`. Details: that folder's
+README.md.
 
 ## Where things live (outside the repo)
 
