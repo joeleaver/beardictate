@@ -67,9 +67,12 @@ files = [
 # --- Cleanup ---------------------------------------------------------------
 #
 # From the October 2026 survey (171 cases, Radeon 890M), Joe 2026-10-15:
-# - Gemma 4 E2B with short-turns-v1, recommended: 47% exact, 71% quotes ok,
-#   ~0.85 s median, about 40% faster than Qwen3.5-4B.
-# - Qwen3.5-4B with short-v1: 51% exact, 64% quotes ok, ~1.5 s median.
+# - Qwen3.5-4B with short-v1, recommended: 51% exact, 64% quotes ok,
+#   ~1.5 s median.
+# - Gemma 4 E2B with short-turns-v1: 47% exact, 71% quotes ok, ~0.85 s
+#   median, but it quotes narration that reads like speech ("Why had he come
+#   back?" and the sentence after it), which the eval doesn't measure; it was
+#   recommended briefly and taken back the same day.
 # (Qwen3-4B, the old default, scored 33% / 49%.) The Qwen3 entries and the
 # Bear placeholders were removed until a small or much faster model earns a
 # place. Both repos are ungated and Apache-2.0; hashes from the HF tree API
@@ -83,6 +86,7 @@ kind = "cleanup"
 name = "Qwen3.5 4B"
 license = "Apache-2.0"
 homepage = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF"
+recommended = true
 sources = [
     "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/",
 ]
@@ -110,7 +114,6 @@ kind = "cleanup"
 name = "Gemma 4 E2B"
 license = "Apache-2.0"
 homepage = "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF"
-recommended = true
 sources = [
     "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/",
 ]
