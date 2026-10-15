@@ -57,6 +57,9 @@ pub struct ParakeetAsr {
     hotwords: Option<RwLock<Hotwords>>,
 }
 
+/// Silence added before and after each segment: 0.3 s.
+const PAD_SAMPLES: usize = SAMPLE_RATE as usize * 3 / 10;
+
 impl ParakeetAsr {
     /// Loads the model from `model_dir`. Takes a few seconds: the encoder is
     /// about 650 MB.
@@ -133,7 +136,13 @@ impl ParakeetAsr {
             Some(h) if !h.encoded.is_empty() => self.recognizer.create_stream_with_hotwords(&h.encoded),
             _ => self.recognizer.create_stream(),
         };
-        stream.accept_waveform(SAMPLE_RATE as i32, samples);
+        // Parakeet loses words in audio cut tight to the speech, as the VAD
+        // cuts it: a short "new paragraph" came out as "Yeah." or nothing,
+        // and beam search dropped whole sentences. Silence either side fixed
+        // all 20 of a real microphone's segments that greedy decoding got wrong.
+        let pad = vec![0.0; PAD_SAMPLES];
+        let padded = [pad.as_slice(), samples, pad.as_slice()].concat();
+        stream.accept_waveform(SAMPLE_RATE as i32, &padded);
         self.recognizer.decode(&stream);
         let result = stream.get_result().ok_or(AsrError::NoResult)?;
         Ok(result.text.trim().to_owned())
