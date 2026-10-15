@@ -10,6 +10,13 @@ rust-version.workspace = true
 name = "bd"
 path = "src/main.rs"
 
+[features]
+# GPU cleanup through llama.cpp's Vulkan backend.
+vulkan = ["bd-cleanup/vulkan"]
+# Native PipeWire capture on Linux (otherwise ALSA, which reaches PipeWire
+# through its plugin).
+pipewire = ["bd-audio/pipewire"]
+
 [dependencies]
 bd-core.workspace = true
 bd-commands.workspace = true
@@ -17,6 +24,7 @@ bd-cleanup.workspace = true
 bd-asr.workspace = true
 bd-audio.workspace = true
 bd-models.workspace = true
+bd-pipeline.workspace = true
 bd-platform.workspace = true
 anyhow.workspace = true
 clap.workspace = true
@@ -25,3 +33,4 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+crossbeam-channel.workspace = true

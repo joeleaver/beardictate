@@ -3,7 +3,8 @@
 //! A backend ([`ChatBackend`]) only turns chat messages into a completion.
 //! [`GuardedCleanup`] wraps any backend into a [`bd_core::Cleanup`]: it
 //! renders the versioned [`prompt`] template, calls the backend, tidies the
-//! answer, and runs the [`guardrail`]. If the model changed anything other
+//! answer (straight quotes become the style's marks, see [`quotes`]), and
+//! runs the [`guardrail`]. If the model changed anything other
 //! than fillers, repeats, casing and punctuation, the segment falls back to
 //! its input (spoken commands already applied) and the
 //! [`GuardrailVerdict`] says why.
@@ -21,6 +22,7 @@ mod http;
 #[cfg(feature = "llama")]
 mod llama;
 pub mod prompt;
+pub mod quotes;
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -160,7 +162,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         }
         let messages = self.template.render(request, &self.options);
         let completion = self.backend.complete(&messages, max_new_tokens(request.raw))?;
-        let output = finalize(request.raw, &completion.text);
+        let output = quotes::smarten(request.context, &finalize(request.raw, &completion.text), request.style);
         let verdict = guardrail::review_in_context(request.context, request.raw, &output);
         let text = if verdict.is_accepted() { output.clone() } else { request.raw.to_string() };
         if let GuardrailVerdict::Rejected(r) = &verdict {
@@ -218,7 +220,7 @@ pub fn finalize(raw: &str, answer: &str) -> String {
         .find(|l| lower.starts_with(*l))
         .map_or(body, |l| &body[l.len()..]);
     let lead_breaks = body.chars().take_while(|c| c.is_whitespace()).filter(|c| *c == '\n').count();
-    let core = body.trim();
+    let core = unwrap_echo_quotes(raw, body.trim());
     let lead_breaks = lead_breaks.max(edge_breaks(raw.chars()));
     let trail_breaks = edge_breaks(raw.chars().rev());
     let breaks = |n: usize| "\n".repeat(n.min(2));
@@ -226,6 +228,16 @@ pub fn finalize(raw: &str, answer: &str) -> String {
         return breaks(lead_breaks.max(trail_breaks));
     }
     format!("{}{}{}", breaks(lead_breaks), core, breaks(trail_breaks))
+}
+
+/// Drops a pair of straight double quotes wrapped around the whole answer
+/// when the input had none: models echo their answer as a quoted string.
+/// Real dialog is quoted with the style's marks, which this leaves alone.
+fn unwrap_echo_quotes<'a>(raw: &str, core: &'a str) -> &'a str {
+    if raw.contains('"') || core.matches('"').count() != 2 {
+        return core;
+    }
+    core.strip_prefix('"').and_then(|c| c.strip_suffix('"')).map_or(core, str::trim)
 }
 
 /// Newlines in the whitespace at one edge of `text`.

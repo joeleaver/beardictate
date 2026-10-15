@@ -400,8 +400,10 @@ dependencies = [
  "bd-commands",
  "bd-core",
  "bd-models",
+ "bd-pipeline",
  "bd-platform",
  "clap",
+ "crossbeam-channel",
  "hound",
  "serde",
  "serde_json",
@@ -439,6 +441,17 @@ dependencies = [
  "toml",
  "tracing",
  "ureq 3.4.2",
+]
+
+[[package]]
+name = "bd-pipeline"
+version = "0.1.0"
+dependencies = [
+ "bd-asr",
+ "bd-commands",
+ "bd-core",
+ "crossbeam-channel",
+ "tracing",
 ]
 
 [[package]]

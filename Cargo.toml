@@ -17,6 +17,7 @@ bd-asr = { path = "crates/bd-asr" }
 bd-audio = { path = "crates/bd-audio" }
 bd-models = { path = "crates/bd-models" }
 bd-platform = { path = "crates/bd-platform" }
+bd-pipeline = { path = "crates/bd-pipeline" }
 
 thiserror = "2"
 anyhow = "1"
@@ -35,7 +36,10 @@ ureq = { version = "3", features = ["json"] }
 tempfile = "3"
 cpal = "0.18"
 rubato = "5"
-sherpa-onnx = "1.13"
+# Shared, not static: statically linked onnxruntime shares C++ template
+# instances (std::regex) with llama.cpp, built by a different GCC, and
+# crashes on load when both are in one binary.
+sherpa-onnx = { version = "1.13", default-features = false, features = ["shared"] }
 llama-cpp-2 = "0.1.159"
 arboard = "3"
 windows-sys = "0.61"

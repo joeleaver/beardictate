@@ -32,14 +32,15 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | Crate / dir | State |
 |---|---|
 | `bd-core` | **Committed.** Traits `Asr`, `Cleanup`, `Injector`; `AudioSegment`, `CleanupRequest`, `InjectOutcome`, `Style`. |
-| `bd-models` | **Committed.** Manifest (`manifest.toml`, pinned HF commit SHAs + sha256), store (`BD_MODELS_DIR` override), resumable verified downloader, folder import. 44 tests. Prompt-template id it assigns Qwen3: `qwen3-cleanup-v1`. |
+| `bd-models` | **Committed.** Manifest (`manifest.toml`, pinned HF commit SHAs + sha256), store (`BD_MODELS_DIR` override), resumable verified downloader, folder import. 44 tests. Catalog Qwen3 entries use prompt template `generic-v1` (the earlier `qwen3-cleanup-v1` never existed in bd-cleanup). |
 | `bd-audio` | **Committed.** cpal capture via `rtrb` lock-free ring, rubato resampling, 300 ms pre-roll, device fallback, RMS level. Recommend enabling its `pipewire` feature on Linux. |
-| `bd-asr` | **Committed.** `ParakeetAsr` + `Segmenter` (Silero). WER 0 on the test wav; CPU RTF ≈0.15–0.24 on a loaded box. |
-| `bd-commands` | **In progress / uncommitted** (subagent). Spoken-command rules + prose false-positive tests. |
-| `bd-cleanup` | **In progress / uncommitted** (subagent). Prompts, guardrail, `LlamaCleanup` (llama-cpp-2, `vulkan` feature), `HttpCleanup`, `examples/bench_cleanup`. |
+| `bd-asr` | **Committed.** `ParakeetAsr` + `Segmenter` (Silero). WER 0 on the test wav; CPU RTF ≈0.15–0.24 on a loaded box. sherpa-onnx links **shared** (see below). |
+| `bd-commands` | **Committed.** Spoken-command rules + prose false-positive tests. |
+| `bd-cleanup` | **Committed.** Prompts, guardrail, `LlamaCleanup` (llama-cpp-2, `vulkan` feature), `HttpCleanup`, `examples/bench_cleanup`. Output tidying also unwraps an answer echoed in `"…"` and turns straight quotes into the style's marks (`quotes.rs`). |
 | `bd-platform` | **Committed.** Windows SendInput/paste/UIPI (cross-checked with `cargo xwin clippy`, **never run on real Windows** — see `crates/bd-platform/WINDOWS_TESTING.md`); Linux XTest + RemoteDesktop portal/libei (live-tested only in a nested KWin). `prepare()` triggers the Wayland permission dialog; `INJECTED_MARKER` in `dwExtraInfo` lets rinch's keyboard hook ignore our own keystrokes. |
-| `eval/`, `training/` | **In progress / uncommitted** (subagent). ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
-| `bd-cli` | **Not started** — next for the coordinator (see below). |
+| `eval/`, `training/` | **Committed.** ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
+| `bd-pipeline` | **Committed.** Threads segment → ASR → (commands, cleanup, join), `Event` stream out, `Feeder` handle in. Scratch-that drops queued/in-cleanup segments, restores quote state; `ScratchTooLate` otherwise. The caller delivers text (so hold-to-talk can queue until key-up). |
+| `bd-cli` | **Committed.** Binary `bd`: `file`, `mic` (Enter toggles, `--inject`), `models list/download/verify/import`, `devices`, `eval` (outputs.jsonl for `score.py`). Features `vulkan`, `pipewire`. |
 | `design/` | **Committed.** Design-canvas source (`.dc.html` artboards). |
 
 Uncommitted work in the tree belongs to those subagents. If they finished
@@ -69,8 +70,8 @@ API + tests".
 
 ## Next steps (in order)
 
-1. Land the four in-flight pieces above (verify, commit).
-2. **bd-core tweaks** suggested by the ASR agent, worth taking:
+1. ~~Land the four in-flight pieces~~ (done).
+2. ~~**bd-core tweaks**~~ (done) suggested by the ASR agent, worth taking:
    `AudioSegment.start_sample: u64` (alignment/gap detection) and
    `Asr::transcribe(&self)` (sherpa recognizer is stateless per call).
    From the platform agent: add a default `Injector::prepare()` (Wayland
@@ -79,7 +80,7 @@ API + tests".
    **hold-to-talk**: injection waits for modifiers to be released, so with a
    held hotkey the pipeline must queue injection until key-up (or hold
    bindings must avoid modifiers). Check what the cleanup agent asked for too.
-3. **Pipeline + `bd` CLI** (`crates/bd-cli`, binary `bd`): a pipeline module
+3. ~~**Pipeline + `bd` CLI**~~ (done, see "Running it" below) (`crates/bd-cli`, binary `bd`): a pipeline module
    (threads + crossbeam channels: segmenter → ASR → commands → cleanup →
    sink, cleaning sentence N while N+1 is spoken; context buffer of our own
    last ~2 paragraphs). Subcommands: `bd file <wav>`, `bd mic` (Enter to
@@ -93,6 +94,36 @@ API + tests".
    JarvisLabs skill). They must beat Gemma 4 12B on the eval to ship.
 6. rinch app (tray, settings, first-run) once rinch#1521 + #1520 land.
 
+## Running it (Joe's machine)
+
+```bash
+export CARGO_TARGET_DIR=/mnt/data/beardictate-targets/main BD_MODELS_DIR=/mnt/data/beardictate-dev/models
+cargo build --release -p bd-cli --features vulkan,pipewire
+B=$CARGO_TARGET_DIR/release/bd
+$B models list                      # Qwen3 1.7B and 4B are imported (hard links to /mnt/data/models)
+$B file some.wav -v                 # text on stdout, per-segment timings on stderr
+$B mic                              # Enter to start/stop; add --inject to type into the focused window
+$B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases.jsonl /tmp/x/outputs.jsonl
+```
+
+- Default cleanup is the largest installed catalog model (Qwen3 4B here);
+  `--cleanup off|ID|file.gguf` or `--cleanup-url`.
+- **sherpa-onnx is linked shared**, not static: static onnxruntime and
+  llama.cpp each bring `std::regex` template instances built by different
+  GCCs, and one binary with both aborted in `free()` while loading the VAD.
+  sherpa's build script copies `libsherpa-onnx-c-api.so` and
+  `libonnxruntime.so` (DLLs on Windows) next to the binary; `bd-cli/build.rs`
+  sets rpath `$ORIGIN`. **Packaging must ship those libraries with the app.**
+- Qwen3 1.7B mostly echoes its input (keeps fillers). 4B cleans fine.
+- With cleanup **off**, delivery is immediate, so "scratch that" is always
+  too late (`ScratchTooLate`). By design, per DESIGN.md; revisit if it bites.
+- `bd mic` was only checked to open the device and quit; not yet dictated
+  live, and `--inject` not tried on the live desktop.
+- `bd devices` (bd-audio `list_input_devices`) also lists outputs/sinks under
+  PipeWire. Worth fixing in bd-audio.
+- Test audio: Piper TTS works through the venv's `sherpa_onnx`
+  (`vits-piper-en_US-ryan-medium` in the dev models dir).
+
 ## External dependencies
 
 - **rinch** (joeleaver/rinch), being worked by Joe's "Rinch" Desktop session:
@@ -100,7 +131,14 @@ API + tests".
   - [#1520](https://github.com/joeleaver/rinch/issues/1520) tray runtime icon/tooltip/menu, checkable items, bindable left-click, tray-only app — **priority**
   - [#1522](https://github.com/joeleaver/rinch/issues/1522) OS notifications (until then, `notify-rust` behind a small trait)
   - [#1519](https://github.com/joeleaver/rinch/issues/1519) non-activating windows — general rinch feature, **not** on our path
-  Status (rinch session report): PRs in adversarial review, not merged:
+  Status (rinch session, 2026-10-14 evening): **#1527** (tray) in its fix
+  round, merges once green, ETA hours; **#1531** (macOS
+  `ActivationPolicy::Accessory`, `TrayIconBuilder::with_id`) merges right
+  after it. **#1530** (hotkeys) still in adversarial review, no ETA. API as
+  below, unchanged. To build early: git deps on `branch = "fix-1520"` /
+  `"fix-1521"` pinned by `rev`, copy rinch's `[patch.crates-io]`
+  (wgpu/winit forks); the two branches don't contain each other, so both at
+  once means waiting for main. #1526 and #1522 not started. Earlier report:
   **#1530** (hotkeys: `rinch::hotkey::register`, feature `global-hotkeys`;
   press/release on main thread, rebind, `Conflict` error, sided/modifier-only
   keys like RightCtrl, `HotkeyCapture`, `Binding::SystemChosen` for the

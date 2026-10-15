@@ -77,6 +77,11 @@ fn finalize_tidies_answers() {
         ("he left", "Answer:\n\nHe left.", "\n\nHe left."),
         ("he left", "```\nHe left.\n```", "He left."),
         ("he left", "<think>hmm</think>He left.", "He left."),
+        // A whole answer echoed in straight quotes is unwrapped, unless the
+        // input had them or the quotes are dialog inside the answer.
+        ("he left", "\"He left.\"", "He left."),
+        ("\"he left\"", "\"He left.\"", "\"He left.\""),
+        ("hi he said bye", "\"Hi,\" he said. \"Bye.\"", "\"Hi,\" he said. \"Bye.\""),
         ("he left", "<think>never closed", ""),
         // Breaks the command pass put at the edges survive the model.
         ("\n\nhe left", "He left.", "\n\nHe left."),
