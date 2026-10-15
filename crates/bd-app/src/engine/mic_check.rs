@@ -9,6 +9,12 @@ use super::{Ui, Worker};
 
 /// How long to listen before judging.
 const LISTEN: Duration = Duration::from_secs(8);
+/// Speech quieter than this (about -42 dBFS) is hard for the ASR, even
+/// brought up: the microphone's own hiss comes up with it.
+const QUIET: f32 = 0.008;
+/// This many quiet sentences in a row earn a warning (once a run).
+const QUIET_RUN: u8 = 3;
+
 /// Below this the input is digital silence: no microphone noise floor is
 /// this quiet (about -100 dBFS).
 const SILENT: f32 = 1e-5;
@@ -52,5 +58,27 @@ impl<U: Ui> Worker<U> {
             );
         }
         self.mic_check = None;
+    }
+
+    /// Notes how loud a heard sentence was; after a few quiet ones in a
+    /// row, suggests turning the microphone up.
+    pub(super) fn note_speech_level(&mut self, level: f32, words: usize) {
+        if words == 0 {
+            return;
+        }
+        if level >= QUIET {
+            self.quiet_run = 0;
+            return;
+        }
+        self.quiet_run = self.quiet_run.saturating_add(1);
+        if self.quiet_run == QUIET_RUN && !std::mem::replace(&mut self.quiet_warned, true) {
+            let db = 20.0 * level.max(1e-9).log10();
+            tracing::info!("speech keeps arriving quiet ({db:.0} dBFS)");
+            self.notifier.notify(
+                "mic-quiet",
+                "Your microphone is quiet",
+                "Words get missed or misheard. Turn up the microphone's input volume in your system's sound settings, or move closer to it.",
+            );
+        }
     }
 }

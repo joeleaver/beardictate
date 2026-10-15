@@ -142,6 +142,9 @@ struct Worker<U> {
     reopen_mic: bool,
     /// The settings changed while models were loading: load again.
     reload_after_load: bool,
+    /// Quiet sentences in a row, and whether that was said this run.
+    quiet_run: u8,
+    quiet_warned: bool,
     /// What the status says while models load: which, and whether a switch.
     loading_detail: String,
     /// Always listening was awake when a reload started: wake it again.
@@ -176,6 +179,8 @@ impl<U: Ui> Worker<U> {
             mic_check: None,
             reopen_mic: false,
             reload_after_load: false,
+            quiet_run: 0,
+            quiet_warned: false,
             loading_detail: String::new(),
             wake_after_load: false,
             cleaning: false,
@@ -399,7 +404,9 @@ impl<U: Ui> Worker<U> {
             // sentence went missing, and when.
             Event::Transcribed { id, text, audio, level, .. } => {
                 let db = 20.0 * level.max(1e-9).log10();
-                tracing::info!(segment = id, words = text.split_whitespace().count(), ms = audio.as_millis(), "heard ({db:.0} dBFS)");
+                let words = text.split_whitespace().count();
+                tracing::info!(segment = id, words, ms = audio.as_millis(), "heard ({db:.0} dBFS)");
+                self.note_speech_level(level, words);
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
         }

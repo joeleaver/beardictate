@@ -106,6 +106,10 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                 let audio = secs(seg.samples.len() as u64);
                 let pause = previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
                 previous_end = Some(seg.start_sample + seg.samples.len() as u64);
+                // How loud it came in, before bringing it up for the ASR.
+                let level = noise::rms(&seg.samples);
+                let mut seg = seg;
+                noise::level_up(&mut seg.samples);
                 match asr.transcribe(&seg) {
                     Ok(text) => {
                         let elapsed = started.elapsed();
@@ -115,7 +119,6 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                         } else {
                             text
                         };
-                        let level = noise::rms(&seg.samples);
                         let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, level, pause, elapsed });
                         Heard::Text { id, text, pause }
                     }
