@@ -10,12 +10,8 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let custom = Signal::new(s.settings.with(|st| {
         if st.cleanup.ends_with(".gguf") { st.cleanup.clone() } else { String::new() }
     }));
-    let choices = [
-        ("off", "Off", "Your words as heard, with spoken commands. Fastest."),
-        ("auto", "Automatic", "The recommended model once it's downloaded, otherwise the one you have."),
-    ]
-    .map(|(value, label, description)| choice(__scope, s, value, label, description));
-    let [off, auto] = choices;
+    let off = choice(__scope, s, false, "Off", "Your words as heard, with spoken commands. Fastest.");
+    let on = choice(__scope, s, true, "On", "With the model checked below: the recommended one, unless you pick another.");
     let rows: Vec<NodeHandle> = catalog().into_iter().map(|m| row(__scope, s, m)).collect();
     let (s1, s2) = (s.clone(), s.clone());
     rsx! {
@@ -24,7 +20,7 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             Text { size: "sm", color: "dimmed",
                 "After each sentence is transcribed, a small model on your computer drops the ums, fixes punctuation and quotes your dialog."
             }
-            Stack { gap: "sm", {off} {auto} }
+            Stack { gap: "sm", {off} {on} }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Models" }
                 Text { size: "sm", color: "dimmed", "Bigger models quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }
@@ -47,15 +43,23 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     }
 }
 
-fn choice(__scope: &mut RenderScope, s: &Shared, value: &'static str, label: &'static str, description: &'static str) -> NodeHandle {
+/// Cleanup off or on. Turning it on from off starts with "auto" (the
+/// recommended model); a model already picked stays picked.
+fn choice(__scope: &mut RenderScope, s: &Shared, on: bool, label: &'static str, description: &'static str) -> NodeHandle {
     let (a, b) = (s.clone(), s.clone());
     rsx! {
         Radio {
-            name: "cleanup",
+            name: "cleanup-on",
             label: label,
             description: description,
-            checked_fn: move || a.settings.with(|st| st.cleanup == value),
-            onchange: move || change(&b, |st| st.cleanup = value.to_string()),
+            checked_fn: move || a.settings.with(|st| (st.cleanup != "off") == on),
+            onchange: move || change(&b, |st| {
+                if !on {
+                    st.cleanup = "off".into();
+                } else if st.cleanup == "off" {
+                    st.cleanup = "auto".into();
+                }
+            }),
         }
     }
 }
@@ -77,11 +81,12 @@ fn row(__scope: &mut RenderScope, s: &Shared, model: &'static bd_models::ModelEn
         div { key: id, style: "display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--rinch-color-default-border); border-radius: 8px;",
             div { style: "flex: 1; min-width: 0;",
                 Radio {
-                    name: "cleanup",
+                    name: "cleanup-model",
                     label: model.name.clone(),
                     description: details.clone(),
                     disabled: {move || state() != ModelState::Installed},
-                    checked_fn: {let a = a.clone(); move || a.settings.with(|st| st.cleanup == id)},
+                    // The model that runs, which "auto" resolves to the recommended one.
+                    checked_fn: {let a = a.clone(); move || in_use(&a.settings.with(|st| st.cleanup.clone()), &states.get()).as_deref() == Some(id)},
                     onchange: {let b = b.clone(); move || change(&b, |st| st.cleanup = id.to_string())},
                 }
             }
