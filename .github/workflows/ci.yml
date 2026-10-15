@@ -1,5 +1,8 @@
 # Windows CI: build, clippy, tests (with the real speech models, cached), and
-# the portable zip + installer as artifacts. Linux is built and tested on
+# the portable zip + installer as artifacts, built in the release
+# configuration (scripts/package-windows.ps1; DESIGN.md "Windows install and
+# first run"): GPU cleanup through Vulkan loaded at run time (vulkan-dl), the
+# DLL C runtime, the VC++ runtime shipped next to the exes. Linux is built and tested on
 # Joe's machine for now (see HANDOVER.md); add a job here when that changes.
 name: CI
 
@@ -19,11 +22,23 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-2022
-    timeout-minutes: 90
+    # llama.cpp (Vulkan shaders, nine CPU variants) builds twice on a cold
+    # cache: once for clippy, once for release.
+    timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always
       # Where the ASR tests find Parakeet + Silero (they skip without it).
       BD_MODELS_DIR: ${{ github.workspace }}\ci-models
+      # The release configuration. llama.cpp's DLLs share C runtime objects,
+      # so everything uses the DLL runtime, overriding .cargo/config.toml's
+      # static one (which natively mixed /MT and /MD objects anyway).
+      LLAMA_STATIC_CRT: "0"
+      RUSTFLAGS: -C target-feature=-crt-static
+      FEATURES: bd-app/vulkan-dl,bd-cli/vulkan-dl
+      # ggml-vulkan needs the SDK's headers, vulkan-1.lib and glslc to build;
+      # the same version as the Linux headers releases are cross-built with.
+      VULKAN_SDK_VERSION: 1.4.341.1
+      VULKAN_SDK: C:\VulkanSDK\1.4.341.1
     steps:
       - uses: actions/checkout@v4
 
@@ -33,22 +48,40 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Speech models (cached by manifest)
+      - name: Vulkan SDK (cached by version)
+        id: vulkan-sdk
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK\${{ env.VULKAN_SDK_VERSION }}
+          key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}
+
+      - name: Install the Vulkan SDK
+        if: steps.vulkan-sdk.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $exe = "$env:RUNNER_TEMP\vulkansdk.exe"
+          Invoke-WebRequest -UseBasicParsing -OutFile $exe "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe"
+          # A GUI-subsystem installer: wait for it explicitly.
+          $p = Start-Process -Wait -PassThru -FilePath $exe -ArgumentList "--root", $env:VULKAN_SDK, "--accept-licenses", "--default-answer", "--confirm-command", "install"
+          if ($p.ExitCode) { throw "Vulkan SDK installer exited with $($p.ExitCode)" }
+          if (-not (Test-Path "$env:VULKAN_SDK\Lib\vulkan-1.lib")) { throw "Vulkan SDK not installed in $env:VULKAN_SDK" }
+
+      - name: Speech and cleanup models (cached by manifest)
         uses: actions/cache@v4
         with:
           path: ci-models
-          key: models-${{ hashFiles('crates/bd-models/manifest.toml') }}
+          key: models-v2-${{ hashFiles('crates/bd-models/manifest.toml') }}
 
       - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked --features ${{ env.FEATURES }} -- -D warnings
 
       - name: Build
-        run: cargo build --workspace --release --locked
+        run: cargo build --workspace --release --locked --features ${{ env.FEATURES }}
 
-      - name: Download the speech models (and the test wav the ASR tests read)
+      - name: Download the models (and the test wav the ASR tests read)
         shell: pwsh
         run: |
-          target\release\bd.exe models download asr-parakeet-tdt-0.6b-v3-int8 vad-silero
+          target\release\bd.exe models download asr-parakeet-tdt-0.6b-v3-int8 vad-silero cleanup-gemma-4-e2b-q4_0
           if ($LASTEXITCODE) { exit 1 }
           $wavs = "$env:BD_MODELS_DIR\asr-parakeet-tdt-0.6b-v3-int8\test_wavs"
           New-Item -ItemType Directory -Force $wavs | Out-Null
@@ -57,7 +90,7 @@ jobs:
           }
 
       - name: Test
-        run: cargo test --workspace --release --locked
+        run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
 
       - name: Transcribe the test wav with bd
         run: target\release\bd.exe file "%BD_MODELS_DIR%\asr-parakeet-tdt-0.6b-v3-int8\test_wavs\en.wav" --cleanup off
@@ -69,6 +102,17 @@ jobs:
       - name: Package
         shell: pwsh
         run: scripts/package-windows.ps1 -NoBuild
+
+      # The packaged bd on a runner without a GPU: llama.cpp's backend DLLs
+      # load from the package, Vulkan finds no device, cleanup runs on the CPU.
+      - name: Dictate the test wav with the packaged bd and cleanup
+        shell: pwsh
+        run: |
+          $env:BD_LOG = "warn,bd_cleanup=info"
+          $log = & packaging\windows\stage\bd.exe file "$env:BD_MODELS_DIR\asr-parakeet-tdt-0.6b-v3-int8\test_wavs\en.wav" --cleanup cleanup-gemma-4-e2b-q4_0 2>&1 | ForEach-Object { "$_" }
+          $log
+          if ($LASTEXITCODE) { exit 1 }
+          if (-not ($log -match "layers on GPU")) { throw "the cleanup model didn't load" }
 
       - uses: actions/upload-artifact@v4
         with:

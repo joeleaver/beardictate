@@ -112,13 +112,17 @@ pub fn shared_backend() -> Result<&'static Backend, CleanupError> {
 /// Registers llama.cpp's backend DLLs (`ggml-cpu-*.dll`, `ggml-vulkan.dll`)
 /// shipped next to the executable. ggml picks the best CPU variant for this
 /// processor and skips a backend that can't load or finds no device (no
-/// Vulkan loader, no GPU), so cleanup then runs on the CPU.
+/// Vulkan loader, no GPU), so cleanup then runs on the CPU. Unpackaged
+/// (`cargo run`, tests) the DLLs are still in llama-cpp-sys's build folder.
 #[cfg(feature = "vulkan-dl")]
 fn load_backend_dlls() {
     let dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(std::path::Path::to_path_buf));
     match dir {
         Some(dir) if dir.to_str().is_some() => llama_cpp_2::llama_backend::load_backends_from_path(&dir),
-        _ => tracing::warn!("can't find the executable's folder; llama.cpp backends not loaded"),
+        _ => tracing::warn!("the executable's folder isn't a UTF-8 path; llama.cpp backends not loaded from it"),
+    }
+    if llama_cpp_2::list_llama_ggml_backend_devices().is_empty() {
+        llama_cpp_2::llama_backend::load_backends();
     }
     let devices = llama_cpp_2::list_llama_ggml_backend_devices();
     for dev in &devices {
@@ -131,7 +135,9 @@ fn load_backend_dlls() {
             dev.memory_total >> 20
         );
     }
-    if devices.iter().all(|dev| dev.backend == "CPU") {
+    if devices.is_empty() {
+        tracing::warn!("no llama.cpp backend DLLs (ggml-cpu-*.dll) next to the executable");
+    } else if devices.iter().all(|dev| dev.backend == "CPU") {
         tracing::info!("no Vulkan GPU (no driver, or no device); cleanup runs on the CPU");
     }
 }

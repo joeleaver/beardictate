@@ -354,8 +354,14 @@ SDK (an import library generated for `vulkan-1.dll`). Two cross-build
 fixes: a `clang-cl` wrapper adds the target features (`-mavxvnni`, …) that
 ggml's MSVC branch marks only with defines, and `LINK` adds the Windows
 libraries cargo-xwin's CMake toolchain leaves out. A native MSVC build
-(`package-windows.ps1` without `-Stage`, what CI runs) stays CPU-only with
-the C runtime linked statically.
+(`package-windows.ps1` without `-Stage`, which CI runs on every push) builds
+the same configuration and stage, with the Vulkan SDK installed; CI then
+dictates the test wav with the packaged `bd` and Gemma 4 E2B on a runner
+without a GPU, which exercises the backend DLLs and the CPU fallback. Natively
+the static C runtime didn't even link: cmake-rs passes `/MT`, but CMake's
+own runtime setting adds `/MD` and wins, while cc-rs compiles llama-cpp-sys's
+wrapper `/MT` (LNK2038); cargo-xwin's toolchain sets
+`CMAKE_MSVC_RUNTIME_LIBRARY`, which is why the cross build agreed.
 
 **C runtime.** llama.cpp's DLLs pass C runtime objects to each other
 (llama.dll calls `_fileno` on a `FILE*` from ggml-base.dll's `ggml_fopen`),
@@ -490,9 +496,9 @@ Not done yet (in order):
 - **Which GPU.** llama.cpp takes the discrete GPU; on a laptop the iGPU uses
   less power at 3–6× the latency. A setting (`GGML_VK_VISIBLE_DEVICES`
   underneath) if users ask.
-- CI builds the CPU-only native package; the GPU release is made by the
-  cross-build script. Moving it to CI needs the Vulkan SDK and the VC++
-  runtime there.
+- Releases are cross-built (`cross-build-windows.sh`, clang-cl) while CI
+  builds natively (MSVC): the same configuration, different compilers.
+  Publishing CI's artifact instead would make what's tested what ships.
 - **Hardware probe + measured default** for the cleanup model (DESIGN
   "Cleanup model choices"), and offering it from the first-run card.
 - The "pin the bear to the taskbar" first-run step (new tray icons land in
