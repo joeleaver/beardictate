@@ -62,10 +62,10 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Files]
 Source: "{#Stage}\beardictate.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Stage}\bd.exe"; DestDir: "{app}"; Flags: ignoreversion
-; sherpa-onnx is linked as shared libraries; they must sit next to the exes.
-Source: "{#Stage}\sherpa-onnx-c-api.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#Stage}\onnxruntime.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#Stage}\onnxruntime_providers_shared.dll"; DestDir: "{app}"; Flags: ignoreversion
+; sherpa-onnx and llama.cpp are shared libraries that must sit next to the
+; exes; llama.cpp's backends (ggml-cpu-*.dll, ggml-vulkan.dll) are loaded from
+; there at run time.
+Source: "{#Stage}\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "beardictate.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Stage}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Stage}\THIRD-PARTY.txt"; DestDir: "{app}"; Flags: ignoreversion

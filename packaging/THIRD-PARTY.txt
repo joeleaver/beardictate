@@ -5,8 +5,15 @@ beardictate includes, or links, these components:
 - ONNX Runtime (onnxruntime.dll, onnxruntime_providers_shared.dll /
   libonnxruntime.so), MIT License, Copyright (c) Microsoft Corporation,
   https://github.com/microsoft/onnxruntime
-- llama.cpp and ggml (linked into beardictate and bd), MIT License,
-  Copyright (c) 2023-2026 The ggml authors, https://github.com/ggml-org/llama.cpp
+- llama.cpp and ggml (linked into beardictate and bd; on Windows llama.dll,
+  ggml*.dll), MIT License, Copyright (c) 2023-2026 The ggml authors,
+  https://github.com/ggml-org/llama.cpp
+- On Windows, the Microsoft Visual C++ runtime 14.44.35211 (vcruntime140.dll,
+  vcruntime140_1.dll, msvcp140.dll), Copyright (c) Microsoft Corporation,
+  redistributed unmodified as Distributable Code under the Microsoft Visual
+  Studio license terms, https://visualstudio.microsoft.com/license-terms/ ;
+  the redistributable files are listed at
+  https://learn.microsoft.com/visualstudio/releases/2022/redistribution
 - Rust crates listed in the source's Cargo.lock, under the MIT and/or Apache
   2.0 licenses (and compatible permissive licenses) of their authors.
 

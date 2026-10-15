@@ -314,11 +314,16 @@ Rough sizes: Parakeet v3 int8 ≈ 0.65 GB, Silero VAD ≈ 2 MB, cleanup 0.6B Q8
 
 - **ASR**: sherpa-onnx with ONNX Runtime. CPU default — Parakeet is already
   fast enough on CPU. (DirectML EP on Windows is an option later.)
-- **LLM**: llama.cpp built with `GGML_BACKEND_DL` so backends are separate
-  DLLs/.so's loaded at runtime: ship **CPU** (several ISA variants) +
-  **Vulkan** (covers AMD/NVIDIA/Intel on Windows and Linux) + **Metal** on
-  macOS. Probe at startup, pick the best that initializes, fall back to CPU.
-  No CUDA build (size; Vulkan is close enough for a ≤2B model).
+- **LLM**: llama.cpp with **Vulkan** (covers AMD/NVIDIA/Intel) + **Metal**
+  on macOS, falling back to the CPU. On Windows (feature `vulkan-dl`) it's
+  built with `GGML_BACKEND_DL`: the backends are DLLs loaded at run time,
+  `ggml-cpu-<level>.dll` for each x86 level (ggml picks the best this CPU
+  runs) and `ggml-vulkan.dll`, skipped when there's no Vulkan driver or
+  device; see "Windows install and first run". Linux links Vulkan directly
+  (feature `vulkan`; the Vulkan loader is a package dependency). A model or
+  context that doesn't fit on the GPU loads again on the CPU. llama.cpp
+  puts the model on one GPU, a discrete one before an integrated one. No
+  CUDA build (size; Vulkan is close enough).
 - Keep the LLM resident while the app runs (load once; first-segment latency
   matters). Unload after N minutes idle, configurable.
 
@@ -335,22 +340,55 @@ Updates: check a release feed, offer download; no silent self-update in v1.
 ## Windows install and first run
 
 Decided 2026-10-15. Files: `packaging/windows/beardictate.iss`,
-`scripts/package-windows.ps1`, `.cargo/config.toml`, CI in
-`.github/workflows/ci.yml`.
+`scripts/package-windows.ps1`, `scripts/cross-build-windows.sh` (with
+`windows-vulkan-sdk.sh`, `windows-vc-runtime.sh`, `xwin/clang-cl`),
+`.cargo/config.toml`, CI in `.github/workflows/ci.yml`.
 
-**Build.** Cross-compiles from Linux with `cargo xwin` (needs `llvm-lib`,
-`clang-cl` and `ninja` on `PATH` for llama.cpp's CMake build) or builds
-natively with MSVC + CMake + Ninja. The C runtime is linked **statically**
-(`+crt-static`, and `LLAMA_STATIC_CRT=1` so ggml builds with `/MT`): without
-it llama.cpp's C++ needs MSVCP140/VCRUNTIME140, and an installer would have
-to carry or require the VC++ redistributable. sherpa-onnx's prebuilt DLLs are
-static-CRT already. `beardictate.exe` is a GUI-subsystem program (no console
-window); `bd.exe` stays a console program.
+**Build.** Releases cross-compile from Linux: `scripts/cross-build-windows.sh
+<stage>` runs `cargo xwin` with `vulkan-dl` and collects what ships into one
+folder, which `package-windows.ps1 -Stage <stage>` packs on a Windows
+machine (Inno Setup). Needs LLVM (`clang-cl`, `lld-link`, `llvm-lib`,
+`llvm-dlltool`), `ninja`, and Linux's Vulkan headers, SPIR-V headers and
+`glslc`, from which `windows-vulkan-sdk.sh` makes a stand-in Windows Vulkan
+SDK (an import library generated for `vulkan-1.dll`). Two cross-build
+fixes: a `clang-cl` wrapper adds the target features (`-mavxvnni`, …) that
+ggml's MSVC branch marks only with defines, and `LINK` adds the Windows
+libraries cargo-xwin's CMake toolchain leaves out. A native MSVC build
+(`package-windows.ps1` without `-Stage`, what CI runs) stays CPU-only with
+the C runtime linked statically.
+
+**C runtime.** llama.cpp's DLLs pass C runtime objects to each other
+(llama.dll calls `_fileno` on a `FILE*` from ggml-base.dll's `ggml_fopen`),
+so they must share one runtime. Linked statically (`/MT`), each DLL has its
+own, and loading a model dies on an invalid-parameter check. So the release
+uses the DLL runtime (`RUSTFLAGS=-C target-feature=-crt-static`,
+`LLAMA_STATIC_CRT=0`) and ships Microsoft's `vcruntime140.dll`,
+`vcruntime140_1.dll` and `msvcp140.dll` next to the exes: no redistributable
+installer, no admin. They must be at least as new as the MSVC headers used
+(an older `msvcp140.dll`, like the 14.27 one in NICO-TOP's System32, crashes
+newer STL code), and Windows loads the app's own copy first.
+`windows-vc-runtime.sh` pins the package (VS 2022 CRT redist 14.44.35211,
+from the release channel manifest, URL and sha256 in the script); the
+license terms are in THIRD-PARTY.txt. The UCRT comes with Windows 10 and
+later. `beardictate.exe` is a GUI-subsystem program (no console window);
+`bd.exe` stays a console program.
 
 **What ships** (all in one folder; Windows finds DLLs next to the exe, so no
 rpath equivalent is needed): `beardictate.exe`, `bd.exe`,
 `sherpa-onnx-c-api.dll`, `onnxruntime.dll`, `onnxruntime_providers_shared.dll`,
-the icon, LICENSE and third-party notices. About 70 MB, no models.
+`llama.dll`, `ggml.dll`, `ggml-base.dll`, `ggml-cpu-*.dll` (x64, sse42,
+sandybridge, haswell, skylakex, cannonlake, cascadelake, icelake, alderlake),
+`ggml-vulkan.dll` (42 MB of compiled shaders), the VC++ runtime, the icon,
+LICENSE and third-party notices. About 110 MB (a 24 MB installer), no models.
+
+**GPU.** The only binary that imports the Vulkan loader (`vulkan-1.dll`,
+which GPU drivers install) is `ggml-vulkan.dll`, loaded at run time. With no
+driver it doesn't load, with no device it registers none, and cleanup runs
+on the CPU in both cases; the log says "no Vulkan GPU … cleanup runs on the
+CPU". A model or KV cache that doesn't fit in VRAM falls back the same way
+("loading the cleanup model on the CPU instead"). The setup log line says
+where it went: "35 of 35 layers on GPU". The first request after a driver
+update compiles shaders (a few seconds, once); the driver caches them.
 
 **Installer: Inno Setup**, per user. Considered:
 - *MSIX*: Store-friendly, clean uninstall, but every package must be signed
@@ -424,14 +462,37 @@ Started over SSH, outside the desktop session, the tray and hotkey fail
 (no interactive window station) and the app falls back to its window, as
 designed.
 
+**GPU measured on NICO-TOP** (2026-10-15; Ryzen 7 6800H, Radeon 680M iGPU,
+RTX 3070 Ti Laptop; `bd eval`, first 20 cases of `eval/cases.jsonl`, default
+prompts). "First" is the first request after loading (it also decodes the
+system prompt), "then" the mean of the 20 after it:
+
+| | Gemma 4 E2B (short-turns-v2) | Qwen3.5 4B (short-v2) |
+|---|---|---|
+| CPU, 0.1.1 build (baseline x86-64, no AVX2) | 34.0 s, then 4.06 s | 29.9 s, then 30.0 s |
+| CPU, `vulkan-dl` build (haswell DLL, AVX2) | 3.2 s, then 1.94 s | 4.7 s, then 5.56 s |
+| GPU, RTX 3070 Ti (llama.cpp's pick) | 0.25 s, then 0.19 s | 0.81 s, then 0.32 s |
+| GPU, Radeon 680M only | 1.4 s, then 0.84 s | 2.9 s, then 1.90 s |
+
+The 0.1.1 CPU build compiled llama.cpp for rustc's default x86-64 features
+(SSE2): llama-cpp-sys maps the target's features to ggml's, so without AVX2
+in the target nothing used it. The CPU backend DLLs fix that for the CPU
+fallback too. Qwen3.5's first ≈ then: llama.cpp can't cut its recurrent
+state back to the prefix a request shares with the previous one, so the
+engine clears the cache and decodes the whole prompt every time. The
+Radeon's very first request took 7.8 s compiling shaders. Fallbacks checked
+there: no loader (a `ggml-vulkan.dll` patched to import a missing DLL), no
+device (`GGML_VK_VISIBLE_DEVICES=99`), and a KV cache too big for the RTX
+(`--ctx 524288`) all ran on the CPU. The installer installed, ran `bd file`
+with GPU cleanup, and uninstalled cleanly.
+
 Not done yet (in order):
-- **Vulkan on Windows.** Built CPU-only for now. A `vulkan` build links
-  `vulkan-1.dll`, which only GPU drivers install, so on a machine without one
-  the exe would not start. llama-cpp-2's `dynamic-backends` feature builds
-  ggml with `GGML_BACKEND_DL` + `GGML_CPU_ALL_VARIANTS` and loads the backend
-  DLLs from a folder at runtime (`ggml_backend_load_all_from_path`), falling
-  back to CPU; the Vulkan DLL needs the Vulkan SDK at build time, so it's
-  built natively in CI rather than cross-built.
+- **Which GPU.** llama.cpp takes the discrete GPU; on a laptop the iGPU uses
+  less power at 3–6× the latency. A setting (`GGML_VK_VISIBLE_DEVICES`
+  underneath) if users ask.
+- CI builds the CPU-only native package; the GPU release is made by the
+  cross-build script. Moving it to CI needs the Vulkan SDK and the VC++
+  runtime there.
 - **Hardware probe + measured default** for the cleanup model (DESIGN
   "Cleanup model choices"), and offering it from the first-run card.
 - The "pin the bear to the taskbar" first-run step (new tray icons land in

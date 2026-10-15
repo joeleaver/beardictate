@@ -21,7 +21,8 @@ use crate::{ChatBackend, ChatMessage, CleanupError, Completion};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GpuLayers {
     /// Every layer when a GPU backend (`vulkan` feature) is compiled in and
-    /// finds a device; none otherwise.
+    /// finds a device; none otherwise. Falls back to the CPU when the model
+    /// or its context doesn't fit on the GPU.
     #[default]
     Auto,
     /// CPU only.
@@ -100,10 +101,39 @@ pub fn shared_backend() -> Result<&'static Backend, CleanupError> {
     BACKEND
         .get_or_init(|| {
             llama_cpp_2::send_logs_to_tracing(llama_cpp_2::LogOptions::default());
+            #[cfg(feature = "vulkan-dl")]
+            load_backend_dlls();
             Backend::init().map_err(|e| e.to_string())
         })
         .as_ref()
         .map_err(|e| CleanupError::Llama(e.clone()))
+}
+
+/// Registers llama.cpp's backend DLLs (`ggml-cpu-*.dll`, `ggml-vulkan.dll`)
+/// shipped next to the executable. ggml picks the best CPU variant for this
+/// processor and skips a backend that can't load or finds no device (no
+/// Vulkan loader, no GPU), so cleanup then runs on the CPU.
+#[cfg(feature = "vulkan-dl")]
+fn load_backend_dlls() {
+    let dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(std::path::Path::to_path_buf));
+    match dir {
+        Some(dir) if dir.to_str().is_some() => llama_cpp_2::llama_backend::load_backends_from_path(&dir),
+        _ => tracing::warn!("can't find the executable's folder; llama.cpp backends not loaded"),
+    }
+    let devices = llama_cpp_2::list_llama_ggml_backend_devices();
+    for dev in &devices {
+        tracing::info!(
+            "llama.cpp device {}: {} ({}, {} MiB free of {})",
+            dev.name,
+            dev.description,
+            dev.backend,
+            dev.memory_free >> 20,
+            dev.memory_total >> 20
+        );
+    }
+    if devices.iter().all(|dev| dev.backend == "CPU") {
+        tracing::info!("no Vulkan GPU (no driver, or no device); cleanup runs on the CPU");
+    }
 }
 
 struct Job {

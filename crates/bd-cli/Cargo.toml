@@ -13,6 +13,9 @@ path = "src/main.rs"
 [features]
 # GPU cleanup through llama.cpp's Vulkan backend.
 vulkan = ["bd-cleanup/vulkan"]
+# The same, with llama.cpp's backends as DLLs loaded at run time, falling
+# back to the CPU when Vulkan is missing (the Windows release).
+vulkan-dl = ["bd-cleanup/vulkan-dl"]
 # Native PipeWire capture on Linux (otherwise ALSA, which reaches PipeWire
 # through its plugin).
 pipewire = ["bd-audio/pipewire"]

@@ -2,7 +2,9 @@
 # require the Visual C++ redistributable (llama.cpp's C++ would otherwise
 # need MSVCP140/VCRUNTIME140). sherpa-onnx's prebuilt DLLs are static-CRT
 # already. LLAMA_STATIC_CRT makes llama-cpp-sys build ggml with /MT to match;
-# it only changes MSVC builds.
+# it only changes MSVC builds. The GPU release overrides both and ships the
+# runtime instead (scripts/cross-build-windows.sh): llama.cpp as DLLs needs
+# one shared C runtime.
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
 
