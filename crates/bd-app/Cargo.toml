@@ -1,0 +1,40 @@
+[package]
+name = "bd-app"
+description = "beardictate: the tray app (rinch)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "beardictate"
+path = "src/main.rs"
+
+[features]
+default = []
+# GPU cleanup through llama.cpp's Vulkan backend.
+vulkan = ["bd-cleanup/vulkan"]
+# Native PipeWire capture on Linux.
+pipewire = ["bd-audio/pipewire"]
+
+[dependencies]
+bd-core.workspace = true
+bd-commands.workspace = true
+bd-cleanup.workspace = true
+bd-asr.workspace = true
+bd-audio.workspace = true
+bd-models.workspace = true
+bd-pipeline.workspace = true
+bd-platform.workspace = true
+bd-vocab.workspace = true
+anyhow.workspace = true
+hound.workspace = true
+crossbeam-channel.workspace = true
+directories.workspace = true
+notify-rust.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+# No `file-dialogs`: with `system-tray` it panics on Linux (rinch#1526).
+rinch = { workspace = true, features = ["desktop", "components", "theme", "system-tray", "global-hotkeys"] }

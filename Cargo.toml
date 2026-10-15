@@ -45,3 +45,20 @@ llama-cpp-2 = "0.1.159"
 arboard = "3"
 windows-sys = "0.61"
 notify-rust = "4"
+# The UI toolkit, pinned to a main commit with global hotkeys (rinch#1530)
+# and tray runtime updates (rinch#1527, #1531).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "2421e4ec", default-features = false }
+
+# rinch's own patches (its wgpu/winit forks), required to build it.
+[patch.crates-io]
+wgpu = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
+wgpu-core = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
+wgpu-hal = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
+wgpu-types = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
+naga = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
+winit = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+winit-core = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+winit-common = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+winit-wayland = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+winit-x11 = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+dpi = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }

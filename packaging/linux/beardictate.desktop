@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=beardictate
+GenericName=Dictation
+Comment=Dictation for fiction writers, from the system tray
+Exec=@EXEC@
+Icon=beardictate
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=dictation;speech;voice;writing;
+StartupNotify=false
+X-GNOME-UsesNotifications=true

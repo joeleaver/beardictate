@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Builds beardictate and installs it for this user under ~/.local:
+#   ~/.local/lib/beardictate/   the app and the libraries it loads (sherpa-onnx, onnxruntime)
+#   ~/.local/bin/beardictate    a link to it
+#   ~/.local/share/applications/beardictate.desktop   (KDE's shortcut portal needs it)
+#   ~/.local/share/icons/hicolor/scalable/apps/beardictate.svg
+# With --autostart, it also starts at login. Models are not copied: set
+# models_dir in ~/.config/beardictate/settings.toml, or download them with `bd`.
+#
+#   scripts/install-linux.sh [--autostart] [--no-build]
+set -euo pipefail
+
+autostart=false
+build=true
+for arg in "$@"; do
+    case "$arg" in
+        --autostart) autostart=true ;;
+        --no-build) build=false ;;
+        *) echo "usage: $0 [--autostart] [--no-build]" >&2; exit 2 ;;
+    esac
+done
+
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+target="${CARGO_TARGET_DIR:-$repo/target}"
+features="${BD_FEATURES:-vulkan,pipewire}"
+if $build; then
+    (cd "$repo" && cargo build --release -p bd-app --features "$features")
+fi
+
+lib="$HOME/.local/lib/beardictate"
+bin="$HOME/.local/bin"
+apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
+mkdir -p "$lib" "$bin" "$apps" "$icons"
+
+# The binary finds its shared libraries next to itself ($ORIGIN rpath).
+install -m 755 "$target/release/beardictate" "$lib/beardictate"
+for so in "$target"/release/libsherpa-onnx-*.so "$target"/release/libonnxruntime.so*; do
+    [ -e "$so" ] && install -m 644 "$so" "$lib/"
+done
+ln -sf "$lib/beardictate" "$bin/beardictate"
+
+sed "s|@EXEC@|$lib/beardictate|" "$repo/packaging/linux/beardictate.desktop" > "$apps/beardictate.desktop"
+install -m 644 "$repo/design/logo/mark.svg" "$icons/beardictate.svg"
+command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
+
+if $autostart; then
+    mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
+    cp "$apps/beardictate.desktop" "${XDG_CONFIG_HOME:-$HOME/.config}/autostart/"
+fi
+
+echo "Installed. Start it from the app menu, or run: $lib/beardictate"

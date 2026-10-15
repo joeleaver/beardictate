@@ -20,6 +20,7 @@
 //! back from the target application.
 
 mod compose;
+pub mod setup;
 mod stages;
 
 #[cfg(test)]
