@@ -133,10 +133,12 @@ pub enum Event {
     /// `level` is the segment's RMS loudness from the microphone (before
     /// gain), 0 to 1; `gain` the input gain in use after it.
     Transcribed { id: u64, text: String, audio: Duration, level: f32, gain: f32, pause: Option<Duration>, elapsed: Duration },
-    /// Text to deliver now, separator included: append it to what was
-    /// delivered before.
+    /// Text to deliver now: first take back `take_back` characters (the
+    /// trailing space before a break or a closing mark), then append `text`,
+    /// which ends with the space the next segment needs.
     Text {
         id: u64,
+        take_back: usize,
         text: String,
         /// The segment after the command pass: what the cleanup model was
         /// given, and what is delivered when it fails or is off.

@@ -111,13 +111,18 @@ fn until(rx: &Receiver<Event>, done: impl Fn(&Event) -> bool) -> Vec<Event> {
 }
 
 fn texts(events: &[Event]) -> String {
-    events
-        .iter()
-        .filter_map(|e| match e {
-            Event::Text { text, .. } => Some(text.as_str()),
-            _ => None,
-        })
-        .collect()
+    // What ends up on the page: each text after its take-back, without the
+    // invisible space after the last one.
+    let mut out = String::new();
+    for e in events {
+        if let Event::Text { take_back, text, .. } = e {
+            for _ in 0..*take_back {
+                out.pop();
+            }
+            out.push_str(text);
+        }
+    }
+    out.trim_end_matches(' ').to_string()
 }
 
 #[test]
@@ -186,10 +191,10 @@ fn scratch_that_after_delivery_erases_within_the_session() {
     until(&rx, |e| matches!(e, Event::Text { id: 1, .. }));
     say(&r.pipeline, 2);
     let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
-    assert_eq!(events.last(), Some(&Event::Erase { id: 1, text: " Second.".into() }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 1, text: "Second. ".into() }));
     say(&r.pipeline, 3);
     let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
-    assert_eq!(events.last(), Some(&Event::Erase { id: 0, text: "First.".into() }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 0, text: "First. ".into() }));
     say(&r.pipeline, 4);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     // Everything was taken back, so the next sentence starts the text.
@@ -252,7 +257,7 @@ fn a_new_passage_forgets_the_context() {
     say(&r.pipeline, 1);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(*r.contexts.lock().unwrap(), ["", ""]);
-    assert_eq!(texts(&events), "Before.After.");
+    assert_eq!(texts(&events), "Before. After.");
 }
 
 #[test]
@@ -294,7 +299,7 @@ fn a_long_pause_starts_a_paragraph() {
     pause(&r.pipeline, 5.0);
     say(&r.pipeline, 3);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
-    assert_eq!(texts(&events), "It was late. We stayed in.\n\nMorning came.Fresh start.");
+    assert_eq!(texts(&events), "It was late. We stayed in.\n\nMorning came. Fresh start.");
     let pauses: Vec<Option<Duration>> = events
         .iter()
         .filter_map(|e| if let Event::Transcribed { pause, .. } = e { Some(*pause) } else { None })
@@ -338,7 +343,7 @@ fn an_unfinished_sentence_goes_on_alone_after_the_hold() {
     assert_eq!(texts(&events), "And then,");
     say(&r.pipeline, 1);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
-    assert_eq!(texts(&events), " Later.");
+    assert_eq!(texts(&events), "Later.");
 }
 
 #[test]
@@ -372,7 +377,7 @@ fn reconfiguring_mid_dictation_changes_the_next_segment() {
     r.pipeline.reconfigure(PipelineConfig { vocabulary, ..PipelineConfig::default() });
     say(&r.pipeline, 1);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
-    assert_eq!(texts(&events), " The wyrmstone dimmed.");
+    assert_eq!(texts(&events), "The wyrmstone dimmed.");
 }
 
 #[test]
@@ -407,4 +412,19 @@ fn voice_wake_delivers_only_what_is_said_while_awake() {
         })
         .collect();
     assert_eq!(marks, ["woke", "text", "text", "slept", "woke", "text"]);
+}
+
+#[test]
+fn spaces_trail_and_are_taken_back_before_a_break() {
+    let r = rig(vec!["It was late.", "New paragraph. Morning came."], false, false);
+    say(&r.pipeline, 0);
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    let deliveries: Vec<(usize, String)> = events
+        .iter()
+        .filter_map(|e| if let Event::Text { take_back, text, .. } = e { Some((*take_back, text.clone())) } else { None })
+        .collect();
+    // A space after each sentence, so one the author starts with Enter
+    // begins clean; taken back before a dictated break.
+    assert_eq!(deliveries, [(0, "It was late. ".to_string()), (1, "\n\nMorning came. ".to_string())]);
 }

@@ -37,14 +37,18 @@ impl Composer {
         self.tail.clear();
     }
 
-    /// Appends one cleaned segment and returns exactly what to deliver: the
-    /// segment with the separator it needs in front. Empty when the segment
-    /// has nothing in it.
-    pub fn append(&mut self, segment: &str) -> String {
-        let delta = join(&self.tail, segment);
+    /// Appends one cleaned segment and returns exactly what to deliver: how
+    /// many characters to take back first (the trailing space before a break
+    /// or a closing mark), then the segment with the space it needs after it.
+    /// Empty when the segment has nothing in it.
+    pub fn append(&mut self, segment: &str) -> (usize, String) {
+        let (take_back, delta) = join(&self.tail, segment);
+        for _ in 0..take_back {
+            self.tail.pop();
+        }
         self.tail.push_str(&delta);
         self.trim();
-        delta
+        (take_back, delta)
     }
 
     /// Takes back `delivered`, the most recent [`Composer::append`]'s
@@ -81,18 +85,30 @@ pub fn single_return_paragraphs(text: &str) -> String {
     out
 }
 
-/// The text to add after `before` so that `segment` reads on from it.
-pub fn join(before: &str, segment: &str) -> String {
+/// What to add after `before` so that `segment` reads on from it: how many
+/// characters to take back first, and the text.
+///
+/// Each segment ends with a space rather than starting with one, so a
+/// paragraph the user starts by pressing Enter themselves begins cleanly; a
+/// trailing space is invisible. Before a break or a mark that attaches to
+/// the word before it (a closing quote, a comma), that space is taken back.
+pub fn join(before: &str, segment: &str) -> (usize, String) {
     let segment = segment.trim_start_matches([' ', '\t']).trim_end_matches([' ', '\t']);
     if segment.trim().is_empty() && !segment.contains('\n') {
-        return String::new();
+        return (0, String::new());
     }
-    let Some(last) = before.chars().last() else {
-        return segment.to_string();
-    };
     let first = segment.chars().next().unwrap_or(' ');
-    let tight = first == '\n' || last.is_whitespace() || OPENERS.contains(&last) || ATTACHED.contains(&first);
-    if tight { segment.to_string() } else { format!(" {segment}") }
+    let attaches = first == '\n' || ATTACHED.contains(&first);
+    let (take_back, lead) = match before.chars().last() {
+        None => (0, ""),
+        Some(' ') if attaches => (1, ""),
+        Some(c) if attaches || c.is_whitespace() || OPENERS.contains(&c) => (0, ""),
+        // Text that doesn't end in our space (it was taken back, or erased).
+        Some(_) => (0, " "),
+    };
+    let ends_open = segment.ends_with('\n') || segment.ends_with(OPENERS);
+    let trail = if ends_open { "" } else { " " };
+    (take_back, format!("{lead}{segment}{trail}"))
 }
 
 #[cfg(test)]
@@ -100,41 +116,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sentences_are_joined_with_a_space() {
-        assert_eq!(join("It rained.", "We stayed in."), " We stayed in.");
-        assert_eq!(join("", "We stayed in."), "We stayed in.");
+    fn sentences_end_with_a_space() {
+        assert_eq!(join("It rained. ", "We stayed in."), (0, "We stayed in. ".into()));
+        assert_eq!(join("", "We stayed in."), (0, "We stayed in. ".into()));
+        // A context that lost its trailing space gets one in front instead.
+        assert_eq!(join("It rained.", "We stayed in."), (0, " We stayed in. ".into()));
     }
 
     #[test]
-    fn breaks_and_closing_marks_attach() {
-        assert_eq!(join("It rained.", "\n\nNext day."), "\n\nNext day.");
-        assert_eq!(join("“Wait", "” she said."), "” she said.");
-        assert_eq!(join("Done.\n", "Next."), "Next.");
-        assert_eq!(join("He said, “", "Go."), "Go.");
-        assert_eq!(join("\"Done.\"", "\"Next.\""), " \"Next.\"");
+    fn breaks_and_closing_marks_take_the_space_back() {
+        assert_eq!(join("It rained. ", "\n\nNext day."), (1, "\n\nNext day. ".into()));
+        assert_eq!(join("“Wait ", "” she said."), (1, "” she said. ".into()));
+        assert_eq!(join("Done.\n", "Next."), (0, "Next. ".into()));
+        assert_eq!(join("He said, “", "Go."), (0, "Go. ".into()));
+        assert_eq!(join("Then: ", "\n"), (1, "\n".into()));
+        assert_eq!(join("He said, ", "“Go"), (0, "“Go ".into()));
+        assert_eq!(join("Open ", "“"), (0, "“".into()), "nothing after an opening mark");
     }
 
     #[test]
     fn empty_segments_deliver_nothing_but_breaks_survive() {
-        assert_eq!(join("Text.", ""), "");
-        assert_eq!(join("Text.", "  "), "");
-        assert_eq!(join("Text.", "\n\n"), "\n\n");
+        assert_eq!(join("Text. ", ""), (0, String::new()));
+        assert_eq!(join("Text. ", "  "), (0, String::new()));
+        assert_eq!(join("Text. ", "\n\n"), (1, "\n\n".into()));
     }
 
     #[test]
     fn composer_keeps_a_bounded_tail() {
         let mut c = Composer::new(10);
-        assert_eq!(c.append("One two."), "One two.");
-        assert_eq!(c.append("Three."), " Three.");
-        assert_eq!(c.context(), "wo. Three.");
+        assert_eq!(c.append("One two."), (0, "One two. ".into()));
+        assert_eq!(c.append("Three."), (0, "Three. ".into()));
+        assert_eq!(c.context(), "o. Three. ");
         assert!(c.context().chars().count() <= 10);
         c.clear();
-        assert_eq!(c.append("Fresh."), "Fresh.");
+        assert_eq!(c.append("Fresh."), (0, "Fresh. ".into()));
         let mut c = Composer::new(100);
         c.append("Kept.");
-        let d = c.append("Gone.");
+        let (_, d) = c.append("Gone.");
         c.retract(&d);
-        assert_eq!(c.context(), "Kept.");
-        assert_eq!(c.append("Back."), " Back.");
+        assert_eq!(c.context(), "Kept. ");
+        assert_eq!(c.append("Back."), (0, "Back. ".into()));
+        // A break takes the trailing space back, in the context too.
+        assert_eq!(c.append("\n\nNew."), (1, "\n\nNew. ".into()));
+        assert_eq!(c.context(), "Kept. Back.\n\nNew. ");
     }
 }

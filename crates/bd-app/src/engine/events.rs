@@ -13,8 +13,12 @@ impl<U: Ui> Worker<U> {
             Event::Text { id, text, .. } if self.testing => {
                 tracing::info!(segment = id, chars = text.chars().count(), "microphone test: not typed");
             }
-            Event::Text { id, text, .. } => {
+            Event::Text { id, take_back, text, .. } => {
                 tracing::info!(segment = id, chars = text.chars().count(), "typing");
+                if take_back > 0 {
+                    // The trailing space before a break or a closing mark.
+                    let _ = self.type_text.send(TypeJob::Erase(" ".repeat(take_back)));
+                }
                 let _ = self.type_text.send(TypeJob::Type(text));
             }
             Event::SessionEnded => {

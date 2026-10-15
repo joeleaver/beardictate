@@ -123,11 +123,15 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
 /// Prints delivered text on stdout and everything else on stderr.
 struct Reporter {
     verbose: bool,
+    /// Trailing spaces not yet printed: stdout can't take one back before
+    /// a break or a closing mark, so they wait for the next text.
+    pending: std::cell::Cell<usize>,
 }
 
 /// What a pipeline event asks of the focused window.
 enum Output {
-    Type(String),
+    /// Take back this many characters, then type the text.
+    Type(usize, String),
     Erase(String),
 }
 
@@ -144,14 +148,17 @@ impl Reporter {
                     elapsed.as_secs_f64() * 1e3
                 );
             }
-            Event::Text { id, text, commanded, cleanup } => {
+            Event::Text { id, take_back, text, commanded, cleanup } => {
                 if self.verbose {
                     let ms = cleanup.map_or_else(|| "off".into(), |d| format!("{:.0} ms", d.as_secs_f64() * 1e3));
                     eprintln!("[{id}] cleanup {ms}: {commanded:?} -> {text:?}");
                 }
-                print!("{text}");
+                let pending = self.pending.get().saturating_sub(*take_back);
+                let body = text.trim_end_matches(' ');
+                print!("{}{body}", " ".repeat(pending));
+                self.pending.set(text.len() - body.len());
                 let _ = std::io::stdout().flush();
-                return Some(Output::Type(text.clone()));
+                return Some(Output::Type(*take_back, text.clone()));
             }
             Event::Erase { id, text } => {
                 // Stdout can't take text back; say what went.
@@ -175,7 +182,7 @@ impl Reporter {
 pub fn file(args: &FileArgs) -> Result<()> {
     let audio: Vec<Vec<f32>> = args.wavs.iter().map(|p| read_wav(p)).collect::<Result<_>>()?;
     let pipeline = spawn_pipeline(&args.dictate)?;
-    let reporter = Reporter { verbose: args.dictate.verbose };
+    let reporter = Reporter { verbose: args.dictate.verbose, pending: Default::default() };
     let mut injector = if args.inject {
         let mut injector = PlatformInjector::new(InjectorConfig::default())?;
         injector.prepare()?;
@@ -296,11 +303,16 @@ pub fn mic(args: &MicArgs) -> Result<()> {
 /// Types (or erases) one piece of delivered text.
 fn deliver(injector: &mut PlatformInjector, output: Output, verbose: bool) {
     match output {
-        Output::Type(text) => match injector.inject_text(&text) {
+        Output::Type(take_back, text) => {
+            if take_back > 0 {
+                deliver(injector, Output::Erase(" ".repeat(take_back)), verbose);
+            }
+            match injector.inject_text(&text) {
             Ok(outcome) if verbose => eprintln!("(injected: {outcome:?})"),
             Ok(_) => {}
-            Err(e) => eprintln!("could not type the text: {e}"),
-        },
+                Err(e) => eprintln!("could not type the text: {e}"),
+            }
+        }
         Output::Erase(text) => match injector.erase(&text) {
             Ok(Erased::Done) => {}
             Ok(Erased::Refused { reason }) => eprintln!("could not erase it: {reason}"),
@@ -331,7 +343,7 @@ fn spawn_output(events: Receiver<Event>, verbose: bool, inject: bool) -> Result<
             let _ = ready_tx.send(Ok("none"));
             None
         };
-        let reporter = Reporter { verbose };
+        let reporter = Reporter { verbose, pending: Default::default() };
         for event in events {
             let Some(output) = reporter.report(&event) else { continue };
             let Some(injector) = injector.as_mut() else { continue };

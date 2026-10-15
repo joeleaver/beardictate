@@ -283,7 +283,10 @@ impl Finisher {
                 }
                 let Some(Item::Segment(next)) = self.queue.pop_front() else { unreachable!() };
                 tracing::info!(segment = p.id, joined = next.id, "unfinished sentence joined to the next");
-                let tail = join(&p.out.text, &next.out.text);
+                let (take_back, tail) = join(&p.out.text, &next.out.text);
+                for _ in 0..take_back {
+                    p.out.text.pop();
+                }
                 p.out.text.push_str(&tail);
                 p.out.quote_open = next.out.quote_open;
             }
@@ -302,7 +305,15 @@ impl Finisher {
             return;
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
-        let text = self.composer.append(&text);
+        let (take_back, text) = self.composer.append(&text);
+        if take_back > 0
+            && let Some(last) = self.typed.last_mut()
+        {
+            // That space is gone from the page, so "scratch that" mustn't count it.
+            for _ in 0..take_back {
+                last.text.pop();
+            }
+        }
         if text.is_empty() {
             tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
         } else {
@@ -310,7 +321,7 @@ impl Finisher {
                 self.typed.remove(0);
             }
             self.typed.push(Typed { id: p.id, text: text.clone(), quote_before: p.quote_before });
-            self.emit(Event::Text { id: p.id, text, commanded, cleanup });
+            self.emit(Event::Text { id: p.id, take_back, text, commanded, cleanup });
         }
     }
 
@@ -319,7 +330,9 @@ impl Finisher {
             return (commanded.to_string(), None);
         };
         let started = Instant::now();
-        let request = CleanupRequest { context: self.composer.context(), raw: commanded, style: &self.style };
+        // Without the trailing space typed for the next segment.
+        let context = self.composer.context().trim_end_matches(' ');
+        let request = CleanupRequest { context, raw: commanded, style: &self.style };
         let result = cleanup.clean(&request);
         let elapsed = started.elapsed();
         match result {
