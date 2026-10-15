@@ -197,6 +197,10 @@ mid-sentence doesn't stop dictation.
 With the mode off, the hotkey works as below: it opens the microphone and
 starts dictating, then stops both.
 
+**Starting the app starts dictating**, in either mode (Joe, 2026-10-15):
+once the models load, the microphone comes on and typing is awake. The
+tray shows a violet dot while models load: nothing to do but wait.
+
 ## Hotkey
 
 **Toggle by default** (press to start, press again to stop; long passages

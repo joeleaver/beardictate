@@ -3,8 +3,10 @@
 # `kwin_wayland --virtual` under its own D-Bus, a separate rootless Xwayland
 # inside it (XTEST input from X clients doesn't reach the Xwayland KWin
 # starts), an xterm to type into, and a WAV standing in for the microphone.
-# Presses the hotkey to start, `beardictate --toggle` to stop, then prints
-# what was typed. With `voice`, runs always listening instead: no keys, the
+# Dictation starts by itself once the models load; `beardictate --toggle`
+# stops it. Then prints
+# what was typed. With `voice`, runs always listening instead: it starts
+# awake, then the
 # recording's own "bear, wake up" / "bear, go to sleep" decide what's typed.
 # Config, data and logs go to a temp dir.
 #
@@ -48,7 +50,7 @@ if ! grep -q "models loaded" "$work/app.log"; then echo "app did not start" >&2;
 xdotool search --class xterm windowfocus; sleep 1
 xdotool key F24; sleep 0.5          # the first XTEST key on a fresh server is lost
 if [ "$voice_wake" = false ]; then
-    xdotool key ctrl+alt+space      # start (the global hotkey)
+    # Dictation starts by itself once the models load.
     sleep $listen
     "$bin" --toggle                 # stop (via this test's own socket)
 else

@@ -34,7 +34,7 @@ impl<U: Ui> Worker<U> {
                 self.notifier.notify("mic", "Microphone problem", &format!("{e:#}"));
                 self.capture = None;
                 // Off in the settings too, so the menu offers to try again.
-                return self.turn_mic_off_in_settings();
+                return self.record_mic(false);
             }
         }
         self.publish();
@@ -92,10 +92,13 @@ impl<U: Ui> Worker<U> {
         self.publish();
     }
 
-    /// The microphone went away: record it as off, so the menu offers to
-    /// turn it back on.
-    pub(super) fn turn_mic_off_in_settings(&mut self) {
-        self.settings.microphone_on = false;
+    /// Records the microphone as on or off in the settings, when the app
+    /// rather than the menu switched it (it went away; the app started).
+    pub(super) fn record_mic(&mut self, on: bool) {
+        if self.settings.microphone_on == on {
+            return self.publish();
+        }
+        self.settings.microphone_on = on;
         if let Err(e) = self.paths.save(&self.settings) {
             tracing::warn!("saving settings: {e:#}");
         }

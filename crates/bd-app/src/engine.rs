@@ -131,6 +131,8 @@ struct Worker<U> {
     listening_since: Option<Instant>,
     /// Always listening, with the microphone running (see `standby.rs`).
     standby: bool,
+    /// Turn dictation on when the models first load.
+    start_on_load: bool,
     cleaning: bool,
     last_dictation: Option<Instant>,
     type_text: Sender<TypeJob>,
@@ -157,6 +159,7 @@ impl<U: Ui> Worker<U> {
             capture: None,
             listening_since: None,
             standby: false,
+            start_on_load: true,
             cleaning: false,
             last_dictation: None,
             type_text,
@@ -241,8 +244,20 @@ impl<U: Ui> Worker<U> {
                 // Settings changed while loading reach it now.
                 l.pipeline.reconfigure(pipeline_config(&self.settings));
                 self.pipeline = Some(l.pipeline);
+                // The first load after starting: dictation comes on, in either
+                // mode. Later loads (a settings change) keep what was.
+                let starting = std::mem::take(&mut self.start_on_load);
+                if starting && self.settings.voice_wake {
+                    self.record_mic(true);
+                }
                 if self.wants_standby() {
-                    self.stand_by(false);
+                    self.stand_by(starting);
+                } else if starting
+                    && !self.settings.voice_wake
+                    && let Err(e) = self.start()
+                {
+                    self.notifier.notify("mic", "Microphone problem", &format!("{e:#}"));
+                    self.capture = None;
                 }
             }
             Err(e) => {
@@ -334,7 +349,7 @@ impl<U: Ui> Worker<U> {
                     pipeline.end_session();
                     self.listening_since = None;
                     self.capture = None;
-                    return self.turn_mic_off_in_settings();
+                    return self.record_mic(false);
                 }
                 if self.listening_since.is_some() {
                     self.listening_since = None;

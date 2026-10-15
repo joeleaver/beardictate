@@ -76,7 +76,9 @@ fn look(state: State, taskbar: Taskbar) -> Look {
         State::MicOff => (paused_snout, None),
         State::Listening => (COBALT, Some([0xD1, 0x45, 0x2F])),
         State::Cleaning => (COBALT, Some([0x1F, 0xA3, 0x8A])),
-        State::Loading => (paused_snout, None),
+        // Nothing to do but wait: a violet dot, unlike every state that
+        // asks for something.
+        State::Loading => (paused_snout, Some([0x8B, 0x6C, 0xD9])),
         State::NeedsYou => (quiet_snout, Some([0xE0, 0xA8, 0x00])),
     };
     // The nose is the bear's colour, except on the dark idle snout, where
@@ -200,7 +202,7 @@ mod tests {
 fn dump() {
     let dir = std::path::PathBuf::from(std::env::var_os("BD_ICON_DUMP").expect("set BD_ICON_DUMP"));
     std::fs::create_dir_all(&dir).unwrap();
-    for state in [State::Idle, State::Listening, State::Cleaning, State::Loading, State::NeedsYou] {
+    for state in [State::Idle, State::Asleep, State::MicOff, State::Listening, State::Cleaning, State::Loading, State::NeedsYou] {
         for taskbar in [Taskbar::Light, Taskbar::Dark] {
             let name = format!("{state:?}-{taskbar:?}.rgba").to_lowercase();
             std::fs::write(dir.join(name), render(state, taskbar)).unwrap();
