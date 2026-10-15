@@ -23,29 +23,29 @@
   "builds": [
     {
       "platform": "linux",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "kind": "Linux package (.tar.gz)",
-      "file": "beardictate-0.1.3-linux-x86_64.tar.gz",
-      "size": 41737866,
-      "sha256": "5c9ccd6458ff906671dd34c518fb4da8609c028d3f480d210be13b7601cc9ff0",
+      "file": "beardictate-0.1.4-linux-x86_64.tar.gz",
+      "size": 41741284,
+      "sha256": "34d6ad4cddc09cc38e0eaec53f20d3b664316ac1c73378566ed70f2fe744d35f",
       "date": "2026-10-15"
     },
     {
       "platform": "windows",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "kind": "Installer",
-      "file": "beardictate-0.1.3-windows-x64-setup.exe",
-      "size": 25827692,
-      "sha256": "c88fb2893710c75173fbe85d5f0b0604632220c7549ffa963ae1d9ca95279fee",
+      "file": "beardictate-0.1.4-windows-x64-setup.exe",
+      "size": 25821681,
+      "sha256": "048fdde5e652d03e6b730a1dde68b5f92260b838b704fd1aab33bb1f5634c5f6",
       "date": "2026-10-15"
     },
     {
       "platform": "windows",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "kind": "Portable zip",
-      "file": "beardictate-0.1.3-windows-x64.zip",
-      "size": 44687151,
-      "sha256": "fe402bcbd016a5e02413df021b5ce9daefdfce2fbf9059f0545292977e1e08f4",
+      "file": "beardictate-0.1.4-windows-x64.zip",
+      "size": 44689437,
+      "sha256": "809178cb99e0a4b51aecf67687ae3a4b2bd0f38f467cd60f5a28738a878bad2e",
       "date": "2026-10-15"
     }
   ]
