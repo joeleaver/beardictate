@@ -184,6 +184,23 @@ changes: `CARGO_TARGET_DIR=... scripts/install-linux.sh`.
   The Rinch session said it would message the beardictate session as each
   lands; check `gh issue view <n> -R joeleaver/rinch` rather than relying on that.
 
+## Publishing installers (beardictate.jkbase.app)
+
+The website is jkbase project `beardictate`, source in
+`/home/joe/dev/jkbase/sites/beardictate` (jkbase branch
+`feat/beardictate-site`). Installers are hosted there; models still come from
+the pinned URLs in `crates/bd-models/manifest.toml`.
+
+    cd /home/joe/dev/jkbase/sites/beardictate
+    ./publish.sh add windows 0.1.0 <path/to/beardictate-0.1.0-windows-x64-setup.exe>
+    ./publish.sh check     # every listed file present, size + SHA-256 match
+    ./publish.sh deploy    # check, then `jkbase deploy` with Joe's ~/.jkbase credentials
+
+Then commit `public/downloads/releases.json` on that branch (binaries are
+gitignored; the publishing checkout holds the only copy). Platforms:
+windows, linux, macos; `prune <platform> <n>` and `remove <file>` drop old
+builds. **Ask Joe before every deploy.** Details: that folder's README.md.
+
 ## Where things live (outside the repo)
 
 - Models (dev): `/mnt/data/beardictate-dev/models/` —
