@@ -397,8 +397,9 @@ impl<U: Ui> Worker<U> {
             }
             // Counts only, never the words: enough to see in the log which
             // sentence went missing, and when.
-            Event::Transcribed { id, text, .. } => {
-                tracing::info!(segment = id, words = text.split_whitespace().count(), "heard");
+            Event::Transcribed { id, text, audio, level, .. } => {
+                let db = 20.0 * level.max(1e-9).log10();
+                tracing::info!(segment = id, words = text.split_whitespace().count(), ms = audio.as_millis(), "heard ({db:.0} dBFS)");
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
         }

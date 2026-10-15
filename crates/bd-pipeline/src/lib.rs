@@ -124,7 +124,8 @@ pub enum Event {
     /// whole life, from 0. Empty `text` means it heard no words.
     /// `pause` is the silence before it in this session (`None` for the
     /// session's first segment).
-    Transcribed { id: u64, text: String, audio: Duration, pause: Option<Duration>, elapsed: Duration },
+    /// `level` is the segment's RMS loudness, 0 to 1.
+    Transcribed { id: u64, text: String, audio: Duration, level: f32, pause: Option<Duration>, elapsed: Duration },
     /// Text to deliver now, separator included: append it to what was
     /// delivered before.
     Text {

@@ -132,7 +132,7 @@ impl Reporter {
     /// anything.
     fn report(&self, event: &Event) -> Option<Output> {
         match event {
-            Event::Transcribed { id, text, audio, pause, elapsed } if self.verbose => {
+            Event::Transcribed { id, text, audio, pause, elapsed, .. } if self.verbose => {
                 let pause = pause.map_or(String::new(), |p| format!(" after {:.1}s pause", p.as_secs_f32()));
                 eprintln!(
                     "[{id}] asr {:.2}s audio{pause} in {:.0} ms: {text:?}",

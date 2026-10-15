@@ -11,6 +11,7 @@ use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
 use crate::compose::{Composer, join, single_return_paragraphs};
 mod gate;
+mod noise;
 mod wake;
 
 use gate::{Gate, Step};
@@ -108,7 +109,14 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                 match asr.transcribe(&seg) {
                     Ok(text) => {
                         let elapsed = started.elapsed();
-                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, pause, elapsed });
+                        let text = if noise::is_noise(&text, audio) {
+                            tracing::info!(segment = id, ms = audio.as_millis(), "dropped a lone {text:?} from a short burst: noise");
+                            String::new()
+                        } else {
+                            text
+                        };
+                        let level = noise::rms(&seg.samples);
+                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, level, pause, elapsed });
                         Heard::Text { id, text, pause }
                     }
                     Err(e) => {
