@@ -15,13 +15,14 @@ use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use bd_audio::{AudioError, CaptureConfig, CaptureEvent, StreamPolicy};
-use bd_pipeline::{Event, Pipeline};
+use bd_pipeline::Pipeline;
 use crossbeam_channel::{Receiver, Sender, never, select, tick, unbounded};
 
 use crate::mic::Mic;
 use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
 
+mod events;
 mod inject;
 mod mic_check;
 mod standby;
@@ -38,6 +39,8 @@ const NEW_PASSAGE_AFTER: Duration = Duration::from_secs(60);
 pub enum Command {
     /// Start dictating, or stop.
     Toggle,
+    /// Start or stop the Microphone page's test.
+    MicTest(bool),
     /// The settings changed (from the tray menu; already saved).
     Apply(Settings),
     /// A cleanup model was downloaded or deleted.
@@ -76,6 +79,12 @@ pub trait Ui: Send + 'static {
     fn status(&self, status: Status);
     /// The settings file was edited by hand.
     fn settings_changed(&self, settings: Settings);
+    /// The microphone's level, after gain (RMS, 0 to 1), ten times a second.
+    fn meter(&self, _level: f32) {}
+    /// The microphone gain now in use (a factor, 1 and up).
+    fn gain(&self, _gain: f32) {}
+    /// During a microphone test: what was heard, and how loud it came in.
+    fn heard(&self, _text: String, _level: f32) {}
 }
 
 pub struct Engine {
@@ -145,6 +154,15 @@ struct Worker<U> {
     /// Quiet sentences in a row, and whether that was said this run.
     quiet_run: u8,
     quiet_warned: bool,
+    /// Learned microphone gains by microphone, and the gain in use.
+    gains: std::collections::BTreeMap<String, f32>,
+    gain: f32,
+    /// The level meter: loudest chunk since it last updated, and when.
+    meter_peak: f32,
+    meter_at: Instant,
+    /// The Microphone page's test is on; it started a dictation to listen.
+    testing: bool,
+    test_dictation: bool,
     /// What the status says while models load: which, and whether a switch.
     loading_detail: String,
     /// Always listening was awake when a reload started: wake it again.
@@ -160,6 +178,7 @@ struct Worker<U> {
 impl<U: Ui> Worker<U> {
     fn new(paths: Paths, settings: Settings, ui: U, commands: Receiver<Command>) -> Self {
         let (type_text, injected) = spawn_injector(&paths);
+        let gains = paths.load_gains();
         Worker {
             notifier: Notifier::new(settings.notifications),
             settings_mtime: mtime(&paths.settings),
@@ -181,6 +200,12 @@ impl<U: Ui> Worker<U> {
             reload_after_load: false,
             quiet_run: 0,
             quiet_warned: false,
+            gains,
+            gain: 1.0,
+            meter_peak: 0.0,
+            meter_at: Instant::now(),
+            testing: false,
+            test_dictation: false,
             loading_detail: String::new(),
             wake_after_load: false,
             cleaning: false,
@@ -203,6 +228,7 @@ impl<U: Ui> Worker<U> {
             select! {
                 recv(commands) -> cmd => match cmd {
                     Ok(Command::Toggle) => self.toggle(),
+                    Ok(Command::MicTest(on)) => self.mic_test(on),
                     Ok(Command::Apply(settings)) => self.apply(settings),
                     Ok(Command::ModelsChanged) => {
                         // "auto" may now mean a different model; a failed load
@@ -324,6 +350,7 @@ impl<U: Ui> Worker<U> {
             CaptureEvent::Chunk(chunk) => {
                 pipeline.push_audio(chunk.samples);
                 self.note_level(chunk.rms);
+                self.note_meter(chunk.rms);
             }
             CaptureEvent::Stopped { dropped_frames } => {
                 if dropped_frames > 0 {
@@ -353,67 +380,6 @@ impl<U: Ui> Worker<U> {
         }
     }
 
-    fn on_pipeline(&mut self, event: Event) {
-        match event {
-            Event::Text { id, text, .. } => {
-                tracing::info!(segment = id, chars = text.chars().count(), "typing");
-                let _ = self.type_text.send(TypeJob::Type(text));
-            }
-            Event::SessionEnded => {
-                self.cleaning = false;
-                if std::mem::take(&mut self.reopen_mic) && !self.standby {
-                    // The next dictation opens the newly chosen microphone.
-                    self.capture = None;
-                }
-                if self.reload_when_idle && !self.busy() {
-                    self.start_load();
-                    return;
-                }
-                self.publish();
-            }
-            Event::Erase { id, text } => {
-                tracing::info!(segment = id, chars = text.chars().count(), "erasing (scratch that)");
-                let _ = self.type_text.send(TypeJob::Erase(text));
-            }
-            Event::ScratchTooLate => {
-                self.notifier.notify(
-                    "scratch",
-                    "Nothing to scratch",
-                    "\"Scratch that\" only takes back text from the current dictation; earlier text is left as is.",
-                );
-            }
-            Event::Error { stage, message } => {
-                self.notifier.notify("pipeline", &format!("{stage:?} failed on a sentence"), &message);
-            }
-            Event::Woke => {
-                tracing::info!("voice wake: awake");
-                self.listening_since = Some(Instant::now());
-                self.publish();
-            }
-            Event::Slept => {
-                tracing::info!("voice wake: asleep");
-                self.listening_since = None;
-                self.last_dictation = Some(Instant::now());
-                if self.reload_when_idle {
-                    self.start_load();
-                    return;
-                }
-                self.publish();
-            }
-            // Counts only, never the words: enough to see in the log which
-            // sentence went missing, and when.
-            Event::Transcribed { id, text, audio, level, .. } => {
-                let db = 20.0 * level.max(1e-9).log10();
-                let words = text.split_whitespace().count();
-                tracing::info!(segment = id, words, ms = audio.as_millis(), "heard ({db:.0} dBFS)");
-                self.note_speech_level(level, words);
-            }
-            Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
-        }
-    }
-
-    // ---- settings -----------------------------------------------------------
-
     fn apply(&mut self, new: Settings) {
         let old = std::mem::replace(&mut self.settings, new);
         let s = &self.settings;
@@ -422,6 +388,14 @@ impl<U: Ui> Worker<U> {
             self.apply_rest(&old);
             return self.switch_mic(old.microphone_on);
         }
+        if old.microphone != s.microphone
+            && let Some(pipeline) = &self.pipeline
+        {
+            // Each microphone has its own learned gain.
+            pipeline.reconfigure(pipeline_config(s, self.starting_gain()));
+            self.gain = self.starting_gain();
+        }
+        let s = &self.settings;
         if self.standby && old.microphone != s.microphone {
             // A different microphone: reopen it, staying asleep or awake.
             let awake = self.listening_since.is_some();
@@ -447,7 +421,7 @@ impl<U: Ui> Worker<U> {
             && let Some(pipeline) = &self.pipeline
         {
             tracing::info!("settings applied");
-            pipeline.reconfigure(pipeline_config(s));
+            pipeline.reconfigure(pipeline_config(s, self.starting_gain()));
         }
     }
 

@@ -85,6 +85,10 @@ pub struct Settings {
     pub voice_wake: bool,
     /// With `voice_wake`: the microphone is on. Switched from the tray menu.
     pub microphone_on: bool,
+    /// Learn the microphone gain from your speech, like a call app does.
+    pub auto_gain: bool,
+    /// The gain when `auto_gain` is off, in dB (0 to 30).
+    pub mic_gain_db: f32,
     /// Keep the microphone open between dictations. The first syllable is
     /// never clipped, but the desktop shows the mic as in use all the time.
     pub keep_mic_open: bool,
@@ -121,6 +125,8 @@ impl Default for Settings {
             hotword_boost: 2.0,
             microphone: String::new(),
             keep_mic_open: false,
+            auto_gain: true,
+            mic_gain_db: 0.0,
             tray_theme: TrayTheme::Auto,
             models_dir: String::new(),
             notifications: true,
@@ -149,6 +155,8 @@ pub struct LiveSettings {
     pub hotword_boost: f32,
     pub blank_line_paragraphs: bool,
     pub voice_wake: bool,
+    pub auto_gain: bool,
+    pub mic_gain_db: f32,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -216,6 +224,8 @@ impl Settings {
             hotword_boost: self.hotword_boost,
             blank_line_paragraphs: self.blank_line_paragraphs,
             voice_wake: self.voice_wake,
+            auto_gain: self.auto_gain,
+            mic_gain_db: self.mic_gain_db,
         }
     }
 }
@@ -226,6 +236,8 @@ pub struct Paths {
     pub settings: PathBuf,
     /// The Wayland remote-input approval, so the desktop asks only once.
     pub portal_token: PathBuf,
+    /// The microphone gain learned for each microphone.
+    pub gains: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
     /// Present while beardictate starts at login (not on Windows, which
@@ -244,6 +256,7 @@ impl Paths {
             settings: config.join("settings.toml"),
             portal_token: dirs.data_local_dir().join("portal-token"),
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
+            gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
         })
     }
@@ -268,6 +281,18 @@ impl Paths {
         let body = toml::to_string_pretty(settings).context("serializing settings")?;
         let text = format!("{SETTINGS_HEADER}\n{body}");
         write_atomic(&self.settings, &text)
+    }
+
+    /// Learned gains by microphone name ("" for the system default).
+    pub fn load_gains(&self) -> std::collections::BTreeMap<String, f32> {
+        fs::read_to_string(&self.gains).ok().and_then(|t| toml::from_str(&t).ok()).unwrap_or_default()
+    }
+
+    pub fn save_gains(&self, gains: &std::collections::BTreeMap<String, f32>) {
+        let text = toml::to_string(gains).unwrap_or_default();
+        if let Err(e) = write_atomic(&self.gains, &text) {
+            tracing::warn!("saving the microphone gain: {e:#}");
+        }
     }
 
     pub fn load_portal_token(&self) -> Option<String> {
@@ -333,6 +358,8 @@ const SETTINGS_HEADER: &str = "\
 #   the same speaker carries on into the next; false (book style) leaves it open.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.
+# auto_gain: learn the microphone gain from your speech; mic_gain_db: the gain
+#   in dB (0 to 30) when auto_gain is false.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";

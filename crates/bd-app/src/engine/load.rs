@@ -18,7 +18,7 @@ use crate::settings::{Settings, vocabulary};
 pub(super) const NOT_DOWNLOADED: &str = "the speech models aren't downloaded yet (open Settings)";
 
 /// Loads every model and starts a pipeline. Runs on its own thread.
-pub(super) fn load(settings: &Settings) -> Result<Loaded> {
+pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     let store = match settings.models_dir.trim() {
         "" => Store::from_env()?,
         dir => Store::at(dir),
@@ -26,7 +26,7 @@ pub(super) fn load(settings: &Settings) -> Result<Loaded> {
     if crate::models::speech().iter().any(|m| !bd_pipeline::setup::installed(&store, m)) {
         anyhow::bail!(NOT_DOWNLOADED);
     }
-    let config = pipeline_config(settings);
+    let config = pipeline_config(settings, gain);
     let segmenter = setup::load_segmenter(&store)?;
     let asr = setup::load_asr(&store, &config.vocabulary.hotwords(), settings.hotword_boost)?;
     let source = CleanupSource::parse(&settings.cleanup);
@@ -44,7 +44,8 @@ pub(super) fn load(settings: &Settings) -> Result<Loaded> {
     Ok(Loaded { pipeline, cleanup: name })
 }
 
-pub(super) fn pipeline_config(settings: &Settings) -> PipelineConfig {
+/// The pipeline settings, with `gain` the microphone gain to start from.
+pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig {
     let live = settings.live();
     PipelineConfig {
         style: live.style,
@@ -54,6 +55,8 @@ pub(super) fn pipeline_config(settings: &Settings) -> PipelineConfig {
         blank_line_paragraphs: live.blank_line_paragraphs,
         voice_wake: live.voice_wake,
         pause_paragraph: live.pause_paragraph,
+        input_gain: gain,
+        auto_gain: live.auto_gain,
         ..PipelineConfig::default()
     }
 }
@@ -86,11 +89,13 @@ impl<U: Ui> Worker<U> {
         // Dropping the old pipeline joins its threads, which are idle.
         self.pipeline = None;
         let settings = self.settings.clone();
+        let gain = self.starting_gain();
+        self.gain = gain;
         let (tx, rx) = bounded(1);
         thread::Builder::new()
             .name("bd-load".into())
             .spawn(move || {
-                let _ = tx.send(load(&settings).map_err(|e| format!("{e:#}")));
+                let _ = tx.send(load(&settings, gain).map_err(|e| format!("{e:#}")));
             })
             .expect("spawning the loader");
         self.loading = Some(rx);
@@ -109,7 +114,7 @@ impl<U: Ui> Worker<U> {
                 tracing::info!(cleanup = %l.cleanup, "models loaded");
                 self.cleanup_name = format!("Cleanup: {}", l.cleanup);
                 // Settings changed while loading reach it now.
-                l.pipeline.reconfigure(pipeline_config(&self.settings));
+                l.pipeline.reconfigure(pipeline_config(&self.settings, self.starting_gain()));
                 self.pipeline = Some(l.pipeline);
                 // The first load after starting: dictation comes on, in either
                 // mode. Later loads (a settings change) keep what was.

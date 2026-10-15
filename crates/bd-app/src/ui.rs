@@ -29,6 +29,20 @@ pub struct Shared {
     pub section: Signal<Section>,
     /// The cleanup models: what's downloaded, downloads in progress.
     pub models: Models,
+    /// The Microphone page: live level, gain in use, and the test.
+    pub mic: MicView,
+}
+
+/// What the engine reports about the microphone, for the Microphone page.
+#[derive(Clone, Copy)]
+pub struct MicView {
+    /// RMS after gain, 0 to 1, ten times a second while the mic is open.
+    pub level: Signal<f32>,
+    /// The gain in use, as a factor.
+    pub gain: Signal<f32>,
+    pub testing: Signal<bool>,
+    /// The test's recent results: what was heard, and how loud (RMS).
+    pub heard: Signal<Vec<(String, f32)>>,
 }
 
 /// The settings window's sections.
@@ -67,18 +81,25 @@ impl Shared {
             status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false }),
             settings: Signal::new(settings),
             models,
+            mic: MicView {
+                level: Signal::new(0.0),
+                gain: Signal::new(1.0),
+                testing: Signal::new(false),
+                heard: Signal::new(Vec::new()),
+            },
         }
     }
 
     /// The engine's way back to the UI thread.
     pub fn bridge(&self) -> Bridge {
-        Bridge { status: self.status, settings: self.settings }
+        Bridge { status: self.status, settings: self.settings, mic: self.mic }
     }
 }
 
 pub struct Bridge {
     status: Signal<Status>,
     settings: Signal<Settings>,
+    mic: MicView,
 }
 
 impl engine::Ui for Bridge {
@@ -90,6 +111,21 @@ impl engine::Ui for Bridge {
     fn settings_changed(&self, settings: Settings) {
         let signal = self.settings;
         rinch::run_on_main_thread(move || signal.set(settings));
+    }
+
+    fn meter(&self, level: f32) {
+        self.mic.level.send(level);
+    }
+
+    fn gain(&self, gain: f32) {
+        self.mic.gain.send(gain);
+    }
+
+    fn heard(&self, text: String, level: f32) {
+        self.mic.heard.update_send(move |h| {
+            h.insert(0, (text, level));
+            h.truncate(5);
+        });
     }
 }
 

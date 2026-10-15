@@ -13,9 +13,11 @@ use crate::settings::{Punctuation, QuoteMarks, Settings, TrayTheme};
 use crate::ui::{self, Section, Shared, change, check_hotkey};
 
 mod cleanup;
+mod mic_page;
 mod setup;
 mod words;
 use cleanup::cleanup_page;
+use mic_page::microphone;
 use setup::setup_card;
 use words::words;
 
@@ -204,36 +206,6 @@ fn theme_from(v: &str) -> TrayTheme {
         "light" => TrayTheme::Light,
         "dark" => TrayTheme::Dark,
         _ => TrayTheme::Auto,
-    }
-}
-
-/// The Select value standing for "no particular microphone".
-const DEFAULT_MIC: &str = "(default)";
-
-fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
-    let mut data = vec![SelectOption::new(DEFAULT_MIC, "System default")];
-    match bd_audio::list_input_devices() {
-        Ok(devices) => data.extend(devices.into_iter().map(|d| SelectOption::new(d.name.clone(), d.name))),
-        Err(e) => tracing::warn!("listing microphones: {e}"),
-    }
-    let (s1, s2, s3, s4) = (s.clone(), s.clone(), s.clone(), s.clone());
-    rsx! {
-        div { style: "display: flex; flex-direction: column; gap: 18px;",
-            Title { order: 3, "Microphone" }
-            Select {
-                label: "Microphone",
-                description: "Takes effect at your next dictation.",
-                data: data,
-                value_fn: move || s1.settings.with(|st| if st.microphone.is_empty() { DEFAULT_MIC.to_string() } else { st.microphone.clone() }),
-                onchange: move |v: String| change(&s2, |st| st.microphone = if v == DEFAULT_MIC { String::new() } else { v }),
-            }
-            Switch {
-                label: "Keep the microphone open between dictations",
-                description: "Your first word is never clipped, but the desktop shows the microphone as in use all the time.",
-                checked_fn: move || s3.settings.with(|st| st.keep_mic_open),
-                onchange: move || change(&s4, |st| st.keep_mic_open = !st.keep_mic_open),
-            }
-        }
     }
 }
 

@@ -10,16 +10,19 @@ use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
 use crate::compose::{Composer, join, single_return_paragraphs};
+use crate::gain::InputGain;
 mod gate;
+mod segment;
 mod noise;
 mod wake;
 
 use gate::{Gate, Step};
-use crate::{Event, Input, Parts, PipelineConfig, Segmenting, Stage};
+use crate::{Event, Input, Parts, PipelineConfig, Stage};
 
 /// From the segmenter to the ASR.
 enum Cut {
-    Segment(u64, AudioSegment),
+    /// A segment, and the input gain it was raised by.
+    Segment(u64, AudioSegment, f32),
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
@@ -47,69 +50,30 @@ pub(crate) fn spawn(
     let (heard_tx, heard_rx) = unbounded();
     let Parts { segmenter, asr, cleanup } = parts;
     let asr_events = events.clone();
+    let gain = InputGain::new(config.input_gain, config.auto_gain);
+    let learner = gain.clone();
     let finisher = Finisher::new(cleanup, config, events);
     Ok(vec![
-        thread::Builder::new().name("bd-segment".into()).spawn(move || segment(segmenter, input, cut_tx))?,
-        thread::Builder::new().name("bd-asr".into()).spawn(move || transcribe(asr, cut_rx, heard_tx, asr_events))?,
+        thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain))?,
+        thread::Builder::new().name("bd-asr".into()).spawn(move || transcribe(asr, cut_rx, heard_tx, asr_events, learner))?,
         thread::Builder::new().name("bd-finish".into()).spawn(move || finisher.run(heard_rx))?,
     ])
 }
 
-/// Stage 1: cut audio into utterances. Numbers segments over the pipeline's
-/// life. When the input closes mid-session, cuts what is in progress.
-fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>, out: Sender<Cut>) {
-    let mut next_id = 0u64;
-    let mut send_all = |segs: Vec<AudioSegment>, out: &Sender<Cut>| {
-        for seg in segs {
-            let _ = out.send(Cut::Segment(next_id, seg));
-            next_id += 1;
-        }
-    };
-    let mut dirty = false;
-    for msg in &input {
-        match msg {
-            Input::Audio(samples) => {
-                dirty = true;
-                send_all(segmenter.accept(&samples), &out);
-            }
-            Input::EndSession => {
-                dirty = false;
-                send_all(segmenter.flush(), &out);
-                let _ = out.send(Cut::EndSession);
-            }
-            Input::NewPassage => {
-                let _ = out.send(Cut::NewPassage);
-            }
-            Input::Reconfigure(config) => {
-                let _ = out.send(Cut::Reconfigure(config));
-            }
-            Input::Awake(awake) => {
-                let _ = out.send(Cut::Awake(awake));
-            }
-        }
-    }
-    if dirty {
-        send_all(segmenter.flush(), &out);
-        let _ = out.send(Cut::EndSession);
-    }
-}
-
 /// Stage 2: speech to text.
-fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>) {
+fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>, gain: InputGain) {
     // Where the previous segment of this session ended, in session samples.
     let mut previous_end: Option<u64> = None;
     let secs = |samples: u64| Duration::from_secs_f64(samples as f64 / f64::from(SAMPLE_RATE));
     for cut in &input {
         let heard = match cut {
-            Cut::Segment(id, seg) => {
+            Cut::Segment(id, seg, used) => {
                 let started = Instant::now();
                 let audio = secs(seg.samples.len() as u64);
                 let pause = previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
                 previous_end = Some(seg.start_sample + seg.samples.len() as u64);
-                // How loud it came in, before bringing it up for the ASR.
-                let level = noise::rms(&seg.samples);
-                let mut seg = seg;
-                noise::level_up(&mut seg.samples);
+                // How loud it came in from the microphone, before the gain.
+                let level = noise::rms(&seg.samples) / used;
                 match asr.transcribe(&seg) {
                     Ok(text) => {
                         let elapsed = started.elapsed();
@@ -119,7 +83,8 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                         } else {
                             text
                         };
-                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, level, pause, elapsed });
+                        let gain = gain.learn(level, text.split_whitespace().count(), audio);
+                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, level, gain, pause, elapsed });
                         Heard::Text { id, text, pause }
                     }
                     Err(e) => {

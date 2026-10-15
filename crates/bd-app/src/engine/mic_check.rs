@@ -5,6 +5,9 @@
 
 use std::time::{Duration, Instant};
 
+/// How often the level meter updates.
+const METER_EVERY: Duration = Duration::from_millis(100);
+
 use super::{Ui, Worker};
 
 /// How long to listen before judging.
@@ -79,6 +82,62 @@ impl<U: Ui> Worker<U> {
                 "Your microphone is quiet",
                 "Words get missed or misheard. Turn up the microphone's input volume in your system's sound settings, or move closer to it.",
             );
+        }
+    }
+
+    /// The microphone gain to start from: learned for this microphone, or
+    /// the manual setting.
+    pub(super) fn starting_gain(&self) -> f32 {
+        if self.settings.auto_gain {
+            self.gains.get(&self.settings.microphone).copied().unwrap_or(1.0)
+        } else {
+            10f32.powf(self.settings.mic_gain_db.clamp(0.0, 30.0) / 20.0)
+        }
+    }
+
+    /// The pipeline reports the gain after a sentence; remember it for this
+    /// microphone when it moved.
+    pub(super) fn note_gain(&mut self, gain: f32) {
+        self.gain = gain;
+        self.ui.gain(gain);
+        if !self.settings.auto_gain {
+            return;
+        }
+        let key = self.settings.microphone.clone();
+        let old = self.gains.get(&key).copied().unwrap_or(1.0);
+        if (gain - old).abs() > old * 0.02 {
+            self.gains.insert(key, gain);
+            self.paths.save_gains(&self.gains);
+        }
+    }
+
+    /// Feeds the level meter: the loudest chunk, after gain, ten times a second.
+    pub(super) fn note_meter(&mut self, rms: f32) {
+        self.meter_peak = self.meter_peak.max(rms * self.gain);
+        if self.meter_at.elapsed() >= METER_EVERY {
+            self.ui.meter(std::mem::take(&mut self.meter_peak));
+            self.meter_at = Instant::now();
+        }
+    }
+
+    /// The Microphone page's test: the mic listens, nothing is typed, and
+    /// what's heard is shown there.
+    pub(super) fn mic_test(&mut self, on: bool) {
+        if on == self.testing {
+            return;
+        }
+        self.testing = on;
+        tracing::info!(on, "microphone test");
+        if on {
+            if self.settings.voice_wake {
+                if !self.standby && self.settings.microphone_on {
+                    self.stand_by(false);
+                }
+            } else if self.listening_since.is_none() && self.pipeline.is_some() {
+                self.test_dictation = self.start().is_ok();
+            }
+        } else if std::mem::take(&mut self.test_dictation) && self.listening_since.is_some() {
+            self.stop();
         }
     }
 }

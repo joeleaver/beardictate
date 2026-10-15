@@ -23,6 +23,7 @@
 //! back from the target application.
 
 mod compose;
+pub mod gain;
 pub mod setup;
 mod stages;
 
@@ -102,11 +103,16 @@ pub struct PipelineConfig {
     /// between "bear, wake up" and "bear, go to sleep" is delivered. Starts
     /// asleep. Off, everything pushed is delivered.
     pub voice_wake: bool,
+    /// Microphone gain before the VAD, as a factor (1 to [`gain::MAX_GAIN`]).
+    /// With `auto_gain` it's where learning starts; without, it's fixed.
+    pub input_gain: f32,
+    /// Learn the gain from recognized speech ([`gain`]).
+    pub auto_gain: bool,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false, input_gain: 1.0, auto_gain: true }
     }
 }
 
@@ -124,8 +130,9 @@ pub enum Event {
     /// whole life, from 0. Empty `text` means it heard no words.
     /// `pause` is the silence before it in this session (`None` for the
     /// session's first segment).
-    /// `level` is the segment's RMS loudness, 0 to 1.
-    Transcribed { id: u64, text: String, audio: Duration, level: f32, pause: Option<Duration>, elapsed: Duration },
+    /// `level` is the segment's RMS loudness from the microphone (before
+    /// gain), 0 to 1; `gain` the input gain in use after it.
+    Transcribed { id: u64, text: String, audio: Duration, level: f32, gain: f32, pause: Option<Duration>, elapsed: Duration },
     /// Text to deliver now, separator included: append it to what was
     /// delivered before.
     Text {
