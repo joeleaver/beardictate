@@ -141,6 +141,8 @@ fn main() {
 /// from the app menu still leaves a trace.
 fn init_logging(log: &std::path::Path) {
     use std::io::Write;
+    // Keep the previous run's log: a restart shouldn't erase what went wrong.
+    let _ = std::fs::rename(log, log.with_extension("log.1"));
     let file = log.parent().and_then(|d| std::fs::create_dir_all(d).ok()).and_then(|()| std::fs::File::create(log).ok());
     let file = std::sync::Arc::new(std::sync::Mutex::new(file));
     struct Tee(std::sync::Arc<std::sync::Mutex<Option<std::fs::File>>>);

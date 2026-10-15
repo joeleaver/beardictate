@@ -306,6 +306,7 @@ impl Finisher {
                     break;
                 }
                 let Some(Item::Segment(next)) = self.queue.pop_front() else { unreachable!() };
+                tracing::info!(segment = p.id, joined = next.id, "unfinished sentence joined to the next");
                 let tail = join(&p.out.text, &next.out.text);
                 p.out.text.push_str(&tail);
                 p.out.quote_open = next.out.quote_open;
@@ -326,7 +327,9 @@ impl Finisher {
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
         let text = self.composer.append(&text);
-        if !text.is_empty() {
+        if text.is_empty() {
+            tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
+        } else {
             if self.typed.len() == MAX_ERASABLE {
                 self.typed.remove(0);
             }
@@ -373,7 +376,12 @@ impl Finisher {
                 return self.queue.push_back(Item::NewPassage);
             }
         };
+        let words = text.split_whitespace().count();
         let step = self.gate.pass(text);
+        let kept = step.pass.as_deref().map_or(0, |t| t.split_whitespace().count());
+        if kept < words {
+            tracing::info!(segment = id, words, kept, woke = step.woke, sleeps = step.sleep_after, "voice wake kept only part");
+        }
         self.follow(step, id, pause);
     }
 
