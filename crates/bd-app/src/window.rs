@@ -280,6 +280,8 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let t2 = toggle(__scope, s, "When a different character speaks", "The cleanup model follows the dialog.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The cleanup model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
+    let b1 = breaks(__scope, s, "A blank line (two returns)", true);
+    let b2 = breaks(__scope, s, "One return, for editors that space paragraphs themselves", false);
     let (s1, s2, s3) = (s.clone(), s.clone(), s.clone());
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
@@ -317,6 +319,22 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 }
                 {t4}
             }
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "Between paragraphs" }
+                {b1} {b2}
+            }
+        }
+    }
+}
+
+fn breaks(__scope: &mut RenderScope, s: &Shared, label: &'static str, value: bool) -> NodeHandle {
+    let (a, b) = (s.clone(), s.clone());
+    rsx! {
+        Radio {
+            name: "breaks",
+            label: label,
+            checked_fn: move || a.settings.with(|st| st.blank_line_paragraphs == value),
+            onchange: move || change(&b, |st| st.blank_line_paragraphs = value),
         }
     }
 }

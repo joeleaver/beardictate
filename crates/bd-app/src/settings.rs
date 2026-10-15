@@ -68,6 +68,8 @@ pub struct Settings {
     pub quote_marks: QuoteMarks,
     /// Curly quotation marks (“ ” ‘ ’); off, straight typewriter ones.
     pub curly_quotes: bool,
+    /// A blank line between paragraphs (two returns); off, one return.
+    pub blank_line_paragraphs: bool,
     pub punctuation: Punctuation,
     /// How strongly the speech recognizer listens for the special words.
     pub hotword_boost: f32,
@@ -101,6 +103,7 @@ impl Default for Settings {
             pause_paragraph_secs: 3.0,
             quote_marks: QuoteMarks::Double,
             curly_quotes: true,
+            blank_line_paragraphs: true,
             punctuation: Punctuation::Inside,
             hotword_boost: 2.0,
             microphone: String::new(),
@@ -131,6 +134,7 @@ pub struct LiveSettings {
     pub pause_paragraph: Option<Duration>,
     pub special_words: Vec<SpecialWord>,
     pub hotword_boost: f32,
+    pub blank_line_paragraphs: bool,
 }
 
 impl Settings {
@@ -182,6 +186,7 @@ impl Settings {
             pause_paragraph: self.pause_paragraph(),
             special_words: active_words(&self.word_groups),
             hotword_boost: self.hotword_boost,
+            blank_line_paragraphs: self.blank_line_paragraphs,
         }
     }
 }
@@ -278,6 +283,7 @@ const SETTINGS_HEADER: &str = "\
 # cleanup: \"auto\" (largest installed model), \"off\", a model id from
 #   `bd models list`, or the path to a .gguf file.
 # quote_marks: \"double\" or \"single\"; curly_quotes: true or false.
+# blank_line_paragraphs: true for a blank line between paragraphs, false for one return.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.
 # word_groups: [[word_groups]] with name and enabled, each with

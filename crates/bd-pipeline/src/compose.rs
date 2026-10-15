@@ -68,6 +68,19 @@ impl Composer {
     }
 }
 
+/// `text` with each paragraph break (a run of two or more newlines) made a
+/// single newline.
+pub fn single_return_paragraphs(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if c == '\n' && out.ends_with('\n') {
+            continue;
+        }
+        out.push(c);
+    }
+    out
+}
+
 /// The text to add after `before` so that `segment` reads on from it.
 pub fn join(before: &str, segment: &str) -> String {
     let segment = segment.trim_start_matches([' ', '\t']).trim_end_matches([' ', '\t']);

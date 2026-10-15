@@ -374,3 +374,13 @@ fn reconfiguring_mid_dictation_changes_the_next_segment() {
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(texts(&events), " The wyrmstone dimmed.");
 }
+
+#[test]
+fn paragraphs_can_be_one_return() {
+    let config = PipelineConfig { blank_line_paragraphs: false, ..PipelineConfig::default() };
+    let r = rig_with(vec!["It was late.", "New paragraph. Morning came. New line. Rain."], true, false, config);
+    say(&r.pipeline, 0);
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "It was late.\nMorning came.\nRain.");
+}

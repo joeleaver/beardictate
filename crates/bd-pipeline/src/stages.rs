@@ -9,7 +9,7 @@ use bd_core::{Asr, AudioSegment, BoxError, Cleanup, CleanupRequest, SAMPLE_RATE,
 use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
-use crate::compose::{Composer, join};
+use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::{Event, Input, Parts, PipelineConfig, Segmenting, Stage};
 
 /// From the segmenter to the ASR.
@@ -204,6 +204,8 @@ struct Finisher {
     passage_has_text: bool,
     /// See [`PipelineConfig::sentence_hold`].
     sentence_hold: Duration,
+    /// See [`PipelineConfig::blank_line_paragraphs`].
+    blank_line_paragraphs: bool,
 }
 
 impl Finisher {
@@ -222,6 +224,7 @@ impl Finisher {
             pause_paragraph: config.pause_paragraph,
             passage_has_text: false,
             sentence_hold: config.sentence_hold,
+            blank_line_paragraphs: config.blank_line_paragraphs,
         }
     }
 
@@ -299,6 +302,7 @@ impl Finisher {
         if flight.is_some_and(|f| f.cancelled) {
             return;
         }
+        let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
         let text = self.composer.append(&text);
         if !text.is_empty() {
             if self.typed.len() == MAX_ERASABLE {
@@ -383,6 +387,7 @@ impl Finisher {
         self.style = config.style;
         self.pause_paragraph = config.pause_paragraph;
         self.sentence_hold = config.sentence_hold;
+        self.blank_line_paragraphs = config.blank_line_paragraphs;
     }
 
     /// Drops the most recent undelivered segment of this passage, returning
