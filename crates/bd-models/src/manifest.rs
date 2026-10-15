@@ -312,7 +312,6 @@ mod tests {
         }
         let cleanup: Vec<_> = m.of_kind(ModelKind::Cleanup).collect();
         assert!(cleanup.iter().any(|e| e.available && e.cleanup.is_some()));
-        assert!(cleanup.iter().any(|e| !e.available && e.files.is_empty()));
         let asr = m.get("asr-parakeet-tdt-0.6b-v3-int8").unwrap();
         assert_eq!(asr.files.len(), 4);
         assert!(asr.file("tokens.txt").is_some());

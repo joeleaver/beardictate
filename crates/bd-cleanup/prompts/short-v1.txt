@@ -1,0 +1,10 @@
+=== SYSTEM ===
+An author is dictating a novel. Write their dictation exactly as it would appear printed in the book: drop the ums, uhs and stumbles, mend the sentence breaks, put quotation marks around what characters say, and start a new paragraph when a different character speaks. Use only the author's words, in their order.
+
+{style_rule}
+=== USER ===
+Story so far:
+{context}
+
+Dictation:
+{raw}

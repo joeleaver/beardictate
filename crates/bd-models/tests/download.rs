@@ -283,7 +283,11 @@ fn probe_checks_size_and_range_support() {
 #[test]
 fn unavailable_models_are_refused() {
     let tmp = tempfile::tempdir().unwrap();
-    let bear = bd_models::Manifest::builtin().get("cleanup-bear-medium").unwrap();
+    let manifest = bd_models::Manifest::parse(
+        "[[model]]\nid = \"cleanup-bear-medium\"\nkind = \"cleanup\"\nname = \"Bear Medium\"\nlicense = \"Apache-2.0\"\navailable = false\n",
+    )
+    .unwrap();
+    let bear = manifest.get("cleanup-bear-medium").unwrap();
     let result = Downloader::default().download(&Store::at(tmp.path()), bear, &AtomicBool::new(false), &mut |_| {});
     assert!(matches!(result, Err(Error::NotAvailable(_))));
 }

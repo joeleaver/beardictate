@@ -55,6 +55,11 @@ pub const TEMPLATES: &[PromptTemplate] = &[
         source: include_str!("../prompts/generic-turns-v1.txt"),
     },
     PromptTemplate {
+        id: "short-v1",
+        description: "A few plain sentences, no numbered rules: Qwen3.5-4B's best (51% exact vs 39% with generic-v1, 2026-10-15 survey).",
+        source: include_str!("../prompts/short-v1.txt"),
+    },
+    PromptTemplate {
         id: "eval-v0",
         description: "The 2026-10-14 seed-bench prompt, kept as a baseline for comparison.",
         source: include_str!("../prompts/eval-v0.txt"),

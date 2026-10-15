@@ -66,27 +66,30 @@ files = [
 
 # --- Cleanup ---------------------------------------------------------------
 #
-# Stock Qwen3 GGUFs from Qwen's own ungated, Apache-2.0 GGUF repos. Hashes from
-# the HF tree API `lfs.oid` at the pinned commit. Qwen3 is a hybrid
-# thinking model; cleanup runs it with thinking off. Sampling is greedy, as in
-# the 2026-10-14 bench (eval/run_eval.py): the task is copy-with-edits, not
-# generation.
+# One model for now (Joe, 2026-10-15): Qwen3.5-4B with the short-v1 prompt,
+# the best stock model in the October 2026 survey (51% exact, 64% quotes ok
+# on 171 cases, vs Qwen3-4B's 33% / 49%, at about the same latency). The
+# Qwen3 entries and the Bear placeholders were removed until a small or much
+# faster model earns a place. Unsloth's ungated, Apache-2.0 GGUF repo; hash
+# from the HF tree API `lfs.oid` at the pinned commit. Qwen3.5 is a hybrid
+# thinking model; cleanup runs it with thinking off. Sampling is greedy: the
+# task is copy-with-edits, not generation.
 
-# Pinned commit 23749fefcc72300e3a2ad315e1317431b06b590a (2025-05-09).
+# Pinned commit e87f176479d0855a907a41277aca2f8ee7a09523 (2026-03-02).
 [[model]]
-id = "cleanup-qwen3-0.6b-q8_0"
+id = "cleanup-qwen3.5-4b-q4_k_m"
 kind = "cleanup"
-name = "Qwen3 0.6B"
+name = "Qwen3.5 4B"
 license = "Apache-2.0"
-homepage = "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF"
+homepage = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF"
 sources = [
-    "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/23749fefcc72300e3a2ad315e1317431b06b590a/",
+    "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/",
 ]
 files = [
-    { path = "Qwen3-0.6B-Q8_0.gguf", size = 639446688, sha256 = "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031" },
+    { path = "Qwen3.5-4B-Q4_K_M.gguf", size = 2740937888, sha256 = "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4" },
 ]
 [model.cleanup]
-prompt_template = "generic-v1"
+prompt_template = "short-v1"
 thinking = false
 [model.cleanup.sampling]
 temperature = 0.0
@@ -96,77 +99,3 @@ min_p = 0.0
 repeat_penalty = 1.0
 presence_penalty = 0.0
 max_tokens = 512
-
-# Pinned commit 90862c4b9d2787eaed51d12237eafdfe7c5f6077 (2025-05-09).
-[[model]]
-id = "cleanup-qwen3-1.7b-q8_0"
-kind = "cleanup"
-name = "Qwen3 1.7B"
-license = "Apache-2.0"
-homepage = "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF"
-sources = [
-    "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/90862c4b9d2787eaed51d12237eafdfe7c5f6077/",
-]
-files = [
-    { path = "Qwen3-1.7B-Q8_0.gguf", size = 1834426016, sha256 = "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a" },
-]
-[model.cleanup]
-prompt_template = "generic-v1"
-thinking = false
-[model.cleanup.sampling]
-temperature = 0.0
-top_k = 0
-top_p = 1.0
-min_p = 0.0
-repeat_penalty = 1.0
-presence_penalty = 0.0
-max_tokens = 512
-
-# Pinned commit bc640142c66e1fdd12af0bd68f40445458f3869b (2025-05-21).
-[[model]]
-id = "cleanup-qwen3-4b-q4_k_m"
-kind = "cleanup"
-name = "Qwen3 4B"
-license = "Apache-2.0"
-homepage = "https://huggingface.co/Qwen/Qwen3-4B-GGUF"
-sources = [
-    "https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/",
-]
-files = [
-    { path = "Qwen3-4B-Q4_K_M.gguf", size = 2497280256, sha256 = "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5" },
-]
-[model.cleanup]
-prompt_template = "generic-v1"
-thinking = false
-[model.cleanup.sampling]
-temperature = 0.0
-top_k = 0
-top_p = 1.0
-min_p = 0.0
-repeat_penalty = 1.0
-presence_penalty = 0.0
-max_tokens = 512
-
-# Bear fine-tunes (DESIGN.md, "Cleanup model choices"): catalog placeholders
-# until the weights are trained and published.
-
-[[model]]
-id = "cleanup-bear-small"
-kind = "cleanup"
-name = "Bear Small"
-license = "Apache-2.0"
-available = false
-
-[[model]]
-id = "cleanup-bear-medium"
-kind = "cleanup"
-name = "Bear Medium"
-license = "Apache-2.0"
-available = false
-
-[[model]]
-id = "cleanup-bear-large"
-kind = "cleanup"
-name = "Bear Large"
-license = "Apache-2.0"
-available = false

@@ -126,10 +126,8 @@ auto-downloadable, which means ungated weights with a redistributable license.
 | Choice | Weights | Approx. size | Who it's for |
 |---|---|---|---|
 | **Off** | — | 0 | ASR + spoken commands only. Weak machines, or people who only want raw dictation. |
-| **Bear Small** | our fine-tune of Qwen3-0.6B, Q8_0 | ~0.65 GB | Default for CPU-only laptops. |
-| **Bear Medium** | our fine-tune of Qwen3-1.7B, Q8_0 | ~1.8 GB | Default for fast CPUs or any usable GPU. |
-| **Bear Large** | our fine-tune of Qwen3-4B, Q4_K_M | ~2.5 GB | Default for a discrete GPU ≥ 6 GB or Apple Silicon ≥ 16 GB. |
-| **General: Qwen3 4B / 8B** | stock instruct GGUF | 2.5 / 5 GB | Until the Bear fine-tunes exist, these are the catalog. Kept later as a fallback/comparison. |
+| **Qwen3.5 4B** (the catalog today) | stock Qwen3.5-4B, Q4_K_M, short-v1 prompt | 2.74 GB | Everyone, for now (Joe, 2026-10-15). Best stock model in the October 2026 survey: 51% exact, 64% quotes ok on 171 cases vs Qwen3-4B's 33% / 49%, at about the same latency (~1.5 s median on a Radeon 890M). |
+| *Later: a small/fast tier* | e.g. Qwen3.5-2B with example turns (1.28 GB, ~0.7 s, 36% / 51%), or a Bear fine-tune | ≤ 1.3 GB | Added only when a small or much faster model earns it. The Qwen3 0.6B/1.7B/4B entries and the Bear placeholders were dropped from the catalog until then; saved settings naming them move to Automatic. |
 | **Bring your own GGUF** | user's file | — | Any llama.cpp-compatible model, e.g. Gemma 4 12B (gated on HF, so we can't fetch it for them). |
 | **External endpoint** | — | — | Any OpenAI-compatible server (Ollama, LM Studio, llama-server). Opt-in, with a clear "text leaves this app" note even for localhost. |
 

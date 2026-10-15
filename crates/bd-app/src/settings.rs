@@ -146,17 +146,30 @@ pub struct LiveSettings {
     pub voice_wake: bool,
 }
 
+/// Whether `cleanup` names a catalog model id the catalog no longer has.
+fn dropped_from_catalog(cleanup: &str) -> bool {
+    cleanup.starts_with("cleanup-")
+        && !cleanup.ends_with(".gguf")
+        && !bd_models::Manifest::builtin().models.iter().any(|m| m.id == cleanup && m.available)
+}
+
 impl Settings {
     /// Brings settings from an earlier version up to date. Returns whether
     /// anything changed (and so wants saving).
     pub fn upgrade(&mut self) -> bool {
-        if self.special_words.is_empty() {
-            return false;
+        let mut changed = false;
+        if !self.special_words.is_empty() {
+            // The old list replaces the starter group it never had.
+            let words = std::mem::take(&mut self.special_words);
+            self.word_groups = vec![WordGroup { words, ..WordGroup::new(FIRST_GROUP) }];
+            changed = true;
         }
-        // The old list replaces the starter group it never had.
-        let words = std::mem::take(&mut self.special_words);
-        self.word_groups = vec![WordGroup { words, ..WordGroup::new(FIRST_GROUP) }];
-        true
+        if dropped_from_catalog(&self.cleanup) {
+            // A catalog model that's since been removed: the best one there is.
+            self.cleanup = "auto".into();
+            changed = true;
+        }
+        changed
     }
 
     pub fn style(&self) -> Style {
@@ -361,5 +374,11 @@ mod tests {
         assert_eq!(s.word_groups[0].words, [SpecialWord::new("Beardictate", &["bare dictate"])]);
         assert!(!s.upgrade());
         assert!(!toml::to_string_pretty(&s).unwrap().contains("special_words"));
+
+        let mut gone: Settings = toml::from_str("cleanup = \"cleanup-qwen3-4b-q4_k_m\"\n").unwrap();
+        assert!(gone.upgrade());
+        assert_eq!(gone.cleanup, "auto");
+        let mut kept: Settings = toml::from_str("cleanup = \"/models/mine.gguf\"\n").unwrap();
+        assert!(!kept.upgrade());
     }
 }

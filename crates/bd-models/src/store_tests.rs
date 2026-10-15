@@ -173,11 +173,15 @@ fn unknown_dirs_lists_leftovers_only() {
     assert_eq!(store.unknown_dirs(Manifest::builtin()).unwrap(), vec!["old-model".to_string()]);
 }
 
+/// A catalog placeholder: listed, but with no weights yet.
+const UNAVAILABLE: &str = "[[model]]\nid = \"cleanup-bear-small\"\nkind = \"cleanup\"\nname = \"Bear Small\"\nlicense = \"Apache-2.0\"\navailable = false\n";
+
 #[test]
 fn unavailable_models_are_never_installed() {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::at(dir.path());
-    let bear = Manifest::builtin().get("cleanup-bear-small").unwrap();
+    let manifest = Manifest::parse(UNAVAILABLE).unwrap();
+    let bear = manifest.get("cleanup-bear-small").unwrap();
     assert!(!store.is_installed(bear));
     assert!(!store.is_verified(bear));
     assert_eq!(store.status(bear), ModelStatus::NotInstalled);

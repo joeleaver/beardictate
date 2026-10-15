@@ -203,14 +203,16 @@ mod tests {
     #[test]
     fn auto_uses_the_largest_downloaded_model() {
         let ids: Vec<String> = catalog().iter().map(|m| m.id.clone()).collect();
-        assert!(ids.len() >= 2, "the catalog has cleanup models");
+        let largest = ids.last().expect("the catalog has a cleanup model").clone();
         let mut states: HashMap<String, ModelState> = ids.iter().map(|id| (id.clone(), ModelState::Missing)).collect();
         assert_eq!(in_use("auto", &states), None);
-        states.insert(ids[0].clone(), ModelState::Installed);
-        states.insert(ids[1].clone(), ModelState::Installed);
-        assert_eq!(in_use("auto", &states), Some(ids[1].clone()));
+        for id in &ids {
+            states.insert(id.clone(), ModelState::Installed);
+        }
+        assert_eq!(in_use("auto", &states), Some(largest));
         assert_eq!(in_use(&ids[0], &states), Some(ids[0].clone()));
         assert_eq!(in_use("off", &states), None);
+        assert_eq!(in_use("cleanup-gone-from-the-catalog", &states), None);
         assert_eq!(size(2_300_000_000), "2.3 GB");
         assert_eq!(size(610_000_000), "610 MB");
     }

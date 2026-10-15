@@ -60,24 +60,36 @@ def default_prompt_path() -> Path:
     return RUNTIME_PROMPT if RUNTIME_PROMPT.exists() else BASELINE_PROMPT
 
 
+MARKS = {"us": ("\u201c", "\u201d"), "uk": ("\u2018", "\u2019")}
+ROLES = {"=== SYSTEM ===": "system", "=== USER ===": "user", "=== ASSISTANT ===": "assistant"}
+
+
 @dataclass(frozen=True)
 class Prompt:
-    system: str
-    user: str
+    """Patched mirror of bd_cleanup::prompt: any number of SYSTEM/USER/ASSISTANT
+    sections, and {open}/{close} substituted."""
+    sections: tuple
     path: Path
 
     @classmethod
     def load(cls, path: Path | None = None) -> "Prompt":
         path = path or default_prompt_path()
-        text = path.read_text(encoding="utf-8")
-        if "=== SYSTEM ===" not in text or "=== USER ===" not in text:
-            raise ValueError(f"{path}: expected '=== SYSTEM ===' and '=== USER ===' sections")
-        system = text.split("=== SYSTEM ===", 1)[1].split("=== USER ===", 1)[0].strip("\n")
-        user = text.split("=== USER ===", 1)[1].strip("\n")
-        return cls(system, user, path)
+        out, role, buf = [], None, []
+        for line in path.read_text(encoding="utf-8").split("\n"):
+            if line in ROLES:
+                if role:
+                    out.append((role, "\n".join(buf)))
+                role, buf = ROLES[line], []
+            else:
+                buf.append(line)
+        if role:
+            out.append((role, "\n".join(buf)))
+        secs = tuple((r, t.rstrip("\n") if r == "assistant" else t.strip("\n")) for r, t in out)
+        return cls(secs, path)
 
     def messages(self, context: str, raw: str, style: str = "us") -> list[dict[str, str]]:
         ctx = trim_context(context)
-        values = {"style_rule": style_rule(style), "context": ctx if ctx.strip() else EMPTY_CONTEXT, "raw": raw}
-        return [{"role": "system", "content": substitute(self.system, values)},
-                {"role": "user", "content": substitute(self.user, values)}]
+        o, c = MARKS[style]
+        values = {"style_rule": style_rule(style), "context": ctx if ctx.strip() else EMPTY_CONTEXT, "raw": raw,
+                  "open": o, "close": c}
+        return [{"role": r, "content": substitute(t, values)} for r, t in self.sections]
