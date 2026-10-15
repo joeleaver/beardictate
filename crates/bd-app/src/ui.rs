@@ -75,7 +75,7 @@ impl Shared {
             paths,
             section: Signal::new(Section::General),
             hotkey_text: Signal::new(readable(&settings.hotkey)),
-            status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None }),
+            status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false }),
             settings: Signal::new(settings),
             installed: Rc::new(installed),
         }
@@ -115,6 +115,12 @@ fn tooltip(status: &Status, hotkey: &str) -> String {
     match status.state {
         State::Loading => "Loading models…".into(),
         State::Idle => format!("{hotkey} to dictate\n{}", status.detail),
+        State::Asleep => format!("Asleep · say \u{201C}bear, wake up\u{201D} or press {hotkey}\n{}", status.detail),
+        State::MicOff => "Microphone off · turn it on from this menu".into(),
+        State::Listening if status.voice => {
+            let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
+            format!("Listening {}:{:02} · say \u{201C}bear, go to sleep\u{201D} or press {hotkey}", secs / 60, secs % 60)
+        }
         State::Listening => {
             let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
             format!("Listening {}:{:02} · {hotkey} to stop", secs / 60, secs % 60)
@@ -128,8 +134,12 @@ fn tooltip(status: &Status, hotkey: &str) -> String {
 pub fn tray_menu(shared: &Shared) -> Menu {
     let status = shared.status.get();
     let hotkey = shared.hotkey_text.get();
+    let toggle = || engine_send(engine::Command::Toggle);
     let first = match status.state {
         State::Loading => MenuItem::new("Loading models…").enabled(false),
+        State::Listening if status.voice => MenuItem::new(format!("Go to sleep   ({hotkey})")).on_click(toggle),
+        State::Asleep => MenuItem::new(format!("Wake up   ({hotkey})")).on_click(toggle),
+        State::MicOff => MenuItem::new("Microphone off").enabled(false),
         State::Listening => {
             MenuItem::new(format!("Stop dictating   ({hotkey})")).on_click(|| engine_send(engine::Command::Toggle))
         }
@@ -140,6 +150,12 @@ pub fn tray_menu(shared: &Shared) -> Menu {
     let mut menu = Menu::new().item(first);
     if status.state == State::NeedsYou {
         menu = menu.item(MenuItem::new(shorten(&status.detail, 70)).enabled(false));
+    }
+    if status.voice && status.state != State::Loading {
+        let on = status.state != State::MicOff;
+        let s = shared.clone();
+        let label = if on { "Turn microphone off" } else { "Turn microphone on" };
+        menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
     }
 
     let open_settings = {
@@ -281,6 +297,19 @@ pub fn is_listening(shared: &Shared) -> bool {
     shared.status.get().state == State::Listening
 }
 
+/// The settings window's big button: what it says, and whether it turns
+/// the microphone on rather than toggling dictation.
+pub fn main_button(shared: &Shared) -> (&'static str, bool) {
+    let status = shared.status.get();
+    match (status.state, status.voice) {
+        (State::MicOff, _) => ("Turn microphone on", true),
+        (State::Listening, true) => ("Go to sleep", false),
+        (State::Asleep, _) => ("Wake up", false),
+        (State::Listening, false) => ("Stop dictating", false),
+        _ => ("Start dictating", false),
+    }
+}
+
 /// The status window's first line: the same as the tooltip.
 pub fn status_line(shared: &Shared) -> String {
     tooltip(&shared.status.get(), &shared.hotkey_text.get())
@@ -301,7 +330,7 @@ mod tests {
 
     #[test]
     fn tooltips_say_what_to_do() {
-        let idle = Status { state: State::Idle, detail: "Cleanup: Qwen3 4B".into(), since: None };
+        let idle = Status { state: State::Idle, detail: "Cleanup: Qwen3 4B".into(), since: None, voice: false };
         assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nCleanup: Qwen3 4B");
         assert_eq!(shorten("abcdef", 4), "abc…");
     }

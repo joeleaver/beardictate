@@ -85,7 +85,7 @@ fn main() {
     let shared = Shared::new(paths, settings);
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
-    let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None };
+    let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false };
     let tray = TrayIconBuilder::new()
         .with_id("beardictate")
         .with_title("beardictate")

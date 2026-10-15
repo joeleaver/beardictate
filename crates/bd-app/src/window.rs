@@ -27,7 +27,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     ]
     .map(|(section, label)| nav(__scope, s, section, label));
     let section = s.section;
-    let (listening, listening2) = (s.clone(), s.clone());
+    let (listening, label, button) = (s.clone(), s.clone(), s.clone());
     let (general, mic, cleanup, writing, words, about) =
         (general(__scope, s), microphone(__scope, s), cleanup_page(__scope, s), writing(__scope, s), words(__scope, s), about(__scope, s));
     rsx! {
@@ -43,8 +43,14 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 div { style: "flex: 1;" }
                 Button {
                     variant: {move || if ui::is_listening(&listening) { "filled" } else { "light" }},
-                    onclick: || crate::engine_send(crate::engine::Command::Toggle),
-                    {move || if ui::is_listening(&listening2) { "Stop dictating" } else { "Start dictating" }}
+                    onclick: {let b = button.clone(); move || {
+                        if ui::main_button(&b).1 {
+                            change(&b, |st| st.microphone_on = true);
+                        } else {
+                            crate::engine_send(crate::engine::Command::Toggle);
+                        }
+                    }},
+                    {move || ui::main_button(&label).0}
                 }
             }
             div { style: "flex: 1; min-width: 0; padding: 24px 28px; overflow-y: auto;",
@@ -119,6 +125,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s3 = s.clone();
     let s4 = s.clone();
     let s5 = s.clone();
+    let (s6, s7, s8) = (s.clone(), s.clone(), s.clone());
     let paths = s.paths.clone();
     let login = Signal::new(paths.starts_at_login());
     rsx! {
@@ -126,12 +133,24 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             Title { order: 3, "General" }
             div { style: "display: flex; flex-direction: column; gap: 6px;",
                 Text { style: "font-weight: 600;", "Dictation shortcut" }
-                Text { size: "sm", color: "dimmed", "Press to start dictating, press again to stop. You can also click the bear." }
+                Text { size: "sm", color: "dimmed",
+                    {move || if s6.settings.with(|st| st.voice_wake) {
+                        "Press to wake up and start typing, press again to go to sleep. You can also click the bear."
+                    } else {
+                        "Press to start dictating, press again to stop. You can also click the bear."
+                    }}
+                }
                 Group {
                     Kbd { {move || s1.hotkey_text.get()} }
                     Button { variant: "light", size: "xs", disabled: {move || capturing.get()}, onclick: { let f = start_capture.clone(); move || f() }, "Change…" }
                 }
                 Text { size: "sm", color: "dimmed", {move || note.get()} }
+            }
+            Switch {
+                label: "Always listening",
+                description: "The microphone stays on. Say \u{201C}bear, wake up\u{201D} (or press the shortcut) to start typing, and \u{201C}bear, go to sleep\u{201D} to stop. Turn the microphone off and on from the tray menu. Off, the shortcut turns the microphone on and off.",
+                checked_fn: move || s7.settings.with(|st| st.voice_wake),
+                onchange: move || change(&s8, |st| st.voice_wake = !st.voice_wake),
             }
             Switch {
                 label: "Start beardictate when I sign in",

@@ -10,20 +10,21 @@
 
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use bd_audio::{AudioError, CaptureConfig, CaptureEvent, StreamPolicy};
-use bd_core::InjectOutcome;
 use bd_pipeline::{Event, Pipeline};
-use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use crossbeam_channel::{Receiver, Sender, bounded, never, select, tick, unbounded};
 
 use crate::mic::Mic;
 use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
+
+mod inject;
+mod standby;
+use inject::{Injected, TypeJob, spawn_injector};
 
 mod load;
 use load::{load, pipeline_config};
@@ -45,6 +46,11 @@ pub enum Command {
 pub enum State {
     Loading,
     Idle,
+    /// Always listening: the microphone is open, waiting for "bear, wake up"
+    /// or the hotkey.
+    Asleep,
+    /// Always listening, with the microphone turned off from the menu.
+    MicOff,
     Listening,
     /// Stopped listening; the last sentences are still being cleaned.
     Cleaning,
@@ -58,6 +64,8 @@ pub struct Status {
     pub detail: String,
     /// When listening started.
     pub since: Option<Instant>,
+    /// Always listening: the hotkey wakes and sends to sleep.
+    pub voice: bool,
 }
 
 /// What the engine tells the UI. Called on the engine's thread.
@@ -107,23 +115,6 @@ struct Loaded {
     cleanup: String,
 }
 
-/// Work for the typing thread.
-enum TypeJob {
-    Type(String),
-    /// Take back text typed earlier in this dictation.
-    Erase(String),
-}
-
-/// What the typing thread reports.
-enum Injected {
-    /// Typing works; the backend's name.
-    Ready(&'static str),
-    LeftOnClipboard(String),
-    /// "Scratch that" couldn't take the text back.
-    NotErased(String),
-    Failed(String),
-}
-
 struct Worker<U> {
     ui: U,
     paths: Paths,
@@ -138,6 +129,8 @@ struct Worker<U> {
     load_error: Option<String>,
     capture: Option<Mic>,
     listening_since: Option<Instant>,
+    /// Always listening, with the microphone running (see `standby.rs`).
+    standby: bool,
     cleaning: bool,
     last_dictation: Option<Instant>,
     type_text: Sender<TypeJob>,
@@ -163,6 +156,7 @@ impl<U: Ui> Worker<U> {
             load_error: None,
             capture: None,
             listening_since: None,
+            standby: false,
             cleaning: false,
             last_dictation: None,
             type_text,
@@ -209,10 +203,14 @@ impl<U: Ui> Worker<U> {
             (State::Listening, self.cleanup_name.clone())
         } else if self.cleaning {
             (State::Cleaning, self.cleanup_name.clone())
+        } else if self.standby {
+            (State::Asleep, self.cleanup_name.clone())
+        } else if self.settings.voice_wake {
+            (State::MicOff, self.cleanup_name.clone())
         } else {
             (State::Idle, self.cleanup_name.clone())
         };
-        self.ui.status(Status { state, detail, since: self.listening_since });
+        self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
     }
 
     // ---- loading ------------------------------------------------------------
@@ -243,6 +241,9 @@ impl<U: Ui> Worker<U> {
                 // Settings changed while loading reach it now.
                 l.pipeline.reconfigure(pipeline_config(&self.settings));
                 self.pipeline = Some(l.pipeline);
+                if self.wants_standby() {
+                    self.stand_by(false);
+                }
             }
             Err(e) => {
                 self.notifier.notify("load", "beardictate can't start", &e);
@@ -260,7 +261,9 @@ impl<U: Ui> Worker<U> {
 
     fn toggle(&mut self) {
         tracing::info!(listening = self.listening_since.is_some(), loading = self.loading.is_some(), "toggle");
-        if self.listening_since.is_some() {
+        if self.settings.voice_wake && self.pipeline.is_some() {
+            self.voice_toggle();
+        } else if self.listening_since.is_some() {
             self.stop();
         } else if self.loading.is_some() {
             tracing::info!("hotkey while loading; ignored");
@@ -274,17 +277,23 @@ impl<U: Ui> Worker<U> {
         }
     }
 
-    fn start(&mut self) -> Result<()> {
+    fn open_mic(&mut self) -> Result<()> {
         if self.capture.as_ref().is_none_or(|c| !c.is_alive()) {
+            let keep_open = self.settings.keep_mic_open || self.settings.voice_wake;
             let config = CaptureConfig {
                 device: Some(self.settings.microphone.clone()).filter(|m| !m.is_empty()),
-                policy: if self.settings.keep_mic_open { StreamPolicy::KeepOpen } else { StreamPolicy::OpenOnStart },
+                policy: if keep_open { StreamPolicy::KeepOpen } else { StreamPolicy::OpenOnStart },
                 ..CaptureConfig::default()
             };
             let capture = Mic::open(config).context("opening the microphone")?;
             tracing::info!(device = %capture.name(), "microphone open");
             self.capture = Some(capture);
         }
+        Ok(())
+    }
+
+    fn start(&mut self) -> Result<()> {
+        self.open_mic()?;
         let pipeline = self.pipeline.as_ref().expect("checked by toggle");
         if self.last_dictation.is_none_or(|t| t.elapsed() > NEW_PASSAGE_AFTER) {
             pipeline.new_passage();
@@ -319,6 +328,14 @@ impl<U: Ui> Worker<U> {
             }
             CaptureEvent::Error(e @ AudioError::DeviceLost(_)) => {
                 self.notifier.notify("mic", "Microphone lost", &e.to_string());
+                if self.standby {
+                    self.standby = false;
+                    pipeline.set_awake(false);
+                    pipeline.end_session();
+                    self.listening_since = None;
+                    self.capture = None;
+                    return self.turn_mic_off_in_settings();
+                }
                 if self.listening_since.is_some() {
                     self.listening_since = None;
                     self.cleaning = true;
@@ -359,6 +376,21 @@ impl<U: Ui> Worker<U> {
             Event::Error { stage, message } => {
                 self.notifier.notify("pipeline", &format!("{stage:?} failed on a sentence"), &message);
             }
+            Event::Woke => {
+                tracing::info!("voice wake: awake");
+                self.listening_since = Some(Instant::now());
+                self.publish();
+            }
+            Event::Slept => {
+                tracing::info!("voice wake: asleep");
+                self.listening_since = None;
+                self.last_dictation = Some(Instant::now());
+                if self.reload_when_idle {
+                    self.start_load();
+                    return;
+                }
+                self.publish();
+            }
             Event::Transcribed { .. } | Event::Scratched { .. } => {}
         }
     }
@@ -391,13 +423,27 @@ impl<U: Ui> Worker<U> {
         let old = std::mem::replace(&mut self.settings, new);
         let s = &self.settings;
         self.notifier.set_enabled(s.notifications);
-        if old.microphone != s.microphone || old.keep_mic_open != s.keep_mic_open {
+        if (old.voice_wake, old.microphone_on) != (s.voice_wake, s.microphone_on) {
+            self.apply_rest(&old);
+            return self.switch_mic(old.microphone_on);
+        }
+        if self.standby && old.microphone != s.microphone {
+            // A different microphone: reopen it, staying asleep or awake.
+            self.leave_standby();
+            self.stand_by(false);
+        } else if old.microphone != s.microphone || old.keep_mic_open != s.keep_mic_open {
             if self.busy() {
                 tracing::info!("microphone change applies after this dictation");
             } else {
                 self.capture = None;
             }
         }
+        self.apply_rest(&old);
+    }
+
+    /// The model and live pipeline settings.
+    fn apply_rest(&mut self, old: &Settings) {
+        let s = &self.settings;
         if old.models() != s.models() {
             self.request_reload();
         } else if old.live() != s.live()
@@ -435,58 +481,4 @@ impl<U: Ui> Worker<U> {
 
 fn mtime(path: &Path) -> Option<SystemTime> {
     fs::metadata(path).and_then(|m| m.modified()).ok()
-}
-
-/// Starts the typing thread. It sets up the platform injector first, which
-/// on Wayland asks the desktop for permission (once; the approval is kept in
-/// [`Paths::portal_token`]).
-fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Injected>) {
-    let (text_tx, text_rx) = unbounded::<TypeJob>();
-    let (report_tx, report_rx) = unbounded();
-    let token_path = paths.portal_token.clone();
-    let token = paths.load_portal_token();
-    thread::Builder::new()
-        .name("bd-type".into())
-        .spawn(move || {
-            let save = Arc::new(move |token: &str| {
-                if let Some(dir) = token_path.parent() {
-                    let _ = fs::create_dir_all(dir);
-                }
-                if let Err(e) = fs::write(&token_path, token) {
-                    tracing::warn!("saving the input permission: {e}");
-                }
-            });
-            let config = InjectorConfig {
-                portal_restore_token: token,
-                on_portal_restore_token: Some(save),
-                ..InjectorConfig::default()
-            };
-            let mut injector = match PlatformInjector::new(config).and_then(|mut i| i.prepare().map(|()| i)) {
-                Ok(i) => i,
-                Err(e) => {
-                    let _ = report_tx.send(Injected::Failed(e.to_string()));
-                    return;
-                }
-            };
-            let _ = report_tx.send(Injected::Ready(injector.backend_name()));
-            for job in text_rx {
-                let report = match job {
-                    TypeJob::Type(text) => match injector.inject_text(&text) {
-                        Ok(InjectOutcome::LeftOnClipboard { reason }) => Some(Injected::LeftOnClipboard(reason)),
-                        Ok(_) => None,
-                        Err(e) => Some(Injected::Failed(e.to_string())),
-                    },
-                    TypeJob::Erase(text) => match injector.erase(&text) {
-                        Ok(Erased::Done) => None,
-                        Ok(Erased::Refused { reason }) => Some(Injected::NotErased(reason)),
-                        Err(e) => Some(Injected::NotErased(e.to_string())),
-                    },
-                };
-                if let Some(r) = report {
-                    let _ = report_tx.send(r);
-                }
-            }
-        })
-        .expect("spawning the typing thread");
-    (text_tx, report_rx)
 }

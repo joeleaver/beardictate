@@ -71,6 +71,9 @@ fn look(state: State, taskbar: Taskbar) -> Look {
     };
     let (snout, dot) = match state {
         State::Idle => (quiet_snout, None),
+        // Microphone on, not typing: a quiet slate dot.
+        State::Asleep => (quiet_snout, Some([0x7D, 0x8C, 0xA6])),
+        State::MicOff => (paused_snout, None),
         State::Listening => (COBALT, Some([0xD1, 0x45, 0x2F])),
         State::Cleaning => (COBALT, Some([0x1F, 0xA3, 0x8A])),
         State::Loading => (paused_snout, None),

@@ -75,6 +75,12 @@ pub struct Settings {
     pub hotword_boost: f32,
     /// Microphone name; empty for the system default.
     pub microphone: String,
+    /// Always listening: the microphone stays on; "bear, wake up", "bear, go
+    /// to sleep" and the hotkey switch typing on and off. Off, the hotkey
+    /// opens and closes the microphone.
+    pub voice_wake: bool,
+    /// With `voice_wake`: the microphone is on. Switched from the tray menu.
+    pub microphone_on: bool,
     /// Keep the microphone open between dictations. The first syllable is
     /// never clipped, but the desktop shows the mic as in use all the time.
     pub keep_mic_open: bool,
@@ -103,6 +109,8 @@ impl Default for Settings {
             pause_paragraph_secs: 3.0,
             quote_marks: QuoteMarks::Double,
             curly_quotes: true,
+            voice_wake: true,
+            microphone_on: true,
             blank_line_paragraphs: true,
             punctuation: Punctuation::Inside,
             hotword_boost: 2.0,
@@ -135,6 +143,7 @@ pub struct LiveSettings {
     pub special_words: Vec<SpecialWord>,
     pub hotword_boost: f32,
     pub blank_line_paragraphs: bool,
+    pub voice_wake: bool,
 }
 
 impl Settings {
@@ -187,6 +196,7 @@ impl Settings {
             special_words: active_words(&self.word_groups),
             hotword_boost: self.hotword_boost,
             blank_line_paragraphs: self.blank_line_paragraphs,
+            voice_wake: self.voice_wake,
         }
     }
 }

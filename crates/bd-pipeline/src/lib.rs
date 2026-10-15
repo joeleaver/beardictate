@@ -98,11 +98,15 @@ pub struct PipelineConfig {
     /// for editors that space paragraphs themselves (Word, Scrivener,
     /// Google Docs). A "new line" is one return either way.
     pub blank_line_paragraphs: bool,
+    /// Always-listening mode: audio flows all the time, and only what's said
+    /// between "bear, wake up" and "bear, go to sleep" is delivered. Starts
+    /// asleep. Off, everything pushed is delivered.
+    pub voice_wake: bool,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false }
     }
 }
 
@@ -146,6 +150,13 @@ pub enum Event {
     /// Everything spoken before [`Pipeline::end_session`] has been
     /// delivered.
     SessionEnded,
+    /// With [`PipelineConfig::voice_wake`]: "bear, wake up" (or
+    /// [`Feeder::set_awake`]); segments are delivered from now on.
+    Woke,
+    /// With [`PipelineConfig::voice_wake`]: "bear, go to sleep" (or
+    /// [`Feeder::set_awake`]), after everything before it was delivered.
+    /// Segments are transcribed but dropped until [`Event::Woke`].
+    Slept,
     /// A stage failed on one segment. The pipeline keeps going: an ASR
     /// failure loses that segment, a cleanup failure delivers the
     /// `commanded` text instead.
@@ -158,6 +169,7 @@ pub(crate) enum Input {
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
+    Awake(bool),
 }
 
 /// Feeds a running pipeline from any thread. Cheap to clone. The stages
@@ -191,6 +203,12 @@ impl Feeder {
     /// everything already pushed, so it can arrive mid-dictation.
     pub fn reconfigure(&self, config: PipelineConfig) {
         self.send(Input::Reconfigure(Box::new(config)));
+    }
+
+    /// With [`PipelineConfig::voice_wake`]: wakes or sends to sleep as the
+    /// spoken phrases do, in order with the audio already pushed.
+    pub fn set_awake(&self, awake: bool) {
+        self.send(Input::Awake(awake));
     }
 
     fn send(&self, msg: Input) {
@@ -235,6 +253,11 @@ impl Pipeline {
     /// See [`Feeder::reconfigure`].
     pub fn reconfigure(&self, config: PipelineConfig) {
         self.feeder_ref().reconfigure(config);
+    }
+
+    /// See [`Feeder::set_awake`].
+    pub fn set_awake(&self, awake: bool) {
+        self.feeder_ref().set_awake(awake);
     }
 
     /// See [`Feeder::new_passage`].

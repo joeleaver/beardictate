@@ -384,3 +384,27 @@ fn paragraphs_can_be_one_return() {
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(texts(&events), "It was late.\nMorning came.\nRain.");
 }
+
+#[test]
+fn voice_wake_delivers_only_what_is_said_while_awake() {
+    let config = PipelineConfig { voice_wake: true, ..PipelineConfig::default() };
+    let script = vec!["On the phone.", "Bear, wake up. It was late.", "He left. Bear, go to sleep.", "Still on the phone.", "Hello."];
+    let r = rig_with(script, false, false, config);
+    for i in 0..4 {
+        say(&r.pipeline, i);
+    }
+    r.pipeline.set_awake(true);
+    say(&r.pipeline, 4);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "It was late. He left. Hello.");
+    let marks: Vec<&str> = events
+        .iter()
+        .filter_map(|e| match e {
+            Event::Woke => Some("woke"),
+            Event::Slept => Some("slept"),
+            Event::Text { .. } => Some("text"),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(marks, ["woke", "text", "text", "slept", "woke", "text"]);
+}

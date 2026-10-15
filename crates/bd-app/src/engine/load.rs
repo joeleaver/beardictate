@@ -41,6 +41,7 @@ pub(super) fn pipeline_config(settings: &Settings) -> PipelineConfig {
         vocabulary: vocabulary(&live.special_words),
         hotword_boost: live.hotword_boost,
         blank_line_paragraphs: live.blank_line_paragraphs,
+        voice_wake: live.voice_wake,
         pause_paragraph: live.pause_paragraph,
         ..PipelineConfig::default()
     }

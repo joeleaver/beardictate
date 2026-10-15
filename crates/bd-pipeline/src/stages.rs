@@ -10,6 +10,10 @@ use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
 use crate::compose::{Composer, join, single_return_paragraphs};
+mod gate;
+mod wake;
+
+use gate::{Gate, Step};
 use crate::{Event, Input, Parts, PipelineConfig, Segmenting, Stage};
 
 /// From the segmenter to the ASR.
@@ -18,6 +22,7 @@ enum Cut {
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
+    Awake(bool),
 }
 
 /// From the ASR to the finisher.
@@ -28,6 +33,7 @@ enum Heard {
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
+    Awake(bool),
 }
 
 pub(crate) fn spawn(
@@ -76,6 +82,9 @@ fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>, out: Send
             Input::Reconfigure(config) => {
                 let _ = out.send(Cut::Reconfigure(config));
             }
+            Input::Awake(awake) => {
+                let _ = out.send(Cut::Awake(awake));
+            }
         }
     }
     if dirty {
@@ -113,6 +122,7 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                 Heard::EndSession
             }
             Cut::NewPassage => Heard::NewPassage,
+            Cut::Awake(awake) => Heard::Awake(awake),
             Cut::Reconfigure(config) => {
                 if let Err(e) = asr.set_hotwords(&config.vocabulary.hotwords(), config.hotword_boost) {
                     let _ = events.send(Event::Error { stage: Stage::Asr, message: format!("hotwords: {e}") });
@@ -137,6 +147,10 @@ enum Item {
     Segment(Pending),
     EndSession,
     NewPassage,
+    /// Voice wake woke up here.
+    Wake,
+    /// Voice wake went to sleep here.
+    Sleep,
 }
 
 impl Pending {
@@ -206,6 +220,7 @@ struct Finisher {
     sentence_hold: Duration,
     /// See [`PipelineConfig::blank_line_paragraphs`].
     blank_line_paragraphs: bool,
+    gate: Gate,
 }
 
 impl Finisher {
@@ -225,6 +240,7 @@ impl Finisher {
             passage_has_text: false,
             sentence_hold: config.sentence_hold,
             blank_line_paragraphs: config.blank_line_paragraphs,
+            gate: Gate::new(config.voice_wake),
         }
     }
 
@@ -255,6 +271,12 @@ impl Finisher {
                 Item::NewPassage => {
                     self.typed.clear();
                     self.composer.clear();
+                }
+                Item::Wake => self.emit(Event::Woke),
+                Item::Sleep => {
+                    // Like a stop: "scratch that" won't reach back past it.
+                    self.typed.clear();
+                    self.emit(Event::Slept);
                 }
                 Item::Segment(p) => self.finish(p, &input),
             }
@@ -341,12 +363,37 @@ impl Finisher {
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
+            Heard::Awake(awake) => {
+                let step = self.gate.set(awake);
+                return self.follow(step, 0, None);
+            }
             Heard::NewPassage => {
                 self.quote_open = false;
                 self.passage_has_text = false;
                 return self.queue.push_back(Item::NewPassage);
             }
         };
+        let step = self.gate.pass(text);
+        self.follow(step, id, pause);
+    }
+
+    /// Carries out what the voice wake gate decided.
+    fn follow(&mut self, step: Step, id: u64, pause: Option<Duration>) {
+        if step.woke {
+            if step.fresh {
+                self.take_in(Heard::NewPassage);
+            }
+            self.queue.push_back(Item::Wake);
+        }
+        if let Some(text) = step.pass {
+            self.take_in_text(id, text, pause);
+        }
+        if step.sleep_after {
+            self.queue.push_back(Item::Sleep);
+        }
+    }
+
+    fn take_in_text(&mut self, id: u64, text: String, pause: Option<Duration>) {
         let text = self.vocabulary.apply(&text);
         let mut out = self.pass.apply(&text, self.quote_open);
         let scratches = out.scratch_previous();
@@ -388,6 +435,7 @@ impl Finisher {
         self.pause_paragraph = config.pause_paragraph;
         self.sentence_hold = config.sentence_hold;
         self.blank_line_paragraphs = config.blank_line_paragraphs;
+        self.gate.configure(config.voice_wake);
     }
 
     /// Drops the most recent undelivered segment of this passage, returning
@@ -399,7 +447,8 @@ impl Finisher {
         for i in (0..self.queue.len()).rev() {
             match &self.queue[i] {
                 Item::NewPassage => return None,
-                Item::EndSession => crossed_session = true,
+                Item::EndSession | Item::Sleep => crossed_session = true,
+                Item::Wake => {}
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
                     self.emit(Event::Scratched { id: p.id });

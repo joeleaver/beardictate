@@ -4,22 +4,27 @@
 # inside it (XTEST input from X clients doesn't reach the Xwayland KWin
 # starts), an xterm to type into, and a WAV standing in for the microphone.
 # Presses the hotkey to start, `beardictate --toggle` to stop, then prints
-# what was typed. Config, data and logs go to a temp dir.
+# what was typed. With `voice`, runs always listening instead: no keys, the
+# recording's own "bear, wake up" / "bear, go to sleep" decide what's typed.
+# Config, data and logs go to a temp dir.
 #
-#   scripts/e2e-nested.sh <dictation.wav> [seconds-to-listen]
+#   scripts/e2e-nested.sh <dictation.wav> [seconds-to-listen] [voice]
 #
 # Needs: kwin_wayland, Xwayland, xterm, xdotool, dbus-run-session, a release
 # build of bd-app, and models (BD_MODELS_DIR, default the dev store).
 set -euo pipefail
 wav="$(realpath "$1")"
 listen="${2:-25}"
+voice="${3:-}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 bin="${CARGO_TARGET_DIR:-$repo/target}/release/beardictate"
 models="${BD_MODELS_DIR:-/mnt/data/beardictate-dev/models}"
 work="$(mktemp -d)"
 mkdir -p "$work/config/beardictate" "$work/run"
 chmod 700 "$work/run"
-printf 'models_dir = "%s"\nparagraphs = "auto"\nnotifications = false\n' "$models" > "$work/config/beardictate/settings.toml"
+voice_wake=false; [ "$voice" = voice ] && voice_wake=true
+printf 'models_dir = "%s"\nhotkey = "Ctrl+Alt+Space"\nnotifications = false\nvoice_wake = %s\n' "$models" "$voice_wake" \
+    > "$work/config/beardictate/settings.toml"
 
 cat > "$work/inner.sh" <<INNER
 #!/usr/bin/env bash
@@ -33,7 +38,7 @@ unset WAYLAND_DISPLAY
 xterm -geometry 100x20+0+0 -e bash -c "stty -echo; cat > '$work/typed.txt'" &
 sleep 2
 # Its own runtime dir: the control socket lives there, so neither the test
-# app nor `--toggle` can ever reach a beardictate the user is running.
+# app nor --toggle can ever reach a beardictate the user is running.
 export XDG_RUNTIME_DIR="$work/run"
 XDG_SESSION_TYPE=x11 XDG_CONFIG_HOME="$work/config" XDG_DATA_HOME="$work/data" XDG_STATE_HOME="$work/state" \
     BD_TEST_WAV="$wav" "$bin" > "$work/app.log" 2>&1 &
@@ -42,9 +47,13 @@ for i in \$(seq 1 120); do grep -q "models loaded" "$work/app.log" && break; kil
 if ! grep -q "models loaded" "$work/app.log"; then echo "app did not start" >&2; kill %1 %2 2>/dev/null; exit 1; fi
 xdotool search --class xterm windowfocus; sleep 1
 xdotool key F24; sleep 0.5          # the first XTEST key on a fresh server is lost
-xdotool key ctrl+alt+space          # start (the global hotkey)
-sleep $listen
-"$bin" --toggle                     # stop (via this test's own socket)
+if [ "$voice_wake" = false ]; then
+    xdotool key ctrl+alt+space      # start (the global hotkey)
+    sleep $listen
+    "$bin" --toggle                 # stop (via this test's own socket)
+else
+    sleep $listen                   # the recording wakes and sleeps it
+fi
 sleep 25                            # let the last sentences be cleaned and typed
 xdotool key Return                  # hand the last line to the file
 kill \$app; sleep 2; kill %1 %2 2>/dev/null || true
@@ -55,4 +64,4 @@ timeout $((listen + 200)) dbus-run-session -- kwin_wayland --virtual --xwayland 
 echo "== typed ($work/typed.txt):"
 cat "$work/typed.txt"; echo
 echo "== app log: $work/app.log"
-grep -E "hotkey|toggle|typing|repaired|rejected|WARN|ERROR" "$work/app.log" | grep -v control-looking || true
+grep -E "hotkey|toggle|typing|voice|listening|repaired|rejected|WARN|ERROR" "$work/app.log" | grep -v control-looking || true

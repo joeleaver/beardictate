@@ -155,6 +155,8 @@ impl Reporter {
                 return Some(Output::Erase(text.clone()));
             }
             Event::Scratched { id } => eprintln!("[{id}] scratched"),
+            Event::Woke => eprintln!("[awake]"),
+            Event::Slept => eprintln!("[asleep]"),
             Event::ScratchTooLate => eprintln!("scratch that: nothing left to take back in this dictation"),
             Event::SessionEnded => {
                 println!();

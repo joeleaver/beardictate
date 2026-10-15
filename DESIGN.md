@@ -173,6 +173,30 @@ Unicode typing handles curly quotes and em-dashes; paste is for apps that drop
 synthetic unicode keystrokes (some games, RDP, a few Electron apps). Per-app
 override list in settings ("always paste in X").
 
+## Always listening (default)
+
+New installs start in **always listening** mode (Joe, 2026-10-15). The
+microphone stays on; typing switches on with "bear, wake up" or the hotkey
+and off with "bear, go to sleep" or the hotkey. While asleep, speech is
+transcribed and dropped: nothing is typed and nothing leaves the app. Only
+the tray menu turns the microphone itself off and on, and turning it on
+also wakes (you asked for the mic because you're about to talk). A
+microphone that fails to open, or disappears, is recorded as off, so the
+menu offers to turn it back on. Waking after more than a minute asleep
+starts a new passage (no cleanup context from before).
+
+Phrases are matched on the ASR text, ignoring case and punctuation, with
+the spellings the recognizer uses for "bear" (bare, bair, …). A wake phrase
+counts anywhere in a segment and what follows it is dictation; a sleep
+phrase only at the end of one, and what comes before it is still typed.
+Sound-alikes the recognizer sometimes writes instead ("Where? Go to
+sleep.") count only when the phrase is the whole segment; a hotword boost
+didn't fix that mishearing. So a bear in the story told to go to sleep
+mid-sentence doesn't stop dictation.
+
+With the mode off, the hotkey works as below: it opens the microphone and
+starts dictating, then stops both.
+
 ## Hotkey
 
 **Toggle by default** (press to start, press again to stop; long passages
