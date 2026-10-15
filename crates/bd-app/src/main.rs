@@ -81,6 +81,12 @@ fn main() {
         }
     };
     init_logging(&paths.log);
+    // A "segments" folder next to the log turns on saving what the
+    // recognizer hears, for diagnosing mishearings (bd_pipeline::dump).
+    if let Some(dir) = paths.log.parent().map(|d| d.join("segments")).filter(|d| d.is_dir()) {
+        tracing::info!("saving heard segments to {}", dir.display());
+        bd_pipeline::dump::save_to(dir);
+    }
     let settings = match paths.load() {
         Ok(s) => s,
         Err(e) => {

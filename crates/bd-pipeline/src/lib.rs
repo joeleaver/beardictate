@@ -23,6 +23,7 @@
 //! back from the target application.
 
 mod compose;
+pub mod dump;
 pub mod gain;
 pub mod setup;
 mod stages;

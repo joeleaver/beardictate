@@ -15,6 +15,7 @@ impl<U: Ui> Worker<U> {
             }
             Event::Text { id, take_back, text, .. } => {
                 tracing::info!(segment = id, chars = text.chars().count(), "typing");
+                bd_pipeline::dump::typed(id, &text);
                 if take_back > 0 {
                     // The trailing space before a break or a closing mark.
                     let _ = self.type_text.send(TypeJob::Erase(" ".repeat(take_back)));

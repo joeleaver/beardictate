@@ -77,6 +77,7 @@ fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, event
                 match asr.transcribe(&seg) {
                     Ok(text) => {
                         let elapsed = started.elapsed();
+                        crate::dump::segment(id, &seg.samples, &text);
                         let text = if noise::is_noise(&text, audio) {
                             tracing::info!(segment = id, ms = audio.as_millis(), "dropped a lone {text:?} from a short burst: noise");
                             String::new()
