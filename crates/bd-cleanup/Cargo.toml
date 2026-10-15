@@ -24,3 +24,7 @@ tracing-subscriber.workspace = true
 default = ["llama"]
 llama = ["dep:llama-cpp-2"]
 vulkan = ["llama", "llama-cpp-2/vulkan"]
+# Vulkan and the CPU code as llama.cpp backend DLLs (GGML_BACKEND_DL), loaded
+# from the executable's folder at run time, so a machine without a Vulkan
+# driver or GPU runs cleanup on the CPU instead of failing to start.
+vulkan-dl = ["vulkan", "llama-cpp-2/dynamic-backends"]

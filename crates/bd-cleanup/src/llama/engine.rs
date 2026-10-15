@@ -27,8 +27,18 @@ fn llama_err(context: &str) -> impl Fn(&dyn std::fmt::Display) -> CleanupError +
     move |e| CleanupError::Llama(format!("{context}: {e}"))
 }
 
+/// Why [`run`] stopped before the model was ready.
+enum LoadError {
+    /// Loading the weights or creating the context failed: on the GPU, often
+    /// for want of memory, so worth a retry on the CPU.
+    Placement(CleanupError),
+    /// Anything else (the chat template); the CPU would fail the same way.
+    Other(CleanupError),
+}
+
 /// Loads the model, reports readiness, then answers jobs until the channel
-/// closes. Runs on the worker thread; everything is freed on return.
+/// closes. Runs on the worker thread; everything is freed on return. A model
+/// that doesn't fit on the GPU loads again on the CPU.
 pub(super) fn serve(
     backend: &'static Backend,
     config: &LlamaConfig,
@@ -40,14 +50,30 @@ pub(super) fn serve(
         GpuLayers::Auto | GpuLayers::None => 0,
         GpuLayers::Count(n) => n,
     };
-    let params = LlamaModelParams::default().with_n_gpu_layers(gpu_layers);
-    let model = match LlamaModel::load_from_file(backend, &config.model_path, &params) {
-        Ok(model) => model,
-        Err(e) => {
-            let _ = ready.send(Err(llama_err("loading model")(&e)));
-            return;
+    let result = match run(backend, config, gpu_layers, ready, jobs) {
+        Err(LoadError::Placement(e)) if gpu_layers > 0 => {
+            tracing::warn!("{e}; loading the cleanup model on the CPU instead");
+            run(backend, config, 0, ready, jobs)
         }
+        other => other,
     };
+    if let Err(LoadError::Placement(e) | LoadError::Other(e)) = result {
+        let _ = ready.send(Err(e));
+    }
+}
+
+/// [`serve`] with a fixed GPU layer count. Returns an error only before
+/// readiness was reported.
+fn run(
+    backend: &'static Backend,
+    config: &LlamaConfig,
+    gpu_layers: u32,
+    ready: &mpsc::Sender<Result<ModelInfo, CleanupError>>,
+    jobs: &mpsc::Receiver<Job>,
+) -> Result<(), LoadError> {
+    let params = LlamaModelParams::default().with_n_gpu_layers(gpu_layers);
+    let model = LlamaModel::load_from_file(backend, &config.model_path, &params)
+        .map_err(|e| LoadError::Placement(llama_err("loading model")(&e)))?;
     let threads = config.threads.unwrap_or_else(default_threads);
     let threads_i32 = i32::try_from(threads).unwrap_or(4);
     let ctx_params = LlamaContextParams::default()
@@ -56,13 +82,9 @@ pub(super) fn serve(
         .with_n_ubatch(config.n_batch)
         .with_n_threads(threads_i32)
         .with_n_threads_batch(threads_i32);
-    let ctx = match model.new_context(backend, ctx_params) {
-        Ok(ctx) => ctx,
-        Err(e) => {
-            let _ = ready.send(Err(llama_err("creating context")(&e)));
-            return;
-        }
-    };
+    let ctx = model
+        .new_context(backend, ctx_params)
+        .map_err(|e| LoadError::Placement(llama_err("creating context")(&e)))?;
     let template_source = model
         .chat_template(None)
         .ok()
@@ -73,13 +95,7 @@ pub(super) fn serve(
         .chat_template(None)
         .or_else(|_| LlamaChatTemplate::new("chatml"))
         .map_err(|e| llama_err("chat template")(&e));
-    let template = match template {
-        Ok(t) => t,
-        Err(e) => {
-            let _ = ready.send(Err(e));
-            return;
-        }
-    };
+    let template = template.map_err(LoadError::Other)?;
     // Qwen-style templates think unless told not to, with `<think>` blocks.
     // Others (Gemma 4: `<|channel>thought`, off by default) need nothing.
     let suppress_thinking =
@@ -106,12 +122,13 @@ pub(super) fn serve(
         cached: Vec::new(),
     };
     if ready.send(Ok(info)).is_err() {
-        return;
+        return Ok(());
     }
     while let Ok(job) = jobs.recv() {
         let result = engine.complete(&job.messages, job.max_tokens);
         let _ = job.reply.send(result);
     }
+    Ok(())
 }
 
 struct Engine<'m> {

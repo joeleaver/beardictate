@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# clang-cl for cross-building llama.cpp's CPU backend variants
+# (GGML_CPU_ALL_VARIANTS) with cargo-xwin; scripts/cross-build-windows.sh puts
+# this folder first on PATH. CMake treats clang-cl as MSVC, so ggml marks a
+# variant's instruction sets with MSVC's /arch plus defines such as
+# __AVXVNNI__, which don't enable the matching clang target features, and
+# code using those intrinsics fails to compile. Add the feature for each such
+# define; every other command line passes through unchanged.
+set -euo pipefail
+self="$(cd "$(dirname "$0")" && pwd)"
+PATH="$(tr ':' '\n' <<<"$PATH" | grep -vxF "$self" | paste -sd:)"
+extra=()
+for arg in "$@"; do
+    case "$arg" in
+        [-/]D__AVXVNNI__) extra+=(-mavxvnni) ;;
+        [-/]D__BMI2__) extra+=(-mbmi2) ;;
+        [-/]D__AMX_TILE__) extra+=(-mamx-tile) ;;
+        [-/]D__AMX_INT8__) extra+=(-mamx-int8) ;;
+        [-/]D__AMX_BF16__) extra+=(-mamx-bf16) ;;
+    esac
+done
+# Before the arguments: they may end with `-- <source>`.
+exec clang-cl "${extra[@]}" "$@"

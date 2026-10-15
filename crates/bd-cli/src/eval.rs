@@ -4,6 +4,7 @@
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::PathBuf;
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use bd_commands::{CommandConfig, CommandPass};
@@ -59,13 +60,17 @@ pub fn run(args: &EvalArgs) -> Result<()> {
         cases.truncate(limit);
     }
     let store = Store::from_env()?;
+    let started = Instant::now();
     let Some(loaded) = setup::load_cleanup(&args.cleanup, &store)? else {
         bail!("bd eval needs a cleanup model: pass --cleanup ID|PATH or --cleanup-url URL");
     };
-    eprintln!("cleanup: {}", loaded.description);
+    eprintln!("cleanup: {} (loaded in {:.1} s)", loaded.description, started.elapsed().as_secs_f64());
     let mut engine = loaded.engine;
     let warm = Style::default();
-    engine.clean_detailed(&CleanupRequest { context: "", raw: "Um, warm up the the model.", style: &warm })?;
+    // The first request also decodes the system prompt, which later ones
+    // find in the cache: the app's first sentence after a load.
+    let first = engine.clean_detailed(&CleanupRequest { context: "", raw: "Um, warm up the the model.", style: &warm })?;
+    eprintln!("first request {:.0} ms", first.elapsed.as_secs_f64() * 1e3);
 
     fs::create_dir_all(&args.out)?;
     let out_path = args.out.join("outputs.jsonl");

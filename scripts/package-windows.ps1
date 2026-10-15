@@ -3,14 +3,15 @@
 # and first run"). Run from anywhere on a Windows machine with Rust (MSVC),
 # CMake, Ninja and LLVM (for llama.cpp):
 #
-#   pwsh scripts/package-windows.ps1 [-Features vulkan] [-NoBuild] [-Stage <dir>]
+#   pwsh scripts/package-windows.ps1 [-NoBuild] [-Stage <dir>]
 #
-# Output in dist\. -Stage packages binaries built elsewhere (a cargo-xwin
-# cross build from Linux): a folder holding the exes and sherpa-onnx DLLs.
+# Output in dist\. Built here, cleanup runs on the CPU only (what CI checks).
+# Releases, with the GPU, package a stage folder instead: -Stage <dir> as
+# made by scripts/cross-build-windows.sh on Linux, holding the exes and
+# every DLL to ship (llama.cpp's backends and the VC++ runtime among them).
 # Code signing: set BD_SIGN_CMD to a signtool command line ending in the file
 # to sign, written as $f (e.g. 'signtool sign /fd sha256 /tr http://... /td sha256 /a $f').
 param(
-    [string]$Features = "",
     [switch]$NoBuild,
     [string]$Stage = ""
 )
@@ -22,7 +23,6 @@ if (-not $Stage) {
     $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { "$repo\target" }
     if (-not $NoBuild) {
         $cargoArgs = @("build", "--release", "--locked", "-p", "bd-app", "-p", "bd-cli")
-        if ($Features) { $cargoArgs += @("--features", $Features) }
         Push-Location $repo
         try { & cargo @cargoArgs; if ($LASTEXITCODE) { throw "cargo build failed" } } finally { Pop-Location }
     }
@@ -32,8 +32,11 @@ if (-not $Stage) {
 $out = "$repo\packaging\windows\stage"
 Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $out | Out-Null
-foreach ($f in "beardictate.exe", "bd.exe", "sherpa-onnx-c-api.dll", "onnxruntime.dll", "onnxruntime_providers_shared.dll") {
-    Copy-Item "$Stage\$f" $out
+Copy-Item "$Stage\beardictate.exe", "$Stage\bd.exe" $out
+if ($PSBoundParameters.ContainsKey("Stage")) {
+    Copy-Item "$Stage\*.dll" $out
+} else {
+    foreach ($f in "sherpa-onnx-c-api.dll", "onnxruntime.dll", "onnxruntime_providers_shared.dll") { Copy-Item "$Stage\$f" $out }
 }
 Copy-Item "$repo\LICENSE" "$out\LICENSE.txt"
 Copy-Item "$repo\packaging\THIRD-PARTY.txt" $out

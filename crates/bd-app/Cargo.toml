@@ -14,6 +14,9 @@ path = "src/main.rs"
 default = []
 # GPU cleanup through llama.cpp's Vulkan backend.
 vulkan = ["bd-cleanup/vulkan"]
+# The same, with llama.cpp's backends as DLLs loaded at run time, falling
+# back to the CPU when Vulkan is missing (the Windows release).
+vulkan-dl = ["bd-cleanup/vulkan-dl"]
 # Native PipeWire capture on Linux.
 pipewire = ["bd-audio/pipewire"]
 # rinch-debug: lets the rinch MCP server inspect and drive the window
