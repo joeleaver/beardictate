@@ -187,21 +187,21 @@ changes: `CARGO_TARGET_DIR=... scripts/install-linux.sh`.
 ## Website and publishing installers (beardictate.jkbase.app)
 
 The site is live as jkbase project `beardictate`: a static site with landing,
-download and help pages, source in `/home/joe/dev/jkbase/sites/beardictate`
-(on jkbase `main` locally as of 2026-10-15, not pushed; jkbase normally merges
-through GitHub PRs). It hosts only the installers; the app downloads models
+download and help pages, source in this repo's `site/` (deployed with the
+`jkbase` CLI; `../jkbase` is only the hosting platform, not where the site
+lives). It hosts only the installers; the app downloads models
 from the pinned URLs in `crates/bd-models/manifest.toml`. Deploys use Joe's
 `~/.jkbase` credentials. **Ask Joe before every deploy.**
 
 Publish a build (the download list is data, `public/downloads/releases.json`):
 
-    cd /home/joe/dev/jkbase/sites/beardictate
+    cd site
     ./publish.sh add windows 0.1.0 <path/to/beardictate-0.1.0-windows-x64-setup.exe>
     ./publish.sh add windows 0.1.0 <path/to/beardictate-0.1.0-windows-x64.zip>
     ./publish.sh check     # every listed file present, size + SHA-256 match
     ./publish.sh deploy    # check, then `jkbase deploy`
 
-Then commit `public/downloads/releases.json`. The binaries are gitignored, so
+Then commit `site/public/downloads/releases.json`. The binaries are gitignored, so
 the checkout you publish from holds the only copy; `deploy` refuses if a
 listed file is missing or its hash differs. Platforms: windows, linux, macos;
 the button label follows the extension (override with `--kind "…"`).
