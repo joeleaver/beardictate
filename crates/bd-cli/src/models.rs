@@ -106,20 +106,34 @@ fn size(bytes: u64) -> String {
     }
 }
 
-/// A one-line progress display on stderr, updated per whole percent.
-#[derive(Default)]
+/// Progress on stderr: one line redrawn per whole percent on a terminal,
+/// else (a log, a CI job) a line every 10%.
 struct Progress {
     last: Option<(String, u64)>,
+    terminal: bool,
+}
+
+impl Default for Progress {
+    fn default() -> Self {
+        Progress { last: None, terminal: std::io::IsTerminal::is_terminal(&std::io::stderr()) }
+    }
 }
 
 impl Progress {
     fn show(&mut self, event: &Event<'_>) {
         match event {
             Event::Progress(p) => {
-                let pct = (p.model_done * 100).checked_div(p.model_total).unwrap_or(100);
+                let mut pct = (p.model_done * 100).checked_div(p.model_total).unwrap_or(100);
+                if !self.terminal {
+                    pct -= pct % 10;
+                }
                 let key = (format!("{:?} {}", p.phase, p.file), pct);
                 if self.last.as_ref() != Some(&key) {
-                    eprint!("\r  {:?} {} {pct:>3}%   ", p.phase, p.file);
+                    if self.terminal {
+                        eprint!("\r  {:?} {} {pct:>3}%   ", p.phase, p.file);
+                    } else {
+                        eprintln!("  {:?} {} {pct:>3}%", p.phase, p.file);
+                    }
                     self.last = Some(key);
                 }
             }
