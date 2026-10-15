@@ -1,0 +1,214 @@
+=== nq-01 | narration_only
+@raw
+Why had he come back after all these years? Nobody in the village could say.
+@expected
+Why had he come back after all these years? Nobody in the village could say.
+@notes
+rhetorical question in narration, then narration
+
+=== nq-02 | narration_only
+@raw
+Um, what did the letter mean? And who had sent it? Mara turned it over in her hands.
+@expected
+What did the letter mean? And who had sent it? Mara turned it over in her hands.
+
+=== nq-03 | narration_only
+@context
+The lights in the farmhouse went out one by one.
+@raw
+Was anyone still awake? Uh, it was hard to tell from the road.
+@expected
+Was anyone still awake? It was hard to tell from the road.
+
+=== nq-04 | narration_only
+@raw
+How long had she been standing there? Long enough for the tea to go cold.
+@expected
+How long had she been standing there? Long enough for the tea to go cold.
+
+=== nq-05 | narration_only
+@raw
+What else could he have done? He had followed the rules, every one of them.
+@expected
+What else could he have done? He had followed the rules, every one of them.
+
+=== nq-06 | narration_only
+@raw
+Where do you go when the only road out is flooded? You wait, and you, uh, you hope.
+@expected
+Where do you go when the only road out is flooded? You wait, and you hope.
+@notes
+generic second person in narration, not speech
+
+=== ni-01 | narration_only
+@raw
+Walk down to the harbor before dawn. The boats are already out, and the gulls follow them like smoke.
+@expected
+Walk down to the harbor before dawn. The boats are already out, and the gulls follow them like smoke.
+@notes
+imperative addressed to the reader
+
+=== ni-02 | narration_only
+@raw
+Picture a house at the end of a lane, um, with one light burning in the attic.
+@expected
+Picture a house at the end of a lane, with one light burning in the attic.
+
+=== ni-03 | narration_only
+@raw
+Take the old mill road for two miles. Turn left at the chapel. That's where the Hendersons lived.
+@expected
+Take the old mill road for two miles. Turn left at the chapel. That's where the Hendersons lived.
+
+=== ni-04 | narration_only
+@raw
+Imagine the noise of it, the the whole town shouting at once.
+@expected
+Imagine the noise of it, the whole town shouting at once.
+
+=== ni-05 | narration_only
+@raw
+Never trust a man who counts his change twice. My grandmother believed that until the day she died.
+@expected
+Never trust a man who counts his change twice. My grandmother believed that until the day she died.
+@notes
+a saying as narration, no speech verb
+
+=== nf-01 | narration_only
+@raw
+I didn't sleep that night. I lay there listening to the house settle and thinking about what I'd seen.
+@expected
+I didn't sleep that night. I lay there listening to the house settle and thinking about what I'd seen.
+
+=== nf-02 | narration_only
+@raw
+I'm not proud of what happened next. Uh, I took the money and I ran.
+@expected
+I'm not proud of what happened next. I took the money and I ran.
+
+=== nf-03 | narration_only
+@raw
+You have to understand, I was nineteen. I thought I knew everything.
+@expected
+You have to understand, I was nineteen. I thought I knew everything.
+@notes
+first-person narrator addressing the reader
+
+=== nf-04 | narration_only
+@raw
+I remember thinking, this is it, this is the end. It wasn't, of course.
+@expected
+I remember thinking, this is it, this is the end. It wasn't, of course.
+@notes
+reported thought, not quoted (house rule: thoughts are not quoted)
+
+=== nf-05 | narration_only
+@raw
+My father never talked about the war. Not once, not even, um, not even at the end.
+@expected
+My father never talked about the war. Not once, not even at the end.
+
+=== na-01 | narration_only
+@raw
+Okay, this is just a test. The rain fell on the empty square.
+@expected
+Okay, this is just a test. The rain fell on the empty square.
+@notes
+author aside left as dictated; the model must not quote it
+
+=== na-02 | narration_only
+@raw
+Let me try that again. The rain fell on the empty square and nobody came.
+@expected
+Let me try that again. The rain fell on the empty square, and nobody came.
+
+=== na-03 | narration_only
+@raw
+Hmm, where was I. The carriage stopped at the edge of the wood.
+@expected
+Where was I? The carriage stopped at the edge of the wood.
+
+=== na-04 | narration_only
+@raw
+Testing, testing, one two three. Uh, the lighthouse keeper's log began in March.
+@expected
+Testing, testing, one two three. The lighthouse keeper's log began in March.
+
+=== nc-01 | narration_only
+@context
+“Then go,” she said. “See if I care.”
+@raw
+He went. The door swung shut behind him, and the house was very quiet.
+@expected
+¶
+He went. The door swung shut behind him, and the house was very quiet.
+@notes
+the sentence right after a quote is narration
+
+=== nc-02 | narration_only
+@context
+“Is it far?” asked Tom.
+
+“Not far,” said the ferryman.
+@raw
+It was, in fact, very far. Um, the crossing took most of the afternoon.
+@expected
+It was, in fact, very far. The crossing took most of the afternoon.
+
+=== nc-03 | narration_only
+@context
+“I'll be back by Sunday,” Liesel promised.
+@raw
+She wasn't back by Sunday. She wasn't back by the Sunday after that, either.
+@expected
+She wasn't back by Sunday. She wasn't back by the Sunday after that, either.
+
+=== nc-04 | narration_only
+@context
+“Who's there?” the old man called.
+@raw
+Nobody answered. The wind moved through the barley, uh, and somewhere a gate banged.
+@expected
+Nobody answered. The wind moved through the barley, and somewhere a gate banged.
+
+=== nc-05 | narration_only
+@context
+“We should go,” said Petra. “Before it gets dark.”
+@raw
+They didn't go. They sat on the wall and watched the sun drop behind the quarry.
+@expected
+They didn't go. They sat on the wall and watched the sun drop behind the quarry.
+
+=== nx-01 | narration_only
+@raw
+Stop. That was the only word on the sign, painted in red across a plank of driftwood.
+@expected
+Stop. That was the only word on the sign, painted in red across a plank of driftwood.
+@notes
+house rule here: a single exclamatory word with no speaker stays unquoted
+
+=== nx-02 | narration_only
+@raw
+Help would come. It had to. Ana kept telling herself that as the water rose.
+@expected
+Help would come. It had to. Ana kept telling herself that as the water rose.
+
+=== nx-03 | narration_only
+@raw
+No one had warned them about the winters. The first one nearly killed them.
+@expected
+No one had warned them about the winters. The first one nearly killed them.
+
+=== nx-04 | narration_only
+@raw
+So that was that. The farm was sold, the dog went to the neighbors, and I, uh, I moved to the city.
+@expected
+So that was that. The farm was sold, the dog went to the neighbors, and I moved to the city.
+
+=== nx-05 | narration_only
+@raw
+Run, every instinct told her. But her legs wouldn't move.
+@expected
+Run, every instinct told her. But her legs wouldn't move.
+@notes
+instinct, not speech

@@ -1,0 +1,14 @@
+=== SYSTEM ===
+An author is dictating a novel. Write the dictation the way it would be printed in the book: drop the ums, uhs and stumbles, and mend the sentence breaks.
+
+Most dictation is narration. Use the story so far to decide whether a sentence is a character speaking out loud. If it is, put it in quotation marks, and start a new paragraph when a different character speaks. Leave everything else unquoted, including the narrator's own questions, thoughts and remarks to the reader.
+
+Use only the author's words, in their order.
+
+{style_rule}
+=== USER ===
+Story so far:
+{context}
+
+Dictation:
+{raw}

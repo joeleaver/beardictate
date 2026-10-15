@@ -95,7 +95,12 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=HERE)
     args = ap.parse_args()
 
-    groups = {"cases.jsonl": ("us", sorted(args.src.glob("us_*.txt"))), "cases_uk.jsonl": ("uk", [args.src / "uk.txt"])}
+    groups = {
+        "cases.jsonl": ("us", sorted(args.src.glob("us_*.txt"))),
+        "cases_uk.jsonl": ("uk", [args.src / "uk.txt"]),
+        # Narration only: counts quotes added where nobody speaks.
+        "cases_narr.jsonl": ("us", [args.src / "narr.txt"]),
+    }
     errors = 0
     for out_name, (style, files) in groups.items():
         cases = [c for f in files for c in parse(f.read_text(encoding="utf-8"))]

@@ -70,6 +70,11 @@ pub const TEMPLATES: &[PromptTemplate] = &[
         source: include_str!("../prompts/narration-turns-v1.txt"),
     },
     PromptTemplate {
+        id: "short-v2",
+        description: "short-v1 rewritten so most dictation is narration: quote only what the story so far shows is spoken aloud; the narrator's questions, thoughts and asides stay unquoted.",
+        source: include_str!("../prompts/short-v2.txt"),
+    },
+    PromptTemplate {
         id: "eval-v0",
         description: "The 2026-10-14 seed-bench prompt, kept as a baseline for comparison.",
         source: include_str!("../prompts/eval-v0.txt"),
