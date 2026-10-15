@@ -99,6 +99,11 @@ impl<U: Ui> Worker<U> {
 
     pub(super) fn on_loaded(&mut self, loaded: Result<Loaded, String>) {
         self.loading = None;
+        if std::mem::take(&mut self.reload_after_load) {
+            // Loaded with settings that changed meanwhile: drop it, load anew.
+            drop(loaded);
+            return self.start_load();
+        }
         match loaded {
             Ok(l) => {
                 tracing::info!(cleanup = %l.cleanup, "models loaded");

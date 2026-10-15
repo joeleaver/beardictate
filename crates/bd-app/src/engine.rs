@@ -140,6 +140,8 @@ struct Worker<U> {
     mic_check: Option<mic_check::MicCheck>,
     /// A different microphone was chosen mid-dictation: reopen after.
     reopen_mic: bool,
+    /// The settings changed while models were loading: load again.
+    reload_after_load: bool,
     /// What the status says while models load: which, and whether a switch.
     loading_detail: String,
     /// Always listening was awake when a reload started: wake it again.
@@ -173,6 +175,7 @@ impl<U: Ui> Worker<U> {
             start_on_load: true,
             mic_check: None,
             reopen_mic: false,
+            reload_after_load: false,
             loading_detail: String::new(),
             wake_after_load: false,
             cleaning: false,
@@ -441,6 +444,12 @@ impl<U: Ui> Worker<U> {
     }
 
     fn request_reload(&mut self) {
+        if self.loading.is_some() {
+            // One load at a time: two at once hold two copies of the model.
+            // The one running is stale; load again when it lands.
+            self.reload_after_load = true;
+            return;
+        }
         // Always listening is awake for hours; waiting for "go to sleep"
         // would keep the old model all that time. Reload now and wake again
         // after (speech during the few seconds of loading isn't typed).
