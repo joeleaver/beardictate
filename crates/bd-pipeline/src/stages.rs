@@ -7,9 +7,9 @@ use std::time::{Duration, Instant};
 use bd_commands::{CommandOutput, CommandPass};
 use bd_core::{Asr, AudioSegment, BoxError, Cleanup, CleanupRequest, SAMPLE_RATE, Style};
 use bd_vocab::Vocabulary;
-use crossbeam_channel::{Receiver, Sender, unbounded};
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
-use crate::compose::Composer;
+use crate::compose::{Composer, join};
 use crate::{Event, Input, Parts, PipelineConfig, Segmenting, Stage};
 
 /// From the segmenter to the ASR.
@@ -128,6 +128,26 @@ enum Item {
     NewPassage,
 }
 
+impl Pending {
+    /// Whether this ends a sentence, so cleanup can see it whole. A segment
+    /// ending in a comma, a dash or mid-word ("…and said,") is waiting for
+    /// its other half, which is often the line of dialog to quote.
+    fn ends_sentence(&self) -> bool {
+        let text = self.out.text.trim_end_matches([' ', '\t']);
+        if text.ends_with('\n') || !self.out.has_words() {
+            return true;
+        }
+        let text = text.trim_end_matches(['\u{201D}', '\u{2019}', '"', '\'', ')', ']', '\u{00BB}']);
+        text.ends_with(['.', '!', '?', '\u{2026}'])
+    }
+
+    /// Whether this can be read on from the segment before it: not the
+    /// start of a paragraph.
+    fn continues(&self) -> bool {
+        !self.out.text.trim_start_matches([' ', '\t']).starts_with('\n')
+    }
+}
+
 /// How many delivered segments "scratch that" can reach back through.
 const MAX_ERASABLE: usize = 20;
 
@@ -171,6 +191,8 @@ struct Finisher {
     /// Whether this passage has words yet, so a pause before the first
     /// segment doesn't open with a break.
     passage_has_text: bool,
+    /// See [`PipelineConfig::sentence_hold`].
+    sentence_hold: Duration,
 }
 
 impl Finisher {
@@ -188,6 +210,7 @@ impl Finisher {
             quote_open: false,
             pause_paragraph: config.pause_paragraph,
             passage_has_text: false,
+            sentence_hold: config.sentence_hold,
         }
     }
 
@@ -200,7 +223,16 @@ impl Finisher {
                 }
             }
             self.take_in_ready(&input);
-            let Some(item) = self.queue.pop_front() else { continue };
+            if self.waiting_for_rest() {
+                match input.recv_timeout(self.sentence_hold) {
+                    Ok(heard) => {
+                        self.take_in(heard);
+                        continue;
+                    }
+                    Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
+                }
+            }
+            let Some(item) = self.pop_sentence() else { continue };
             match item {
                 Item::EndSession => {
                     self.typed.clear();
@@ -213,6 +245,37 @@ impl Finisher {
                 Item::Segment(p) => self.finish(p, &input),
             }
         }
+    }
+
+    /// Whether everything queued is one sentence still being spoken.
+    fn waiting_for_rest(&self) -> bool {
+        let mut segments = self.queue.iter().enumerate().map(|(i, item)| match item {
+            Item::Segment(p) if i == 0 || p.continues() => Some(p),
+            _ => None,
+        });
+        segments.all(|p| p.is_some())
+            && matches!(self.queue.back(), Some(Item::Segment(p)) if !p.ends_sentence())
+    }
+
+    /// The next item, with an unfinished sentence joined to the segments
+    /// that finish it, so cleanup sees "…and said, Oh no" whole. "Scratch
+    /// that" while it waits still drops one segment at a time; once joined
+    /// it is one segment.
+    fn pop_sentence(&mut self) -> Option<Item> {
+        let mut item = self.queue.pop_front()?;
+        if let Item::Segment(p) = &mut item {
+            while !p.ends_sentence() {
+                let Some(Item::Segment(next)) = self.queue.front() else { break };
+                if !next.continues() {
+                    break;
+                }
+                let Some(Item::Segment(next)) = self.queue.pop_front() else { unreachable!() };
+                let tail = join(&p.out.text, &next.out.text);
+                p.out.text.push_str(&tail);
+                p.out.quote_open = next.out.quote_open;
+            }
+        }
+        Some(item)
     }
 
     fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {

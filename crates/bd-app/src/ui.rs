@@ -150,16 +150,8 @@ pub fn tray_menu(shared: &Shared) -> Menu {
             show_current_window();
         }
     };
-    let open_words = {
-        let s = shared.clone();
-        move || {
-            s.section.set(Section::Words);
-            show_current_window();
-        }
-    };
     menu.separator()
         .item(MenuItem::new("Settings…").on_click(open_settings))
-        .item(MenuItem::new("Special word list…").on_click(open_words))
         .separator()
         .item(MenuItem::new("Quit beardictate").on_click(close_current_window))
 }

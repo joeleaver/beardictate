@@ -84,11 +84,16 @@ pub struct PipelineConfig {
     /// Characters of delivered text kept as context. The cleanup prompt
     /// trims this further to its own budget.
     pub context_chars: usize,
+    /// How long a segment that stops mid-sentence ("…and said,") waits for
+    /// the next one, so cleanup sees the sentence whole and can quote the
+    /// line that follows a tag. Long enough to speak and transcribe the
+    /// next utterance; when it runs out, the half sentence goes on alone.
+    pub sentence_hold: Duration,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), pause_paragraph: None, context_chars: 4000 }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8) }
     }
 }
 

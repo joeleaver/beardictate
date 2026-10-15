@@ -48,6 +48,14 @@ makes a 1–3 s cleanup tolerable during narration.
 ### 2. Segmentation
 - Silero VAD (via sherpa-onnx). An utterance ends on ~600 ms of silence or on
   hotkey release. Segments are what flow down the pipe.
+- A pause mid-sentence splits a sentence across segments ("…and said," /
+  "Oh no, he's coming."), and cleanup can't quote a line it sees apart from
+  its tag. So after the command pass, a segment that doesn't end a sentence
+  (no closing `.`, `!`, `?` or `…`, nor a break) waits up to 8 s for the
+  next one and is cleaned joined to it. A dictated paragraph break or a
+  long-pause paragraph is never joined across; the session ending, or the
+  wait running out, sends the half sentence on alone. "Scratch that" while
+  it waits drops just that half.
 
 ### 3. ASR
 - **Parakeet TDT 0.6B v3** (int8 ONNX) via **sherpa-onnx**. Native

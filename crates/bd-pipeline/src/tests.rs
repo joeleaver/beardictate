@@ -313,3 +313,51 @@ fn pauses_add_no_paragraphs_unless_asked() {
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(texts(&events), "One. Two.");
 }
+
+#[test]
+fn an_unfinished_sentence_waits_and_is_cleaned_with_the_rest() {
+    let r = rig(vec!["The boy saw the tax man and said,", "Oh no, he's coming.", "He ran."], true, false);
+    say(&r.pipeline, 0);
+    say(&r.pipeline, 1);
+    say(&r.pipeline, 2);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "The boy saw the tax man and said, Oh no, he's coming. He ran.");
+    // One cleanup call saw the whole sentence.
+    assert_eq!(*r.contexts.lock().unwrap(), ["", "The boy saw the tax man and said, Oh no, he's coming."]);
+    let ids: Vec<u64> = events.iter().filter_map(|e| if let Event::Text { id, .. } = e { Some(*id) } else { None }).collect();
+    assert_eq!(ids, [0, 2]);
+}
+
+#[test]
+fn an_unfinished_sentence_goes_on_alone_after_the_hold() {
+    let config = PipelineConfig { sentence_hold: Duration::from_millis(50), ..PipelineConfig::default() };
+    let r = rig_with(vec!["And then,", "Later."], true, false, config);
+    let rx = r.pipeline.events().clone();
+    say(&r.pipeline, 0);
+    let events = until(&rx, |e| matches!(e, Event::Text { .. }));
+    assert_eq!(texts(&events), "And then,");
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), " Later.");
+}
+
+#[test]
+fn a_paragraph_break_is_not_joined_across() {
+    let r = rig(vec!["He hesitated,", "New paragraph. Morning came."], true, false);
+    say(&r.pipeline, 0);
+    say(&r.pipeline, 1);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "He hesitated,\n\nMorning came.");
+    assert_eq!(r.contexts.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn scratch_that_drops_a_held_half_sentence() {
+    let r = rig(vec!["The boy said,", "Scratch that.", "He left."], true, false);
+    say(&r.pipeline, 0);
+    say(&r.pipeline, 1);
+    say(&r.pipeline, 2);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert!(events.contains(&Event::Scratched { id: 0 }));
+    assert_eq!(texts(&events), "He left.");
+}
