@@ -4,13 +4,13 @@
     {
       "id": "windows",
       "name": "Windows",
-      "requirements": "Windows 10 or 11, 64-bit",
+      "requirements": "Windows 10 or 11, 64-bit. Cleanup runs on the processor for now, a few seconds a sentence; graphics-card support is coming. The installer isn’t signed yet, so if Windows SmartScreen warns, choose More info, then Run anyway.",
       "pending": "The Windows installer is being tested now. It will appear here as soon as it’s ready."
     },
     {
       "id": "linux",
       "name": "Linux",
-      "requirements": "64-bit x86, KDE Plasma or GNOME on Wayland, or X11",
+      "requirements": "64-bit x86 and a recent distribution (glibc 2.43 or newer, such as Ubuntu 26.04) with GTK 3, libxdo, Vulkan and PipeWire; KDE Plasma or GNOME on Wayland, or X11. Unpack it and run ./install.sh. On an older system, build it from source (below).",
       "pending": "There’s no ready-made Linux build yet. You can build and install it from source today: see below."
     },
     {
@@ -22,24 +22,31 @@
   ],
   "builds": [
     {
+      "platform": "linux",
+      "version": "0.1.0",
+      "kind": "Linux package (.tar.gz)",
+      "file": "beardictate-0.1.0-linux-x86_64.tar.gz",
+      "size": 39028978,
+      "sha256": "c8218a4022cd56cf8f99aeb1342c2bd4c87d05c48a84e86e14fc5ee976ceeda1",
+      "date": "2026-10-15"
+    },
+    {
       "platform": "windows",
       "version": "0.1.0",
       "kind": "Installer",
       "file": "beardictate-0.1.0-windows-x64-setup.exe",
-      "size": 0,
-      "sha256": "",
-      "date": "",
-      "placeholder": true
+      "size": 19588198,
+      "sha256": "8febed5fddb88c3eea265d2c608fe70569594a449d76881aec644fa2c33f2a45",
+      "date": "2026-10-15"
     },
     {
-      "platform": "linux",
+      "platform": "windows",
       "version": "0.1.0",
-      "kind": "AppImage",
-      "file": "beardictate-0.1.0-linux-x86_64.AppImage",
-      "size": 0,
-      "sha256": "",
-      "date": "",
-      "placeholder": true
+      "kind": "Portable zip",
+      "file": "beardictate-0.1.0-windows-x64.zip",
+      "size": 26469712,
+      "sha256": "c5131cafb081d9c6da7f05e63b5078bd68ed0cfa961ff0d71cbab6b2dc3a9ccf",
+      "date": "2026-10-15"
     }
   ]
 }

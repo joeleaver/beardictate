@@ -210,6 +210,11 @@ one. A page-only change is the same `./publish.sh deploy`. The project was
 created with `jkbase project create beardictate`. Details: that folder's
 README.md.
 
+**Released:** 0.1.0, built from main `2db912e`, published 2026-10-15 (site v3).
+- Windows: `beardictate-0.1.0-windows-x64-setup.exe` and a `.zip`, cross-built here and packed with Inno Setup on NICO-TOP; unsigned; CPU-only cleanup.
+- Linux: `beardictate-0.1.0-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
+- The binaries live in `site/public/downloads/` (gitignored) and `/mnt/data/beardictate-targets/win-dist/`.
+
 ## Where things live (outside the repo)
 
 - Models (dev): `/mnt/data/beardictate-dev/models/` —
