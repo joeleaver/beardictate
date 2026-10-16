@@ -211,9 +211,9 @@ one. A page-only change is the same `./publish.sh deploy`. The project was
 created with `jkbase project create beardictate`. Details: that folder's
 README.md.
 
-**Released:** 0.1.6, built from main `f21c6ef`, published 2026-10-16 (site v9; 0.1.5 pruned). Bear Gemma 4 E2B (our fine-tune, hosted at huggingface.co/joeleaver/bear-gemma-4-e2b-GGUF) is the recommended cleanup model; Bear Pad (optional floating pad, "bear, send it").
-- Windows: `beardictate-0.1.6-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
-- Linux: `beardictate-0.1.6-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
+**Released:** 0.1.7, built from main `ddaed37`, published 2026-10-16 (site v10; 0.1.6 pruned). Bear Pad is a Wayland layer-shell overlay (rinch f087fd52), borderless with its own title bar, and comes back when switched off and on. 0.1.6 made Bear Gemma 4 E2B (huggingface.co/joeleaver/bear-gemma-4-e2b-GGUF) the recommended cleanup model.
+- Windows: `beardictate-0.1.7-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
+- Linux: `beardictate-0.1.7-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
 - New release: bump `version` in Cargo.toml, `scripts/package-linux.sh`, ask the Windows session to build the same commit, `site/publish.sh add …`, `prune <platform> 1`, deploy (Joe's OK), commit `releases.json`.
 - The binaries live in `site/public/downloads/` (gitignored) and `/mnt/data/beardictate-targets/win-dist/`.
 
