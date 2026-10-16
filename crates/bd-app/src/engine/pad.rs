@@ -56,7 +56,6 @@ impl PadHost {
                 })
                 .ok()?;
             tracing::info!("Bear Pad window started");
-            (self.shown, self.status, self.view) = (false, String::new(), None);
             self.child = Some((child, stdin));
         }
         self.child.as_mut().map(|(_, stdin)| stdin)
@@ -99,6 +98,8 @@ impl PadHost {
     /// Closes the window's stdin, which tells it to save where it is and
     /// quit; kills it if it hasn't within a second.
     pub fn stop(&mut self) {
+        // A window started later is told everything afresh.
+        (self.shown, self.status, self.view) = (false, String::new(), None);
         if let Some((mut child, stdin)) = self.child.take() {
             drop(stdin);
             for _ in 0..20 {
@@ -175,5 +176,21 @@ impl<U: Ui> Worker<U> {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
         host.sync(visible, status, &self.pad.view);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stopped_window_is_told_everything_again() {
+        let (tx, _rx) = crossbeam_channel::unbounded();
+        let mut host = PadHost::new(tx);
+        // As if a window had been shown with this status and text.
+        (host.shown, host.status) = (true, "Listening".into());
+        host.view = Some(ToPad::View { parts: Vec::new(), cleaning: false });
+        host.stop();
+        assert!(!host.shown && host.status.is_empty() && host.view.is_none());
     }
 }
