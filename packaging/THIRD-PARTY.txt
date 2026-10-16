@@ -20,7 +20,9 @@ beardictate includes, or links, these components:
 Models are not part of this program. The app downloads them from their
 publishers on request, each under its own license, shown in the app:
 
-- Parakeet TDT 0.6B v3 (NVIDIA), CC-BY-4.0
+- Parakeet Unified 0.6B English (NVIDIA), NVIDIA Open Model License:
+  licensed by NVIDIA Corporation under the NVIDIA Open Model License,
+  https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/
 - Silero VAD, MIT
 - Gemma 4 E2B (Google), Apache License 2.0
 - Qwen3.5 4B (Alibaba Cloud), Apache License 2.0
