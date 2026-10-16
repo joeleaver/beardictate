@@ -211,9 +211,9 @@ one. A page-only change is the same `./publish.sh deploy`. The project was
 created with `jkbase project create beardictate`. Details: that folder's
 README.md.
 
-**Released:** 0.1.4, built from main `9b981d4`, published 2026-10-15 (site v7; 0.1.3 pruned).
-- Windows: `beardictate-0.1.4-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
-- Linux: `beardictate-0.1.4-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
+**Released:** 0.1.5, built from main `0f7a672`, published 2026-10-15 (site v8; 0.1.4 pruned). New ASR model (Parakeet Unified 0.6B English); existing installs download it on first start.
+- Windows: `beardictate-0.1.5-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
+- Linux: `beardictate-0.1.5-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
 - New release: bump `version` in Cargo.toml, `scripts/package-linux.sh`, ask the Windows session to build the same commit, `site/publish.sh add …`, `prune <platform> 1`, deploy (Joe's OK), commit `releases.json`.
 - The binaries live in `site/public/downloads/` (gitignored) and `/mnt/data/beardictate-targets/win-dist/`.
 
