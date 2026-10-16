@@ -1,4 +1,5 @@
-//! Parakeet TDT 0.6B v3 through sherpa-onnx's offline transducer recognizer.
+//! NVIDIA Parakeet through sherpa-onnx's offline transducer recognizer:
+//! Parakeet Unified 0.6B English (an RNNT), or the older Parakeet TDT 0.6B v3.
 
 use std::path::Path;
 use std::sync::RwLock;
@@ -20,9 +21,11 @@ pub struct ParakeetConfig {
     pub debug: bool,
     /// Enables [`ParakeetAsr::set_hotwords`]: decode with beam search and
     /// add this score per matching token to hypotheses that spell a hotword.
-    /// `None` decodes greedily and takes no hotwords. On 22 invented names
-    /// read by a TTS voice, 2.0 got 10 right (greedy: 4) and changed no
-    /// ordinary words, though it capitalized a few ("Fog", "Twins"); 2.5–3
+    /// `None` decodes greedily and takes no hotwords. With Parakeet Unified,
+    /// 22 special words in 16 TTS sentences: 2.0 got 16 (greedy: 8, 1.5: 11)
+    /// without changing ordinary words, though it sometimes repeats a
+    /// hotword, which the output drops (see `hotwords::collapse_repeats`).
+    /// With Parakeet v3 on 22 invented names, 2.0 got 10 (greedy: 4); 2.5–3
     /// got 12–15 but began changing words ("whispered" to "whisper").
     pub hotword_boost: Option<f32>,
 }
@@ -46,11 +49,12 @@ struct Hotwords {
     encoded: String,
 }
 
-/// Parakeet TDT transducer ASR.
+/// Parakeet transducer ASR.
 ///
 /// The model directory holds `encoder`, `decoder` and `joiner` ONNX files
 /// (int8 `*.int8.onnx` preferred, plain `*.onnx` accepted) and `tokens.txt`,
-/// as in the `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` release.
+/// as in sherpa-onnx's `sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming`
+/// and `sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8` releases.
 pub struct ParakeetAsr {
     recognizer: OfflineRecognizer,
     /// The hotwords; `None` when boosting is off.
@@ -96,7 +100,9 @@ impl ParakeetAsr {
                 // rest of the segment (sherpa-onnx#3267). Charging for each
                 // blank evens that out: on 23 segments from a real
                 // microphone, 1.0 recovered every word greedy decoding got
-                // (0.5 nearly all; 2.0 began inventing words).
+                // (0.5 nearly all; 2.0 began inventing words). Parakeet
+                // Unified also does better with it: 39 of 40 real segments
+                // complete, against 38 with no penalty.
                 c.blank_penalty = BLANK_PENALTY;
                 c.hotwords_score = boost;
                 c.model_config.modeling_unit = Some("bpe".into());
@@ -142,9 +148,11 @@ impl ParakeetAsr {
         if samples.is_empty() {
             return Ok(String::new());
         }
-        let stream = match self.hotwords.as_ref().map(|l| l.read().unwrap_or_else(|e| e.into_inner())) {
-            Some(h) if !h.encoded.is_empty() => self.recognizer.create_stream_with_hotwords(&h.encoded),
-            _ => self.recognizer.create_stream(),
+        let hotwords = self.hotwords.as_ref().map(|l| l.read().unwrap_or_else(|e| e.into_inner()));
+        let hotwords = hotwords.as_ref().filter(|h| !h.encoded.is_empty());
+        let stream = match hotwords {
+            Some(h) => self.recognizer.create_stream_with_hotwords(&h.encoded),
+            None => self.recognizer.create_stream(),
         };
         // Parakeet loses words in audio cut tight to the speech, as the VAD
         // cuts it: a short "new paragraph" came out as "Yeah." or nothing,
@@ -155,7 +163,11 @@ impl ParakeetAsr {
         stream.accept_waveform(SAMPLE_RATE as i32, &padded);
         self.recognizer.decode(&stream);
         let result = stream.get_result().ok_or(AsrError::NoResult)?;
-        Ok(result.text.trim().to_owned())
+        let text = result.text.trim();
+        Ok(match hotwords {
+            Some(h) => hotwords::collapse_repeats(text, &h.words),
+            None => text.to_owned(),
+        })
     }
 }
 

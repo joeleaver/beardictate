@@ -12,7 +12,7 @@ use bd_cleanup::{
 use bd_core::{BoxError, Cleanup, CleanupRequest};
 use bd_models::{Manifest, ModelEntry, ModelKind, ModelStatus, Store};
 
-pub const ASR_MODEL: &str = "asr-parakeet-tdt-0.6b-v3-int8";
+pub const ASR_MODEL: &str = "asr-parakeet-unified-en-0.6b-int8";
 pub const VAD_MODEL: &str = "vad-silero";
 
 /// Which cleanup model to run.

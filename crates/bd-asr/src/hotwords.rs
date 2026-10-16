@@ -72,6 +72,42 @@ pub(crate) fn encode<S: AsRef<str>>(words: &[S], boost: f32) -> String {
     seen.iter().map(|w| format!("{w} :{boost:.2}")).collect::<Vec<_>>().join("/")
 }
 
+/// Drops back-to-back copies of a hotword: "Buttons Buttons Buttons is" ->
+/// "Buttons is". Beam search with hotwords can loop on a boosted word with
+/// the Parakeet Unified model (an RNNT, which may emit several tokens per
+/// frame): at boost 2.0 it did once in 16 TTS sentences, at 2.5 three times.
+/// Only copies separated by bare spaces count, so "Buttons, Buttons!" stays.
+/// Case is ignored; the last copy, which carries any punctuation, is kept.
+pub(crate) fn collapse_repeats<S: AsRef<str>>(text: &str, words: &[S]) -> String {
+    let mut tokens: Vec<&str> = text.split_whitespace().collect();
+    let mut changed = false;
+    for word in words {
+        let phrase: Vec<&str> = word.as_ref().split_whitespace().collect();
+        let n = phrase.len();
+        if n == 0 {
+            continue;
+        }
+        let same = |t: &str, p: &str| t.eq_ignore_ascii_case(p);
+        // The last token of the second copy may end in punctuation.
+        let same_end = |t: &str, p: &str| same(t.trim_end_matches(|c: char| c.is_ascii_punctuation()), p);
+        let mut i = 0;
+        while i + 2 * n <= tokens.len() {
+            let first = (0..n).all(|k| same(tokens[i + k], phrase[k]));
+            let second = (0..n).all(|k| {
+                let t = tokens[i + n + k];
+                if k == n - 1 { same_end(t, phrase[k]) } else { same(t, phrase[k]) }
+            });
+            if first && second {
+                tokens.drain(i..i + n);
+                changed = true;
+            } else {
+                i += 1;
+            }
+        }
+    }
+    if changed { tokens.join(" ") } else { text.to_owned() }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,5 +127,19 @@ mod tests {
         );
         assert_eq!(encode::<&str>(&[], 2.0), "");
         assert_eq!(encode(&["Ysolde"], 0.0), "");
+    }
+
+    #[test]
+    fn repeated_hotwords_collapse() {
+        let words = ["Buttons", "Port Varrow"];
+        assert_eq!(collapse_repeats("Buttons Buttons Buttons is a cat.", &words), "Buttons is a cat.");
+        assert_eq!(collapse_repeats("Did Buttons buttons eat it?", &words), "Did buttons eat it?");
+        assert_eq!(collapse_repeats("Sat by Buttons Buttons.", &words), "Sat by Buttons.");
+        assert_eq!(collapse_repeats("To Port Varrow Port Varrow, then home.", &words), "To Port Varrow, then home.");
+        // Not back to back, or not a hotword: left alone.
+        assert_eq!(collapse_repeats("Buttons, Buttons! Come here.", &words), "Buttons, Buttons! Come here.");
+        assert_eq!(collapse_repeats("very  very good", &words), "very  very good");
+        assert_eq!(collapse_repeats("Port Port Varrow", &words), "Port Port Varrow");
+        assert_eq!(collapse_repeats("Buttons Buttons", &[] as &[&str]), "Buttons Buttons");
     }
 }

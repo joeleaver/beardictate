@@ -58,9 +58,11 @@ makes a 1–3 s cleanup tolerable during narration.
   it waits drops just that half.
 
 ### 3. ASR
-- **Parakeet TDT 0.6B v3** (int8 ONNX) via **sherpa-onnx**. Native
-  punctuation + capitalization, no silence hallucination (transducer, not
-  autoregressive like Whisper), well under real time on CPU, 25 languages.
+- **Parakeet Unified 0.6B English** (int8 ONNX, an RNNT) via **sherpa-onnx**.
+  Native punctuation + capitalization, no silence hallucination (transducer,
+  not autoregressive like Whisper), well under real time on CPU. English only.
+  It replaced Parakeet TDT 0.6B v3 int8 (25 languages) in 0.1.5: that int8
+  export lost whole sentences on real microphone audio.
 - Pluggable `Asr` trait so Whisper large-v3-turbo (whisper.cpp) can be offered
   for languages Parakeet doesn't cover.
 
@@ -179,7 +181,7 @@ Only the chosen model downloads at first run. A small built-in benchmark
 model isn't needed, because step 3 runs after the shortlisted model downloads,
 and the app is already usable in ASR-only mode while that happens.
 
-ASR gets the same treatment, with a smaller menu: Parakeet v3 (default),
+ASR gets the same treatment, with a smaller menu: Parakeet Unified (default),
 Moonshine base (very weak hardware), Whisper large-v3-turbo (languages
 Parakeet lacks).
 
@@ -321,12 +323,16 @@ Downloader:
   model downloads in the background.
 
 Licensing notes that drive model choice:
+- Parakeet Unified: NVIDIA Open Model License → commercial use and
+  redistribution allowed; whoever redistributes the weights must include the
+  agreement and a Notice file ("Licensed by NVIDIA Corporation under the
+  NVIDIA Open Model License"). We download from HF, so we don't redistribute.
 - Parakeet v3: CC-BY-4.0 → attribution in About; fine to mirror.
 - Qwen3: Apache-2.0 → our fine-tunes inherit it; we can host them freely.
 - **Gemma: HF repos are gated** (license click-through) — can't anonymously
   download from the canonical repo. Another reason to fine-tune on Qwen3.
 
-Rough sizes: Parakeet v3 int8 ≈ 0.65 GB, Silero VAD ≈ 2 MB, cleanup 0.6B Q8
+Rough sizes: Parakeet Unified int8 ≈ 0.65 GB, Silero VAD ≈ 2 MB, cleanup 0.6B Q8
 ≈ 0.65 GB, 1.7B Q8 ≈ 1.8 GB.
 
 ## Inference backends & GPU

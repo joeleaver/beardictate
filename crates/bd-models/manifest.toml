@@ -19,7 +19,37 @@
 
 # --- ASR -------------------------------------------------------------------
 
-# k2-fsa's sherpa-onnx int8 export of nvidia/parakeet-tdt-0.6b-v3.
+# k2-fsa's sherpa-onnx int8 export of nvidia/parakeet-unified-en-0.6b, the
+# offline ("non-streaming") one; the same files as the `asr-models` GitHub
+# release asset sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.
+# Pinned commit 8c3a10fb13408c7a7054f6898958bf1c64a8d6c7. Hashes: the three
+# .onnx files from the HF tree API `lfs.oid` (sha256), matching the release
+# tarball's files; tokens.txt hashed locally, git blob id
+# 50918f5e313e1cf846cf77dfd5b4489c9c7f0b76 as the API's `oid`.
+# Replaced Parakeet TDT v3 int8 (2026-10-15): on 40 real microphone
+# segments it recovered 255 of 256 words where v3 int8 got 205 with beam
+# search, turning six whole sentences into "Yeah.".
+[[model]]
+id = "asr-parakeet-unified-en-0.6b-int8"
+kind = "asr"
+name = "Parakeet Unified 0.6B English (int8)"
+license = "LicenseRef-NVIDIA-Open-Model-License"
+attribution = "parakeet-unified-en-0.6b by NVIDIA. Licensed by NVIDIA Corporation under the NVIDIA Open Model License (https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/). ONNX export by k2-fsa/sherpa-onnx."
+homepage = "https://huggingface.co/nvidia/parakeet-unified-en-0.6b"
+required = true
+sources = [
+    "https://huggingface.co/csukuangfj2/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming/resolve/8c3a10fb13408c7a7054f6898958bf1c64a8d6c7/",
+]
+files = [
+    { path = "encoder.int8.onnx", size = 654040552, sha256 = "6716910b7a0833997fec7a410494c995d70124001a0e9b66d6370d6aced577e0" },
+    { path = "decoder.int8.onnx", size = 7257753, sha256 = "a5e223392c90e75f8144cdb5eb95af7625db389e39edef2bd1a9c872b3298fe6" },
+    { path = "joiner.int8.onnx", size = 1735860, sha256 = "869f43f7d24595c55581ad3bf249a935fb8a71389fbdaa7504b9f46f93140f8a" },
+    { path = "tokens.txt", size = 8952, sha256 = "dc0b4584ab2e4ddbf888425c076c61b736e7356a015250db7d307e6f1a8188ff" },
+]
+
+# k2-fsa's sherpa-onnx int8 export of nvidia/parakeet-tdt-0.6b-v3: the ASR
+# model up to 0.1.4, kept so `bd models download` can still fetch it for
+# comparison. Not required, so the app neither downloads nor loads it.
 # Pinned commit 2bda32ec70b097a55adaa07d9a7173915b43cc78 (2025-08-16).
 # Hashes: the three .onnx files from the HF tree API `lfs.oid` (sha256);
 # tokens.txt is not in LFS, so it was fetched at the pinned commit and hashed
@@ -32,7 +62,7 @@ name = "Parakeet TDT 0.6B v3 (int8)"
 license = "CC-BY-4.0"
 attribution = "Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0; ONNX export by k2-fsa/sherpa-onnx."
 homepage = "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"
-required = true
+required = false
 sources = [
     "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/",
 ]

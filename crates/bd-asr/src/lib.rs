@@ -1,6 +1,6 @@
 //! Speech recognition for beardictate, via sherpa-onnx.
 //!
-//! - [`ParakeetAsr`]: NVIDIA Parakeet TDT 0.6B v3 (int8 ONNX) behind
+//! - [`ParakeetAsr`]: NVIDIA Parakeet Unified 0.6B English (int8 ONNX) behind
 //!   [`bd_core::Asr`]. Transcribes one finished segment at a time, with the
 //!   model's own casing and punctuation, optionally listening harder for a
 //!   list of names and invented words (hotwords).

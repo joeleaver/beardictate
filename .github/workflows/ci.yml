@@ -81,9 +81,9 @@ jobs:
       - name: Download the models (and the test wav the ASR tests read)
         shell: pwsh
         run: |
-          target\release\bd.exe models download asr-parakeet-tdt-0.6b-v3-int8 vad-silero cleanup-gemma-4-e2b-q4_0
+          target\release\bd.exe models download asr-parakeet-unified-en-0.6b-int8 vad-silero cleanup-gemma-4-e2b-q4_0
           if ($LASTEXITCODE) { exit 1 }
-          $wavs = "$env:BD_MODELS_DIR\asr-parakeet-tdt-0.6b-v3-int8\test_wavs"
+          $wavs = "$env:BD_MODELS_DIR\asr-parakeet-unified-en-0.6b-int8\test_wavs"
           New-Item -ItemType Directory -Force $wavs | Out-Null
           if (-not (Test-Path "$wavs\en.wav")) {
             Invoke-WebRequest -OutFile "$wavs\en.wav" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/test_wavs/en.wav"
@@ -93,7 +93,7 @@ jobs:
         run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
 
       - name: Transcribe the test wav with bd
-        run: target\release\bd.exe file "%BD_MODELS_DIR%\asr-parakeet-tdt-0.6b-v3-int8\test_wavs\en.wav" --cleanup off
+        run: target\release\bd.exe file "%BD_MODELS_DIR%\asr-parakeet-unified-en-0.6b-int8\test_wavs\en.wav" --cleanup off
         shell: cmd
 
       - name: Install Inno Setup
@@ -109,7 +109,7 @@ jobs:
         shell: pwsh
         run: |
           $env:BD_LOG = "warn,bd_cleanup=info"
-          $log = & packaging\windows\stage\bd.exe file "$env:BD_MODELS_DIR\asr-parakeet-tdt-0.6b-v3-int8\test_wavs\en.wav" --cleanup cleanup-gemma-4-e2b-q4_0 2>&1 | ForEach-Object { "$_" }
+          $log = & packaging\windows\stage\bd.exe file "$env:BD_MODELS_DIR\asr-parakeet-unified-en-0.6b-int8\test_wavs\en.wav" --cleanup cleanup-gemma-4-e2b-q4_0 2>&1 | ForEach-Object { "$_" }
           $log
           if ($LASTEXITCODE) { exit 1 }
           if (-not ($log -match "layers on GPU")) { throw "the cleanup model didn't load" }

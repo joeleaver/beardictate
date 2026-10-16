@@ -1,8 +1,9 @@
 //! Shared helpers for the model-backed integration tests.
 //!
 //! Tests need real models: set `BD_MODELS_DIR` to a directory containing
-//! `asr-parakeet-tdt-0.6b-v3-int8/` (the sherpa-onnx release, including its
-//! `test_wavs/`) and `vad-silero/silero_vad.onnx`. Without it they skip.
+//! `asr-parakeet-unified-en-0.6b-int8/` with `test_wavs/en.wav` added (that
+//! wav ships in sherpa-onnx's Parakeet v3 release; CI fetches it) and
+//! `vad-silero/silero_vad.onnx`. Without it they skip.
 
 #![allow(dead_code)]
 
@@ -22,7 +23,7 @@ pub fn models_dir() -> Option<PathBuf> {
 }
 
 pub fn parakeet_dir(models: &Path) -> PathBuf {
-    models.join("asr-parakeet-tdt-0.6b-v3-int8")
+    models.join("asr-parakeet-unified-en-0.6b-int8")
 }
 
 pub fn vad_model(models: &Path) -> PathBuf {

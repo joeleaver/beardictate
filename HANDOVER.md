@@ -6,8 +6,9 @@ file is *where things stand*.
 
 ## Decisions already made (don't re-litigate)
 
-- Pipeline: hotkey → cpal capture → Silero VAD → **Parakeet TDT 0.6B v3**
-  (sherpa-onnx) → deterministic spoken-command pass → **cleanup LLM** with a
+- Pipeline: hotkey → cpal capture → Silero VAD → **Parakeet Unified 0.6B English**
+  (int8, sherpa-onnx; replaced Parakeet TDT v3 int8 in 0.1.5, which turned
+  whole sentences into "Yeah." on real microphone audio) → deterministic spoken-command pass → **cleanup LLM** with a
   word-diff **guardrail** → text injection (type, else paste).
 - **No floating overlay.** Tray icon is the only live status display (Joe,
   2026-10-14). Hotkey is a **toggle** by default; hold-to-talk is optional.
@@ -219,7 +220,10 @@ README.md.
 ## Where things live (outside the repo)
 
 - Models (dev): `/mnt/data/beardictate-dev/models/` —
-  `asr-parakeet-tdt-0.6b-v3-int8/` (+ `test_wavs/`), `vad-silero/silero_vad.onnx`.
+  `asr-parakeet-unified-en-0.6b-int8/` (+ `test_wavs/en.wav`, copied from the v3
+  release, which the tests read), `vad-silero/silero_vad.onnx`. The ASR
+  comparison of 2026-10-15 also left v3 int8/fp32, v2 int8/fp16 and Nemotron
+  streaming exports under `asr-*`.
 - Corpus / training data: `/mnt/data/beardictate-dev/corpus/` etc.
 - Build dirs: `/mnt/data/beardictate-targets/<name>/` (root disk is ~93% full —
   keep big things on /mnt/data).
@@ -240,4 +244,4 @@ an org admin: Organization settings › Capabilities / Artifacts).
 
 - Stock cleanup models: only **Gemma 4 12B** handled unmarked dialog (≈5 s GPU);
   Qwen3 1.7B/4B/8B fast but miss dialog inference.
-- Parakeet v3 int8 CPU: RTF ≈0.15–0.24.
+- Parakeet Unified int8 CPU: RTF ≈0.07–0.1 on Joe's segments (v3 int8 was ≈0.15–0.24 on a loaded box).
