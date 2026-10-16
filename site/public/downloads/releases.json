@@ -23,29 +23,29 @@
   "builds": [
     {
       "platform": "linux",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "kind": "Archive",
-      "file": "beardictate-0.1.5-linux-x86_64.tar.gz",
-      "size": 41742967,
-      "sha256": "b84ff48ba452245781a915d22898531ed14582bc307d90e1c0f04d3127fe4a93",
+      "file": "beardictate-0.1.6-linux-x86_64.tar.gz",
+      "size": 41887488,
+      "sha256": "0e058fe4976b6098642701190bfe47bfec058b672254262dd1fbc4584101c6a9",
       "date": "2026-10-16"
     },
     {
       "platform": "windows",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "kind": "Installer",
-      "file": "beardictate-0.1.5-windows-x64-setup.exe",
-      "size": 25828664,
-      "sha256": "445d6572812071ccc17829704f568114adc4b3724958174f6eb0000ce24c162e",
+      "file": "beardictate-0.1.6-windows-x64-setup.exe",
+      "size": 25980614,
+      "sha256": "42a5aa022dfa5a4cd5f8caac3584ce5c50a83ae94857442a8b301037add61a23",
       "date": "2026-10-16"
     },
     {
       "platform": "windows",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "kind": "Portable zip",
-      "file": "beardictate-0.1.5-windows-x64.zip",
-      "size": 44692535,
-      "sha256": "bb217ccbd2069a2520582a645e63603ba2eb55e59c32c9c0e8ec0301dc407d49",
+      "file": "beardictate-0.1.6-windows-x64.zip",
+      "size": 44939975,
+      "sha256": "f3850f6b694dfebb4124e006057bf346cb37d1e6bafff3590e5708d8b584a3af",
       "date": "2026-10-16"
     }
   ]
