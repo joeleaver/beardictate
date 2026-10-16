@@ -184,12 +184,10 @@ pub fn tray_menu(shared: &Shared) -> Menu {
         menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
     }
 
-    if status.state != State::Loading {
-        let on = shared.settings.with(|st| st.bear_pad);
-        let s = shared.clone();
-        let label = if on { "Turn Bear Pad off" } else { "Turn Bear Pad on" };
-        menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.bear_pad = !on)));
-    }
+    // Checked while Bear Pad is on; a click flips the mark, then saves it.
+    let pad = Signal::new(shared.settings.with(|st| st.bear_pad));
+    let s = shared.clone();
+    menu = menu.item(MenuItem::checkbox("Bear Pad", pad).on_click(move || change(&s, |st| st.bear_pad = pad.get())));
 
     let open_settings = {
         let s = shared.clone();
