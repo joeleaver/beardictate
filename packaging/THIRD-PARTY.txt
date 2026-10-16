@@ -24,5 +24,7 @@ publishers on request, each under its own license, shown in the app:
   licensed by NVIDIA Corporation under the NVIDIA Open Model License,
   https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/
 - Silero VAD, MIT
+- Bear Gemma 4 E2B (beardictate's fine-tune of Google's Gemma 4 E2B),
+  Apache License 2.0
 - Gemma 4 E2B (Google), Apache License 2.0
 - Qwen3.5 4B (Alibaba Cloud), Apache License 2.0
