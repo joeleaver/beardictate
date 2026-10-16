@@ -75,7 +75,9 @@ pub fn run() {
         height,
         x: position.map(|p| p.0),
         y: position.map(|p| p.1),
-        always_on_top: true,
+        level: WindowLevel::Floating,
+        // Every virtual desktop (and, on macOS, over full-screen apps).
+        visible_on_all_workspaces: true,
         non_activating: true,
         skip_taskbar: true,
         visible: false,

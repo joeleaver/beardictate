@@ -49,8 +49,9 @@ windows-sys = "0.61"
 # stable Linux tray title (rinch#1537), cross-thread writes that always
 # wake the window (rinch#1542), scrolling fixed (rinch#1543) and windows
 # that keep their size and place across hide/show, which the app can read
-# and set (rinch#1546).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "a30949ce", default-features = false }
+# and set (rinch#1546), and window levels shown on every workspace
+# (rinch#1549).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "5021d138", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]
