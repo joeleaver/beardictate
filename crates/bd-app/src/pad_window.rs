@@ -3,9 +3,11 @@
 //!
 //! A process of its own because the pad must never take keyboard focus (the
 //! text goes to the window you were typing in), which rinch can do only for
-//! an app's one window, and on Linux only under X11 (XWayland on a Wayland
-//! desktop). It floats on top, with a title bar to move it by and edges to
-//! resize it.
+//! an app's one window. On Wayland it is a layer-shell overlay (KWin,
+//! wlroots, Hyprland, niri, COSMIC; an ordinary window on GNOME, which
+//! lacks it); on X11, Windows and macOS a non-activating window. Either way
+//! it floats on top, borderless, with its own title bar to move it by and
+//! edges to resize it.
 //!
 //! The app writes [`ToPad`] messages to its stdin, one JSON line each; it
 //! answers on stdout with one word a line: `send`, `clear`, `undo` (its
@@ -81,16 +83,35 @@ pub fn run() {
         non_activating: true,
         skip_taskbar: true,
         visible: false,
+        // A layer-shell surface has no window frame, so none anywhere: the
+        // pad draws its own title bar, and these edges resize it.
+        borderless: true,
+        resize_inset: Some(6.0),
         on_close_requested: Some(std::sync::Arc::new(|| {
-            save_geometry();
-            hide_current_window();
-            say("closed");
+            close();
             false
         })),
         ..Default::default()
     };
-    // Under X11 the window can refuse focus; on Wayland it can't.
-    App::new(pad).window_props(props).prefer_x11(cfg!(target_os = "linux")).run();
+    App::new(pad).window_props(props).run();
+}
+
+/// Hides the pad until the app shows it again, and says so.
+fn close() {
+    save_geometry();
+    hide_current_window();
+    say("closed");
+}
+
+/// Notes on stderr which kind of window the pad got, once it exists.
+fn note_surface_kind() {
+    static NOTED: OnceLock<()> = OnceLock::new();
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if let Some(kind) = current_window_surface_kind() {
+            NOTED.get_or_init(|| eprintln!("beardictate --pad: shown as {kind:?}"));
+        }
+    });
 }
 
 fn say(word: &str) {
@@ -110,7 +131,10 @@ fn pad() -> NodeHandle {
         for line in std::io::stdin().lock().lines() {
             let Ok(line) = line else { break };
             match serde_json::from_str::<ToPad>(&line) {
-                Ok(ToPad::Show) => show_current_window(),
+                Ok(ToPad::Show) => {
+                    show_current_window();
+                    note_surface_kind();
+                }
                 Ok(ToPad::Hide) => {
                     save_geometry();
                     hide_current_window();
@@ -128,7 +152,11 @@ fn pad() -> NodeHandle {
         std::process::exit(0);
     });
     rsx! {
-        div { style: "display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 12px 14px 10px; gap: 8px; font-size: 15px;",
+        div { style: "display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 0 14px 10px; gap: 8px; font-size: 15px; border: 1px solid var(--rinch-color-default-border);",
+            div { style: "display: flex; align-items: center; margin: 0 -14px; padding: 2px 4px 2px 14px; border-bottom: 1px solid var(--rinch-color-default-border); font-size: 12px; font-weight: 600;",
+                div { data-drag-window: "true", style: "flex: 1; padding: 4px 0; cursor: move; color: var(--rinch-color-dimmed);", "Bear Pad" }
+                Button { variant: "subtle", size: "xs", onclick: close, "\u{00D7}" }
+            }
             // Bottom-anchored: the newest words stay in view.
             div { style: "flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;",
                 if parts.with(|p| p.iter().all(|(t, _)| t.trim().is_empty())) {

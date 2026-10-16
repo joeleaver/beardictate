@@ -249,9 +249,11 @@ pad's Send button).
   "Scratch that" takes back the last segment, or the last edit.
 - **The window** is `beardictate --pad`, a process the app starts and feeds
   JSON lines on stdin (`bd-app/src/pad_window.rs`, `engine/pad.rs`): rinch
-  can make only an app's one window non-activating, and on Linux only under
-  X11, so the pad runs under XWayland. It floats on top, never takes focus,
-  and has a title bar and edges to move and resize it. It shows while you
+  can make only an app's one window non-activating. On Wayland it is a
+  layer-shell overlay (rinch#1523; KWin, wlroots, Hyprland, niri, COSMIC;
+  an ordinary window on GNOME, which lacks layer-shell); elsewhere a
+  non-activating window. It floats on top, never takes focus, and is
+  borderless with its own title bar to drag and edges to resize. It shows while you
   dictate or there's text in it, and remembers its size and place, across
   restarts too (`pad-window` in the state directory; rinch#1546).
 - `bd file --pad` / `bd mic --pad` run the same mode from the CLI.
