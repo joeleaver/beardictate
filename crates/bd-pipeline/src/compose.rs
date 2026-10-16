@@ -94,6 +94,13 @@ pub fn single_return_paragraphs(text: &str) -> String {
 /// the word before it (a closing quote, a comma), that space is taken back.
 pub fn join(before: &str, segment: &str) -> (usize, String) {
     let segment = segment.trim_start_matches([' ', '\t']).trim_end_matches([' ', '\t']);
+    // A break the model starts with after a dictated one ("new paragraph",
+    // then a model that also opens the next speaker's paragraph) is the same
+    // break: never more than one blank line.
+    let ending = before.trim_end_matches([' ', '\t']);
+    let have = ending.len() - ending.trim_end_matches('\n').len();
+    let lead = segment.len() - segment.trim_start_matches('\n').len();
+    let segment = if have > 0 && lead > 0 && have + lead > 2 { &segment[lead.min(lead + have - 2)..] } else { segment };
     if segment.trim().is_empty() && !segment.contains('\n') {
         return (0, String::new());
     }
@@ -132,6 +139,14 @@ mod tests {
         assert_eq!(join("Then: ", "\n"), (1, "\n".into()));
         assert_eq!(join("He said, ", "“Go"), (0, "“Go ".into()));
         assert_eq!(join("Open ", "“"), (0, "“".into()), "nothing after an opening mark");
+    }
+
+    #[test]
+    fn a_model_break_after_a_dictated_one_is_one_break() {
+        assert_eq!(join("Done.\n\n", "\n\nNext."), (0, "Next. ".into()));
+        assert_eq!(join("Done.\n", "\n\nNext."), (0, "\nNext. ".into()));
+        assert_eq!(join("Done.\n", "\nNext."), (0, "\nNext. ".into()), "two dictated new lines stay two");
+        assert_eq!(join("Done. ", "\n\nNext."), (1, "\n\nNext. ".into()));
     }
 
     #[test]

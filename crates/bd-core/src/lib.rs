@@ -61,6 +61,9 @@ pub struct CleanupRequest<'a> {
     /// already turned into literal marks.
     pub raw: &'a str,
     pub style: &'a Style,
+    /// The user's special words (names, invented words), as they should be
+    /// spelled, for a model trained to restore them where the ASR misheard.
+    pub names: &'a [String],
 }
 
 /// Turns a raw segment into clean prose.

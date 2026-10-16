@@ -8,7 +8,9 @@
 //! than fillers, repeats, casing and punctuation, the dictated words are put
 //! back where it swapped them one for one ([`guardrail::repair`]);
 //! otherwise the segment falls back to its input (spoken commands already
-//! applied). The [`GuardrailVerdict`] says why.
+//! applied). The [`GuardrailVerdict`] says why. A misheard special word
+//! the model respelled is allowed where [`respell`] finds a span that sounds
+//! like it.
 //!
 //! Backends:
 //! - [`LlamaChat`] (feature `llama`, on by default): llama.cpp in process,
@@ -24,6 +26,7 @@ mod http;
 mod llama;
 pub mod prompt;
 pub mod quotes;
+pub mod respell;
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -101,6 +104,8 @@ pub struct CleanupOutcome {
     pub verdict: Option<GuardrailVerdict>,
     /// When the verdict was a rejection: the repair that was used instead.
     pub repair: Option<Repair>,
+    /// Misheard special words the model was allowed to respell.
+    pub respelled: Vec<respell::Respelling>,
     pub stats: Option<GenerationStats>,
     pub elapsed: Duration,
 }
@@ -163,6 +168,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
                 model_output: None,
                 verdict: None,
                 repair: None,
+                respelled: Vec::new(),
                 stats: None,
                 elapsed: started.elapsed(),
             });
@@ -170,12 +176,26 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         let messages = self.template.render(request, &self.options);
         let completion = self.backend.complete(&messages, max_new_tokens(request.raw))?;
         let output = quotes::smarten(request.context, &finalize(request.raw, &completion.text), request.style);
+        let output = quotes::straighten(&output, request.style);
         let output = guardrail::strip_context_echo(request.context, request.raw, &output).into_owned();
-        let verdict = guardrail::review_in_context(request.context, request.raw, &output);
+        // Checked against the dictation with the allowed name fixes in, when
+        // that passes; otherwise against the dictation as it was.
+        let (respelled_raw, mut respelled) = respell::respell(request.raw, &output, request.names);
+        let mut verdict = guardrail::review_in_context(request.context, &respelled_raw, &output);
+        let dictated = if respelled.is_empty() || verdict.is_accepted() {
+            respelled_raw.as_str()
+        } else {
+            respelled.clear();
+            verdict = guardrail::review_in_context(request.context, request.raw, &output);
+            request.raw
+        };
+        for r in &respelled {
+            tracing::info!(heard = %r.heard, word = %r.word, "cleanup respelled a special word");
+        }
         let mut repair = None;
         let text = match &verdict {
             GuardrailVerdict::Accepted { .. } => output.clone(),
-            GuardrailVerdict::Rejected(r) => match guardrail::repair(request.context, request.raw, &output) {
+            GuardrailVerdict::Rejected(r) => match guardrail::repair(request.context, dictated, &output) {
                 Some(fixed) => {
                     let swaps: Vec<String> = fixed.restored.iter().map(|(m, d)| format!("{m} → {d}")).collect();
                     tracing::info!(reason = %r, restored = %swaps.join(", "), "cleanup output repaired: dictated words put back");
@@ -192,13 +212,14 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         let text = if request.style.model_paragraphs() || text == request.raw {
             text
         } else {
-            guardrail::keep_dictated_breaks(request.context, request.raw, &text)
+            guardrail::keep_dictated_breaks(request.context, dictated, &text)
         };
         Ok(CleanupOutcome {
             text,
             model_output: Some(output),
             verdict: Some(verdict),
             repair,
+            respelled,
             stats: completion.stats,
             elapsed: started.elapsed(),
         })

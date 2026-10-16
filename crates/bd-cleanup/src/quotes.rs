@@ -34,6 +34,22 @@ pub fn smarten(previous: &str, text: &str, style: &Style) -> String {
     out
 }
 
+/// Curly marks from the model made straight, for the straight styles: a
+/// model trained on curly quotes (the Bear fine-tunes) writes them anyway.
+/// Unchanged for curly styles.
+pub fn straighten(text: &str, style: &Style) -> String {
+    if !style.quotes.is_straight() {
+        return text.to_string();
+    }
+    text.chars()
+        .map(|c| match c {
+            '\u{201C}' | '\u{201D}' => '"',
+            '\u{2018}' | '\u{2019}' => '\'',
+            other => other,
+        })
+        .collect()
+}
+
 /// Whether `text` ends inside a quotation: its last opening mark comes
 /// after its last closing mark.
 fn open_at_end(text: &str, open: char, close: char) -> bool {

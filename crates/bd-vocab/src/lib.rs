@@ -92,6 +92,11 @@ impl Vocabulary {
         Ok(Self::new(words))
     }
 
+    /// Each word as it should be spelled, in list order.
+    pub fn spellings(&self) -> Vec<String> {
+        self.words.iter().map(|w| w.text.clone()).collect()
+    }
+
     pub fn words(&self) -> &[Word] {
         &self.words
     }

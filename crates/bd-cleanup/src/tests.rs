@@ -23,7 +23,7 @@ fn guarded(replies: &[&str]) -> GuardedCleanup<Scripted> {
 }
 
 fn req<'a>(raw: &'a str, style: &'a Style) -> CleanupRequest<'a> {
-    CleanupRequest { context: "", raw, style }
+    CleanupRequest { context: "", raw, style, names: &[] }
 }
 
 #[test]
@@ -108,4 +108,24 @@ fn a_miscopied_word_is_repaired_not_thrown_away() {
     assert!(!outcome.fell_back());
     assert!(!outcome.verdict.as_ref().unwrap().is_accepted());
     assert_eq!(outcome.repair.unwrap().restored, [("came".to_string(), "coming".to_string())]);
+}
+
+#[test]
+fn a_misheard_special_word_may_be_respelled_and_nothing_else() {
+    let style = Style::default();
+    let names = vec!["Teskar".to_string(), "Elba".to_string()];
+    let raw = "um desk car said hello";
+    let mut c = guarded(&["Teskar said hello.", "Teskar said goodbye."]);
+    let request = CleanupRequest { context: "", raw, style: &style, names: &names };
+    let outcome = c.clean_detailed(&request).unwrap();
+    assert_eq!(outcome.text, "Teskar said hello.");
+    assert_eq!(outcome.respelled.len(), 1);
+    // A fix plus a changed word: the segment falls back to what was said.
+    let outcome = c.clean_detailed(&request).unwrap();
+    assert!(outcome.respelled.is_empty() && outcome.fell_back());
+    assert_eq!(outcome.text, raw);
+    // A name that doesn't sound like what was said is never allowed.
+    let mut c = guarded(&["Elba was I."]);
+    let request = CleanupRequest { context: "", raw: "able was I", style: &style, names: &names };
+    assert_eq!(c.clean_detailed(&request).unwrap().text, "Able was I.");
 }

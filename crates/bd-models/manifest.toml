@@ -96,6 +96,18 @@ files = [
 
 # --- Cleanup ---------------------------------------------------------------
 #
+# Bear Gemma 4 E2B v4, recommended (Joe, 2026-10-16): beardictate's own
+# LoRA fine-tune of Gemma 4 E2B-it, merged and quantized to Q4_0 with Q8_0
+# token embeddings (ggml-org's layout), trained on the bare-tag prompt
+# bear-tags-v1 with the special words. On the 171 cases: 54% exact, 81%
+# quotes ok, 78% breaks ok, words changed in 1, narration quoted in 1 of 30;
+# fixes 15/20 hand-written and 23/37 real misheard names (one false swap
+# each), which the guardrail allows only where the heard span sounds like
+# the name (bd_cleanup::respell). ~0.7 s median on the 890M.
+# Report: eval/research/2026-10-bear-finetune.md. Hosted on Joe's Hugging
+# Face account; hash from the HF API `x-linked-etag` (sha256), matching the
+# local file.
+#
 # From the October 2026 survey (171 cases plus 30 narration-only cases,
 # Radeon 890M), Joe 2026-10-15:
 # - Qwen3.5-4B with short-v2, recommended: 50% exact, 59% quotes ok, words
@@ -111,6 +123,32 @@ files = [
 # hashes from the HF tree API `lfs.oid` at the pinned commits. Thinking stays
 # off. Sampling is greedy: the task is copy-with-edits, not generation.
 
+# Pinned commit 30469fd61b69140acbed455a96491a3f168443ad (2026-10-16).
+[[model]]
+id = "cleanup-bear-gemma-4-e2b-v4-q4_0"
+kind = "cleanup"
+name = "Bear Gemma 4 E2B"
+license = "Apache-2.0"
+homepage = "https://huggingface.co/joeleaver/bear-gemma-4-e2b-GGUF"
+recommended = true
+sources = [
+    "https://huggingface.co/joeleaver/bear-gemma-4-e2b-GGUF/resolve/30469fd61b69140acbed455a96491a3f168443ad/",
+]
+files = [
+    { path = "bear-gemma-4-e2b-v4-Q4_0.gguf", size = 2852126144, sha256 = "1490fa82b69f5f99dffd838f7ed7c19231bdd9074e21dd6a592f283ee823ff9d" },
+]
+[model.cleanup]
+prompt_template = "bear-tags-v1"
+thinking = false
+[model.cleanup.sampling]
+temperature = 0.0
+top_k = 0
+top_p = 1.0
+min_p = 0.0
+repeat_penalty = 1.0
+presence_penalty = 0.0
+max_tokens = 512
+
 # Pinned commit e87f176479d0855a907a41277aca2f8ee7a09523 (2026-03-02).
 [[model]]
 id = "cleanup-qwen3.5-4b-q4_k_m"
@@ -118,7 +156,6 @@ kind = "cleanup"
 name = "Qwen3.5 4B"
 license = "Apache-2.0"
 homepage = "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF"
-recommended = true
 sources = [
     "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/",
 ]

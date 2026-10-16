@@ -69,7 +69,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
     let warm = Style::default();
     // The first request also decodes the system prompt, which later ones
     // find in the cache: the app's first sentence after a load.
-    let first = engine.clean_detailed(&CleanupRequest { context: "", raw: "Um, warm up the the model.", style: &warm })?;
+    let first = engine.clean_detailed(&CleanupRequest { context: "", raw: "Um, warm up the the model.", style: &warm, names: &[] })?;
     eprintln!("first request {:.0} ms", first.elapsed.as_secs_f64() * 1e3);
 
     fs::create_dir_all(&args.out)?;
@@ -84,7 +84,7 @@ pub fn run(args: &EvalArgs) -> Result<()> {
         };
         let pass = CommandPass::new(CommandConfig::default(), style.clone());
         let commanded = pass.apply(&case.raw, ends_in_open_quote(&case.context, &style)).text;
-        let request = CleanupRequest { context: &case.context, raw: &commanded, style: &style };
+        let request = CleanupRequest { context: &case.context, raw: &commanded, style: &style, names: &[] };
         let outcome = engine.clean_detailed(&request).with_context(|| format!("case {}", case.id))?;
         let ms = outcome.elapsed.as_secs_f64() * 1e3;
         total_ms += ms;

@@ -146,11 +146,11 @@ fn bench_backend<B: ChatBackend>(label: &str, backend: B, args: &Args, cases: &[
         cleanup.set_template(template)?;
         // Warm-up: first call pays for the system prompt's prefill.
         let style = Style::default();
-        cleanup.clean_detailed(&CleanupRequest { context: "", raw: "Warm up.", style: &style })?;
+        cleanup.clean_detailed(&CleanupRequest { context: "", raw: "Warm up.", style: &style, names: &[] })?;
         let mut tally = Tally::default();
         for case in cases {
             let commands = CommandPass::new(Default::default(), case.style.clone()).apply(&case.raw, false);
-            let request = CleanupRequest { context: &case.context, raw: &commands.text, style: &case.style };
+            let request = CleanupRequest { context: &case.context, raw: &commands.text, style: &case.style, names: &[] };
             let outcome = cleanup.clean_detailed(&request)?;
             tally.n += 1;
             tally.latencies.push(outcome.elapsed);

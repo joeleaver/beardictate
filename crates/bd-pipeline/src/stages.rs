@@ -304,7 +304,8 @@ impl Finisher {
         let started = Instant::now();
         // Without the trailing space typed for the next segment.
         let context = self.composer.context().trim_end_matches(' ');
-        let request = CleanupRequest { context, raw: commanded, style: &self.style };
+        let names = self.vocabulary.spellings();
+        let request = CleanupRequest { context, raw: commanded, style: &self.style, names: &names };
         let result = cleanup.clean(&request);
         let elapsed = started.elapsed();
         match result {

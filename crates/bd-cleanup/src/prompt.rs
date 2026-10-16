@@ -16,7 +16,10 @@
 //! at the start of an example answer are part of it (a new paragraph). Placeholders,
 //! usable anywhere: `{style_rule}` (quote style and punctuation placement),
 //! `{open}` and `{close}` (the style's quote marks), `{context}` (becomes
-//! [`NO_CONTEXT`] when there is no previous text) and `{raw}`. The
+//! [`NO_CONTEXT`] when there is no previous text) and `{raw}`. Bare-tag
+//! templates for the Bear fine-tunes use `{style}` (`us` or `uk`),
+//! `{context_raw}` (empty when there is none) and `{names}` (the special
+//! words, comma-separated), and may have no system section. The
 //! model manifest names a template by its id, so a model ships with the
 //! prompt it was tuned or trained for.
 
@@ -78,6 +81,11 @@ pub const TEMPLATES: &[PromptTemplate] = &[
         id: "short-turns-v2",
         description: "short-v2's narration-first instructions with short-turns-v1's worked examples: Gemma 4 E2B's best (49% exact, 72% quotes ok, words changed in 21 cases, 2026-10-15 survey).",
         source: include_str!("../prompts/short-turns-v2.txt"),
+    },
+    PromptTemplate {
+        id: "bear-tags-v1",
+        description: "Bare tags, one user turn, no instructions: the format the Bear fine-tunes were trained on (2026-10-16), with the special words.",
+        source: include_str!("../prompts/bear-tags-v1.txt"),
     },
     PromptTemplate {
         id: "eval-v0",
@@ -153,7 +161,9 @@ impl PromptTemplate {
     /// Builds the chat messages for one request.
     pub fn render(&self, request: &CleanupRequest<'_>, options: &PromptOptions) -> Vec<ChatMessage> {
         let context = trim_context(request.context, options.max_context_chars);
-        let context = if context.trim().is_empty() { NO_CONTEXT } else { context };
+        let context_raw = context.trim();
+        let context = if context_raw.is_empty() { NO_CONTEXT } else { context };
+        let names = request.names.join(", ");
         let rule = style_rule(request.style);
         let (open, close) = request.style.quotes.marks();
         let (open, close) = (open.to_string(), close.to_string());
@@ -163,6 +173,9 @@ impl PromptTemplate {
             ("raw", request.raw),
             ("open", open.as_str()),
             ("close", close.as_str()),
+            ("style", style_tag(request.style)),
+            ("context_raw", context_raw),
+            ("names", names.as_str()),
         ];
         self.sections()
             .into_iter()
@@ -184,6 +197,15 @@ fn marker_role(line: &str) -> Option<Role> {
         "=== USER ===" => Some(Role::User),
         "=== ASSISTANT ===" => Some(Role::Assistant),
         _ => None,
+    }
+}
+
+/// The style for `{style}`: `uk` (single marks, the Bear fine-tunes'
+/// British style) or `us` (double).
+pub fn style_tag(style: &Style) -> &'static str {
+    match style.quotes {
+        QuoteStyle::CurlySingle | QuoteStyle::StraightSingle => "uk",
+        QuoteStyle::CurlyDouble | QuoteStyle::Straight => "us",
     }
 }
 
@@ -275,17 +297,23 @@ mod tests {
     use super::*;
 
     fn request<'a>(context: &'a str, raw: &'a str, style: &'a Style) -> CleanupRequest<'a> {
-        CleanupRequest { context, raw, style }
+        CleanupRequest { context, raw, style, names: &[] }
     }
 
     #[test]
     fn every_template_parses_and_uses_its_placeholders() {
         for t in TEMPLATES {
             let sections = t.sections();
-            assert_eq!(sections.first().map(|s| s.0), Some(Role::System), "{}", t.id);
             let (last_role, last) = sections.last().copied().unwrap();
             assert_eq!(last_role, Role::User, "{}", t.id);
-            assert!(last.contains("{raw}") && last.contains("{context}"), "{}", t.id);
+            // A bare-tag template is one user turn with the raw context.
+            let bare = sections.len() == 1;
+            if bare {
+                assert!(last.contains("{raw}") && last.contains("{context_raw}"), "{}", t.id);
+            } else {
+                assert_eq!(sections.first().map(|s| s.0), Some(Role::System), "{}", t.id);
+                assert!(last.contains("{raw}") && last.contains("{context}"), "{}", t.id);
+            }
             for (k, (role, text)) in sections.iter().enumerate() {
                 assert!(!text.is_empty() && !text.contains("=== "), "{} section {k}", t.id);
                 if k > 0 && k + 1 < sections.len() {
@@ -297,14 +325,33 @@ mod tests {
             }
             let msgs = t.render(&request("", "RAW", &Style::default()), &PromptOptions::default());
             for m in &msgs {
-                for p in ["{raw}", "{style_rule}", "{context}", "{open}", "{close}"] {
+                for p in ["{raw}", "{style_rule}", "{context}", "{open}", "{close}", "{style}", "{context_raw}", "{names}"] {
                     assert!(!m.content.contains(p), "{} leaves {p}", t.id);
                 }
             }
             let last = msgs.last().unwrap();
-            assert!(last.content.contains("RAW") && last.content.contains(NO_CONTEXT));
+            assert!(last.content.contains("RAW"));
+            assert_eq!(last.content.contains(NO_CONTEXT), !bare, "{}", t.id);
         }
         assert_eq!(template(DEFAULT_TEMPLATE).map(|t| t.id), Some(DEFAULT_TEMPLATE));
+    }
+
+    #[test]
+    fn bear_tags_render_exactly_as_trained() {
+        let t = template("bear-tags-v1").unwrap();
+        let names = ["Teskar".to_string(), "Port Varrow".to_string()];
+        let req = CleanupRequest { context: "", raw: "um hello", style: &Style::default(), names: &names };
+        let msgs = t.render(&req, &PromptOptions::default());
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].role, Role::User);
+        assert_eq!(
+            msgs[0].content,
+            "<style>us</style>\n<context>\n\n</context>\n<names>Teskar, Port Varrow</names>\n<dictation>\num hello\n</dictation>"
+        );
+        let uk = Style { quotes: QuoteStyle::CurlySingle, ..Style::default() };
+        let req = CleanupRequest { context: "Before. ", raw: "x", style: &uk, names: &[] };
+        let msgs = t.render(&req, &PromptOptions::default());
+        assert!(msgs[0].content.starts_with("<style>uk</style>\n<context>\nBefore.\n</context>\n<names></names>"));
     }
 
     #[test]

@@ -53,23 +53,26 @@ impl PadMode {
 
 type Cleaned = (Result<String, String>, Duration);
 
+/// Context, raw text, style and special words for one clean.
+type Job = (String, String, Style, Vec<String>);
+
 /// The cleanup model on its own thread.
 struct Cleaner {
-    jobs: Sender<(String, String, Style)>,
+    jobs: Sender<Job>,
     results: Receiver<Cleaned>,
     thread: JoinHandle<Box<dyn Cleanup>>,
 }
 
 impl Cleaner {
     fn spawn(mut engine: Box<dyn Cleanup>) -> Option<Cleaner> {
-        let (jobs, job_rx) = unbounded::<(String, String, Style)>();
+        let (jobs, job_rx) = unbounded::<Job>();
         let (result_tx, results) = unbounded();
         let thread = thread::Builder::new()
             .name("bd-pad-clean".into())
             .spawn(move || {
-                for (context, raw, style) in job_rx {
+                for (context, raw, style, names) in job_rx {
                     let started = Instant::now();
-                    let request = CleanupRequest { context: &context, raw: &raw, style: &style };
+                    let request = CleanupRequest { context: &context, raw: &raw, style: &style, names: &names };
                     let result = engine.clean(&request).map_err(|e| e.to_string());
                     let _ = result_tx.send((result, started.elapsed()));
                 }
@@ -208,7 +211,7 @@ impl Finisher {
     }
 
     fn pad_start(&mut self, batch: Batch) {
-        let style = self.style.clone();
+        let (style, names) = (self.style.clone(), self.vocabulary.spellings());
         let Some(mode) = self.pad.as_mut() else { return };
         if !batch.raw.chars().any(char::is_alphanumeric) {
             // Only breaks or marks: nothing for the model to do.
@@ -217,7 +220,7 @@ impl Finisher {
             return self.pad_emit();
         }
         let Some(cleaner) = mode.cleaner.as_ref() else { return };
-        if cleaner.jobs.send((batch.context.clone(), batch.raw.clone(), style)).is_ok() {
+        if cleaner.jobs.send((batch.context.clone(), batch.raw.clone(), style, names)).is_ok() {
             mode.in_flight = Some(batch);
         }
         self.pad_emit();
