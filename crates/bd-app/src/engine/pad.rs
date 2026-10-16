@@ -96,9 +96,17 @@ impl PadHost {
         self.shown = false;
     }
 
+    /// Closes the window's stdin, which tells it to save where it is and
+    /// quit; kills it if it hasn't within a second.
     pub fn stop(&mut self) {
         if let Some((mut child, stdin)) = self.child.take() {
             drop(stdin);
+            for _ in 0..20 {
+                if matches!(child.try_wait(), Ok(Some(_))) {
+                    return;
+                }
+                thread::sleep(std::time::Duration::from_millis(50));
+            }
             let _ = child.kill();
             let _ = child.wait();
         }
@@ -147,17 +155,16 @@ impl<U: Ui> Worker<U> {
         self.pad.host.borrow_mut().hidden();
     }
 
-    /// Shows the pad while Bear Pad is on (unless the user closed it), and
-    /// keeps its status line current. It stays up when idle because rinch
-    /// makes a hidden window anew, at its first size and place, which would
-    /// lose where the user put it.
+    /// Shows the pad while there's dictation or text in it (unless the user
+    /// closed it), and keeps its status line current. Hidden, it keeps the
+    /// size and place the user gave it.
     pub(super) fn sync_pad(&self) {
         let mut host = self.pad.host.borrow_mut();
         if !self.settings.bear_pad {
             return host.stop();
         }
         let listening = self.listening_since.is_some();
-        let visible = !self.pad.dismissed;
+        let visible = !self.pad.dismissed && (listening || !self.pad.view.is_empty());
         let status = if self.loading.is_some() {
             "Loading…".to_string()
         } else if listening {

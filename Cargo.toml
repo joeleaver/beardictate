@@ -46,9 +46,11 @@ arboard = "3"
 windows-sys = "0.61"
 # The UI toolkit, pinned to a main commit with global hotkeys (rinch#1530)
 # tray runtime updates (rinch#1527, #1531), notifications (rinch#1535), a
-# stable Linux tray title (rinch#1537) and cross-thread writes that always
-# wake the window (rinch#1542).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "422eaa56", default-features = false }
+# stable Linux tray title (rinch#1537), cross-thread writes that always
+# wake the window (rinch#1542), scrolling fixed (rinch#1543) and windows
+# that keep their size and place across hide/show, which the app can read
+# and set (rinch#1546).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "a30949ce", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]

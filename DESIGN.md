@@ -250,9 +250,9 @@ pad's Send button).
   JSON lines on stdin (`bd-app/src/pad_window.rs`, `engine/pad.rs`): rinch
   can make only an app's one window non-activating, and on Linux only under
   X11, so the pad runs under XWayland. It floats on top, never takes focus,
-  and has a title bar and edges to move and resize it. It stays up while
-  Bear Pad is on, because rinch recreates a hidden window at its first size
-  and place.
+  and has a title bar and edges to move and resize it. It shows while you
+  dictate or there's text in it, and remembers its size and place, across
+  restarts too (`pad-window` in the state directory; rinch#1546).
 - `bd file --pad` / `bd mic --pad` run the same mode from the CLI.
 
 ## Hotkey

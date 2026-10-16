@@ -10,12 +10,49 @@
 //! The app writes [`ToPad`] messages to its stdin, one JSON line each; it
 //! answers on stdout with one word a line: `send`, `clear`, `undo` (its
 //! buttons) or `closed` (its close button, which only hides it). It quits
-//! when its stdin closes.
+//! when its stdin closes. Where it was and how big are kept in
+//! [`Paths::pad_window`] for next time.
 
 use std::io::{BufRead, Write};
+use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use rinch::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::settings::Paths;
+
+/// [`Paths::pad_window`], when there is a home directory.
+static GEOMETRY: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+fn geometry_file() -> Option<&'static PathBuf> {
+    GEOMETRY.get_or_init(|| Paths::locate().ok().map(|p| p.pad_window)).as_ref()
+}
+
+/// A position (if any) and a size.
+type Geometry = (Option<(i32, i32)>, (u32, u32));
+
+/// The saved position (if any) and size: `x y width height`, logical
+/// pixels, `- -` for no position (Wayland, where a window can't place itself).
+fn load_geometry() -> Option<Geometry> {
+    let text = std::fs::read_to_string(geometry_file()?).ok()?;
+    let f: Vec<&str> = text.split_whitespace().collect();
+    let [x, y, w, h] = f[..] else { return None };
+    let position = x.parse::<f64>().ok().zip(y.parse::<f64>().ok()).map(|(x, y)| (x as i32, y as i32));
+    let size = (w.parse::<f64>().ok()? as u32, h.parse::<f64>().ok()? as u32);
+    Some((position, (size.0.max(260), size.1.max(120))))
+}
+
+fn save_geometry() {
+    let (Some(file), Some((w, h))) = (geometry_file(), current_window_size()) else { return };
+    let position = current_window_position().map_or_else(|| "- -".to_string(), |(x, y)| format!("{x:.0} {y:.0}"));
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(file, format!("{position} {w:.0} {h:.0}\n")) {
+        eprintln!("beardictate --pad: saving where the window is: {e}");
+    }
+}
 
 /// From the app to the pad window.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -31,15 +68,19 @@ pub enum ToPad {
 
 /// Runs the window until the app goes away.
 pub fn run() {
+    let (position, (width, height)) = load_geometry().unwrap_or((None, (560, 280)));
     let props = WindowProps {
         title: "Bear Pad".into(),
-        width: 560,
-        height: 280,
+        width,
+        height,
+        x: position.map(|p| p.0),
+        y: position.map(|p| p.1),
         always_on_top: true,
         non_activating: true,
         skip_taskbar: true,
         visible: false,
         on_close_requested: Some(std::sync::Arc::new(|| {
+            save_geometry();
             hide_current_window();
             say("closed");
             false
@@ -68,7 +109,10 @@ fn pad() -> NodeHandle {
             let Ok(line) = line else { break };
             match serde_json::from_str::<ToPad>(&line) {
                 Ok(ToPad::Show) => show_current_window(),
-                Ok(ToPad::Hide) => hide_current_window(),
+                Ok(ToPad::Hide) => {
+                    save_geometry();
+                    hide_current_window();
+                }
                 Ok(ToPad::Status { text }) => status.send(text),
                 Ok(ToPad::View { parts: p, cleaning: c }) => {
                     parts.send(p);
@@ -78,6 +122,7 @@ fn pad() -> NodeHandle {
             }
         }
         // The app has gone.
+        save_geometry();
         std::process::exit(0);
     });
     rsx! {

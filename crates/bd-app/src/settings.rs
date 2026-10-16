@@ -244,6 +244,8 @@ pub struct Paths {
     pub portal_token: PathBuf,
     /// The microphone gain learned for each microphone.
     pub gains: PathBuf,
+    /// Where the Bear Pad window was, and its size.
+    pub pad_window: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
     /// Present while beardictate starts at login (not on Windows, which
@@ -263,6 +265,7 @@ impl Paths {
             portal_token: dirs.data_local_dir().join("portal-token"),
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
             gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
+            pad_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("pad-window"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
         })
     }
