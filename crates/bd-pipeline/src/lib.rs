@@ -25,6 +25,7 @@
 mod compose;
 pub mod dump;
 pub mod gain;
+pub mod pad;
 pub mod setup;
 mod stages;
 
@@ -40,6 +41,7 @@ use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
 pub use compose::{Composer, join};
+pub use pad::{PadAction, PadPart, PadView};
 
 /// Cuts a 16 kHz mono stream into utterances. Implemented for
 /// [`bd_asr::Segmenter`]; tests use a simpler one.
@@ -109,11 +111,15 @@ pub struct PipelineConfig {
     pub input_gain: f32,
     /// Learn the gain from recognized speech ([`gain`]).
     pub auto_gain: bool,
+    /// Bear Pad ([`pad`]): segments collect in a pad, cleaned there as the
+    /// speaker pauses, and are delivered only when the user sends it
+    /// ([`Event::PadSend`]). Off, each segment is cleaned and delivered.
+    pub pad: bool,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false, input_gain: 1.0, auto_gain: true }
+        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false, input_gain: 1.0, auto_gain: true, pad: false }
     }
 }
 
@@ -168,6 +174,16 @@ pub enum Event {
     /// [`Feeder::set_awake`]), after everything before it was delivered.
     /// Segments are transcribed but dropped until [`Event::Woke`].
     Slept,
+    /// With [`PipelineConfig::pad`]: what the pad holds now, after each
+    /// change.
+    Pad(PadView),
+    /// With [`PipelineConfig::pad`]: "bear, send it" (or
+    /// [`Feeder::pad`]`(Send)`): deliver this, the whole pad, cleaned. The
+    /// pad is empty now.
+    PadSend { text: String },
+    /// With [`PipelineConfig::pad`]: "bear, change …" or "bear, delete …"
+    /// named words that aren't in the pad.
+    PadNotFound { words: String },
     /// A stage failed on one segment. The pipeline keeps going: an ASR
     /// failure loses that segment, a cleanup failure delivers the
     /// `commanded` text instead.
@@ -181,6 +197,7 @@ pub(crate) enum Input {
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
     Awake(bool),
+    Pad(PadAction),
 }
 
 /// Feeds a running pipeline from any thread. Cheap to clone. The stages
@@ -220,6 +237,12 @@ impl Feeder {
     /// spoken phrases do, in order with the audio already pushed.
     pub fn set_awake(&self, awake: bool) {
         self.send(Input::Awake(awake));
+    }
+
+    /// With [`PipelineConfig::pad`]: does to the pad what the spoken command
+    /// would, in order with the audio already pushed.
+    pub fn pad(&self, action: PadAction) {
+        self.send(Input::Pad(action));
     }
 
     fn send(&self, msg: Input) {
@@ -269,6 +292,11 @@ impl Pipeline {
     /// See [`Feeder::set_awake`].
     pub fn set_awake(&self, awake: bool) {
         self.feeder_ref().set_awake(awake);
+    }
+
+    /// See [`Feeder::pad`].
+    pub fn pad(&self, action: PadAction) {
+        self.feeder_ref().pad(action);
     }
 
     /// See [`Feeder::new_passage`].

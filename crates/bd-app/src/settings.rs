@@ -89,6 +89,9 @@ pub struct Settings {
     pub auto_gain: bool,
     /// The gain when `auto_gain` is off, in dB (0 to 30).
     pub mic_gain_db: f32,
+    /// Bear Pad: dictation collects in a floating pad, cleaned there, and is
+    /// typed only when you say "bear, send it".
+    pub bear_pad: bool,
     /// Keep the microphone open between dictations. The first syllable is
     /// never clipped, but the desktop shows the mic as in use all the time.
     pub keep_mic_open: bool,
@@ -125,6 +128,7 @@ impl Default for Settings {
             hotword_boost: 2.0,
             microphone: String::new(),
             keep_mic_open: false,
+            bear_pad: false,
             auto_gain: true,
             mic_gain_db: 0.0,
             tray_theme: TrayTheme::Auto,
@@ -157,6 +161,7 @@ pub struct LiveSettings {
     pub voice_wake: bool,
     pub auto_gain: bool,
     pub mic_gain_db: f32,
+    pub bear_pad: bool,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -226,6 +231,7 @@ impl Settings {
             voice_wake: self.voice_wake,
             auto_gain: self.auto_gain,
             mic_gain_db: self.mic_gain_db,
+            bear_pad: self.bear_pad,
         }
     }
 }
@@ -360,6 +366,8 @@ const SETTINGS_HEADER: &str = "\
 # models_dir: where the models are; empty for the default location.
 # auto_gain: learn the microphone gain from your speech; mic_gain_db: the gain
 #   in dB (0 to 30) when auto_gain is false.
+# bear_pad: true to collect dictation in the floating Bear Pad, typed when you say
+#   \"bear, send it\".
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";

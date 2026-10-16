@@ -51,6 +51,7 @@ impl<U: Ui> Worker<U> {
             Event::Woke => {
                 tracing::info!("voice wake: awake");
                 self.listening_since = Some(Instant::now());
+                self.pad.dismissed = false;
                 self.publish();
             }
             Event::Slept => {
@@ -76,6 +77,17 @@ impl<U: Ui> Worker<U> {
                 }
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
+            Event::Pad(view) => self.on_pad_view(view),
+            Event::PadSend { text } if self.testing => {
+                tracing::info!(chars = text.chars().count(), "microphone test: pad not typed");
+            }
+            Event::PadSend { text } => {
+                tracing::info!(chars = text.chars().count(), "typing the pad");
+                let _ = self.type_text.send(TypeJob::Type(text));
+            }
+            Event::PadNotFound { words } => {
+                self.notifier.notify("pad", "Not in the pad", &format!("\u{201C}{words}\u{201D} isn't in the pad, so nothing was changed."));
+            }
         }
     }
 

@@ -8,7 +8,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail};
 use bd_audio::{AudioError, Capture, CaptureConfig, CaptureEvent, downmix_into, resample_to_16k};
 use bd_core::SAMPLE_RATE;
-use bd_pipeline::{Event, Parts, Pipeline, PipelineConfig};
+use bd_pipeline::{Event, PadAction, Parts, Pipeline, PipelineConfig};
 use bd_platform::{Erased, InjectorConfig, PlatformInjector};
 use bd_vocab::Vocabulary;
 use clap::{Args, ValueEnum};
@@ -59,6 +59,11 @@ pub struct DictateArgs {
     /// Report each segment's transcript and timings on stderr.
     #[arg(short, long)]
     pub verbose: bool,
+    /// Bear Pad mode: text collects in the pad (each change on stderr with
+    /// -v, raw parts in [brackets]) and is printed when it's sent: by
+    /// "bear, send it", and for `bd file` at the end of each file.
+    #[arg(long)]
+    pub pad: bool,
 }
 
 #[derive(Debug, Args)]
@@ -115,7 +120,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         .then(|| Duration::try_from_secs_f32(args.pause_paragraph))
         .transpose()
         .context("--pause-paragraph must be a positive number of seconds")?;
-    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, ..PipelineConfig::default() };
+    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
     Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))
 }
@@ -174,6 +179,16 @@ impl Reporter {
             }
             Event::Error { stage, message } => eprintln!("{stage:?} error: {message}"),
             Event::Transcribed { .. } => {}
+            Event::Pad(view) if self.verbose => {
+                let text: String = view.parts.iter().map(|p| if p.clean { p.text.clone() } else { format!("[{}]", p.text) }).collect();
+                eprintln!("[pad{}] {text:?}", if view.cleaning { ", cleaning" } else { "" });
+            }
+            Event::Pad(_) => {}
+            Event::PadSend { text } => {
+                println!("{text}");
+                return Some(Output::Type(0, text.clone()));
+            }
+            Event::PadNotFound { words } => eprintln!("pad: {words:?} isn't in the pad"),
         }
         None
     }
@@ -210,6 +225,15 @@ pub fn file(args: &FileArgs) -> Result<()> {
             handle(&event);
             if event == Event::SessionEnded {
                 break;
+            }
+        }
+        if args.dictate.pad {
+            pipeline.pad(PadAction::Send);
+            for event in pipeline.events() {
+                handle(&event);
+                if matches!(&event, Event::Pad(v) if v.is_empty()) {
+                    break;
+                }
             }
         }
     }

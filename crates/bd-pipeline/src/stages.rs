@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use bd_commands::{CommandOutput, CommandPass};
-use bd_core::{Asr, AudioSegment, BoxError, Cleanup, CleanupRequest, SAMPLE_RATE, Style};
+use bd_core::{AudioSegment, BoxError, Cleanup, CleanupRequest, Style};
 use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 
@@ -13,11 +13,15 @@ use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::gain::InputGain;
 mod gate;
 mod segment;
+mod transcribe;
 mod noise;
+mod pad_mode;
+mod pad_voice;
 mod wake;
 
 use gate::{Gate, Step};
-use crate::{Event, Input, Parts, PipelineConfig, Stage};
+use crate::{Event, Input, PadAction, Parts, PipelineConfig, Stage};
+use pad_mode::PadMode;
 
 /// From the segmenter to the ASR.
 enum Cut {
@@ -27,6 +31,7 @@ enum Cut {
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
     Awake(bool),
+    Pad(PadAction),
 }
 
 /// From the ASR to the finisher.
@@ -38,6 +43,7 @@ enum Heard {
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
     Awake(bool),
+    Pad(PadAction),
 }
 
 pub(crate) fn spawn(
@@ -55,60 +61,9 @@ pub(crate) fn spawn(
     let finisher = Finisher::new(cleanup, config, events);
     Ok(vec![
         thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain))?,
-        thread::Builder::new().name("bd-asr".into()).spawn(move || transcribe(asr, cut_rx, heard_tx, asr_events, learner))?,
+        thread::Builder::new().name("bd-asr".into()).spawn(move || transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner))?,
         thread::Builder::new().name("bd-finish".into()).spawn(move || finisher.run(heard_rx))?,
     ])
-}
-
-/// Stage 2: speech to text.
-fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>, gain: InputGain) {
-    // Where the previous segment of this session ended, in session samples.
-    let mut previous_end: Option<u64> = None;
-    let secs = |samples: u64| Duration::from_secs_f64(samples as f64 / f64::from(SAMPLE_RATE));
-    for cut in &input {
-        let heard = match cut {
-            Cut::Segment(id, seg, used) => {
-                let started = Instant::now();
-                let audio = secs(seg.samples.len() as u64);
-                let pause = previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
-                previous_end = Some(seg.start_sample + seg.samples.len() as u64);
-                // How loud it came in from the microphone, before the gain.
-                let level = noise::rms(&seg.samples) / used;
-                match asr.transcribe(&seg) {
-                    Ok(text) => {
-                        let elapsed = started.elapsed();
-                        crate::dump::segment(id, &seg.samples, &text);
-                        let text = if noise::is_noise(&text, audio) {
-                            tracing::info!(segment = id, ms = audio.as_millis(), "dropped a lone {text:?} from a short burst: noise");
-                            String::new()
-                        } else {
-                            text
-                        };
-                        let gain = gain.learn(level, text.split_whitespace().count(), audio);
-                        let _ = events.send(Event::Transcribed { id, text: text.clone(), audio, level, gain, pause, elapsed });
-                        Heard::Text { id, text, pause }
-                    }
-                    Err(e) => {
-                        let _ = events.send(Event::Error { stage: Stage::Asr, message: e.to_string() });
-                        continue;
-                    }
-                }
-            }
-            Cut::EndSession => {
-                previous_end = None;
-                Heard::EndSession
-            }
-            Cut::NewPassage => Heard::NewPassage,
-            Cut::Awake(awake) => Heard::Awake(awake),
-            Cut::Reconfigure(config) => {
-                if let Err(e) = asr.set_hotwords(&config.vocabulary.hotwords(), config.hotword_boost) {
-                    let _ = events.send(Event::Error { stage: Stage::Asr, message: format!("hotwords: {e}") });
-                }
-                Heard::Reconfigure(config)
-            }
-        };
-        let _ = out.send(heard);
-    }
 }
 
 /// A segment waiting for cleanup.
@@ -198,11 +153,14 @@ struct Finisher {
     /// See [`PipelineConfig::blank_line_paragraphs`].
     blank_line_paragraphs: bool,
     gate: Gate,
+    /// Bear Pad mode ([`PipelineConfig::pad`]).
+    pad: Option<PadMode>,
 }
 
 impl Finisher {
     fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>) -> Self {
-        Self {
+        let pad = config.pad;
+        let mut finisher = Self {
             vocabulary: config.vocabulary,
             pass: CommandPass::new(config.commands, config.style.clone()),
             cleanup,
@@ -218,11 +176,20 @@ impl Finisher {
             sentence_hold: config.sentence_hold,
             blank_line_paragraphs: config.blank_line_paragraphs,
             gate: Gate::new(config.voice_wake),
-        }
+            pad: None,
+        };
+        finisher.set_pad(pad);
+        finisher
     }
 
     fn run(mut self, input: Receiver<Heard>) {
         loop {
+            if self.pad.is_some() {
+                if !self.pad_step(&input) {
+                    return;
+                }
+                continue;
+            }
             if self.queue.is_empty() {
                 match input.recv() {
                     Ok(heard) => self.take_in(heard),
@@ -240,23 +207,27 @@ impl Finisher {
                 }
             }
             let Some(item) = self.pop_sentence() else { continue };
-            match item {
-                Item::EndSession => {
-                    self.typed.clear();
-                    self.emit(Event::SessionEnded);
-                }
-                Item::NewPassage => {
-                    self.typed.clear();
-                    self.composer.clear();
-                }
-                Item::Wake => self.emit(Event::Woke),
-                Item::Sleep => {
-                    // Like a stop: "scratch that" won't reach back past it.
-                    self.typed.clear();
-                    self.emit(Event::Slept);
-                }
-                Item::Segment(p) => self.finish(p, &input),
+            self.handle(item, &input);
+        }
+    }
+
+    fn handle(&mut self, item: Item, input: &Receiver<Heard>) {
+        match item {
+            Item::EndSession => {
+                self.typed.clear();
+                self.emit(Event::SessionEnded);
             }
+            Item::NewPassage => {
+                self.typed.clear();
+                self.composer.clear();
+            }
+            Item::Wake => self.emit(Event::Woke),
+            Item::Sleep => {
+                // Like a stop: "scratch that" won't reach back past it.
+                self.typed.clear();
+                self.emit(Event::Slept);
+            }
+            Item::Segment(p) => self.finish(p, input),
         }
     }
 
@@ -356,6 +327,7 @@ impl Finisher {
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
+            Heard::Pad(action) => return self.pad_action(action),
             Heard::Awake(awake) => {
                 let step = self.gate.set(awake);
                 return self.follow(step, 0, None);
@@ -393,6 +365,7 @@ impl Finisher {
 
     fn take_in_text(&mut self, id: u64, text: String, pause: Option<Duration>) {
         let text = self.vocabulary.apply(&text);
+        let (text, pad_action) = self.pad_command(text);
         let mut out = self.pass.apply(&text, self.quote_open);
         let scratches = out.scratch_previous();
         if scratches > 0 {
@@ -421,7 +394,14 @@ impl Finisher {
             self.passage_has_text = true;
         }
         if !out.text.is_empty() {
-            self.queue.push_back(Item::Segment(Pending { id, quote_before, out }));
+            if self.pad.is_some() {
+                self.pad_push(id, out.text, quote_before);
+            } else {
+                self.queue.push_back(Item::Segment(Pending { id, quote_before, out }));
+            }
+        }
+        if let Some(action) = pad_action {
+            self.pad_action(action);
         }
     }
 
@@ -434,11 +414,15 @@ impl Finisher {
         self.sentence_hold = config.sentence_hold;
         self.blank_line_paragraphs = config.blank_line_paragraphs;
         self.gate.configure(config.voice_wake);
+        self.set_pad(config.pad);
     }
 
     /// Drops the most recent undelivered segment of this passage, returning
     /// the quotation state from before it. `None` when there is none left.
     fn drop_latest(&mut self) -> Option<bool> {
+        if self.pad.is_some() {
+            return self.pad_undo();
+        }
         // A segment from before a stop may be dropped while it's untyped,
         // but typed text is only erased within the dictation it came from.
         let mut crossed_session = false;

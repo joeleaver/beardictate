@@ -18,6 +18,7 @@ mod icon;
 mod mic;
 mod models;
 mod notify;
+mod pad_window;
 mod settings;
 mod ui;
 mod window;
@@ -57,6 +58,8 @@ pub(crate) fn engine_send(command: engine::Command) {
 fn main() {
     match std::env::args().nth(1).as_deref() {
         None => {}
+        // The Bear Pad window, started by the app (see pad_window.rs).
+        Some("--pad") => return pad_window::run(),
         Some("--toggle") => match control::send(control::Request::Toggle) {
             Ok(()) => return,
             Err(e) => {

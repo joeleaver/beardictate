@@ -184,6 +184,13 @@ pub fn tray_menu(shared: &Shared) -> Menu {
         menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
     }
 
+    if status.state != State::Loading {
+        let on = shared.settings.with(|st| st.bear_pad);
+        let s = shared.clone();
+        let label = if on { "Turn Bear Pad off" } else { "Turn Bear Pad on" };
+        menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.bear_pad = !on)));
+    }
+
     let open_settings = {
         let s = shared.clone();
         move || {

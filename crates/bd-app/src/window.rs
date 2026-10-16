@@ -134,6 +134,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s4 = s.clone();
     let s5 = s.clone();
     let (s6, s7, s8) = (s.clone(), s.clone(), s.clone());
+    let (s9, s10) = (s.clone(), s.clone());
     let paths = s.paths.clone();
     let login = Signal::new(paths.starts_at_login());
     rsx! {
@@ -159,6 +160,12 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 description: "The microphone stays on. Say \u{201C}bear, wake up\u{201D} (or press the shortcut) to start typing, and \u{201C}bear, go to sleep\u{201D} to stop. Turn the microphone off and on from the tray menu. Off, the shortcut turns the microphone on and off.",
                 checked_fn: move || s7.settings.with(|st| st.voice_wake),
                 onchange: move || change(&s8, |st| st.voice_wake = !st.voice_wake),
+            }
+            Switch {
+                label: "Bear Pad",
+                description: "Your words collect in a small floating pad instead of being typed, and are tidied up there while you talk. Say \u{201C}bear, send it\u{201D} to type it all where your cursor is. In the pad, \u{201C}bear, change Smith to Smythe\u{201D} (or spell it: \u{201C}to S M Y T H E\u{201D}), \u{201C}bear, delete very\u{201D}, \u{201C}bear, undo\u{201D} and \u{201C}bear, clear\u{201D} edit it.",
+                checked_fn: move || s9.settings.with(|st| st.bear_pad),
+                onchange: move || change(&s10, |st| st.bear_pad = !st.bear_pad),
             }
             Switch {
                 label: "Start beardictate when I sign in",

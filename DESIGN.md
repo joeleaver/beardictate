@@ -227,6 +227,34 @@ starts dictating, then stops both.
 once the models load, the microphone comes on and typing is awake. The
 tray shows a violet dot while models load: nothing to do but wait.
 
+## Bear Pad (optional)
+
+Off by default; a switch on the General page and in the tray menu
+(`bear_pad`). Dictation collects in a small floating pad instead of being
+typed, and goes to the focused app in one piece on "bear, send it" (or the
+pad's Send button).
+
+- **Raw first, then cleaned.** Each segment shows in the pad as soon as it's
+  heard (commands applied), in grey italics. The cleanup model runs on the
+  pad, on a thread of its own, when the speaker pauses (1.5 s for finished
+  sentences, 5 s for an unfinished one): it cleans the whole paragraph being
+  dictated, already-clean part included, so a later sentence can still fix
+  an earlier one, with the two paragraphs before as context. A result for a
+  part of the pad that changed meanwhile is dropped and redone.
+  (`bd-pipeline/src/pad.rs`, `stages/pad_mode.rs`)
+- **Editing by voice** (`stages/pad_voice.rs`), at the start of a segment or
+  sentence: "bear, send it", "bear, clear", "bear, undo", "bear, change
+  Smith to Smythe" (or spelled: "to S M Y T H E"), "bear, delete very".
+  "Scratch that" takes back the last segment, or the last edit.
+- **The window** is `beardictate --pad`, a process the app starts and feeds
+  JSON lines on stdin (`bd-app/src/pad_window.rs`, `engine/pad.rs`): rinch
+  can make only an app's one window non-activating, and on Linux only under
+  X11, so the pad runs under XWayland. It floats on top, never takes focus,
+  and has a title bar and edges to move and resize it. It stays up while
+  Bear Pad is on, because rinch recreates a hidden window at its first size
+  and place.
+- `bd file --pad` / `bd mic --pad` run the same mode from the CLI.
+
 ## Hotkey
 
 **Toggle by default** (press to start, press again to stop; long passages

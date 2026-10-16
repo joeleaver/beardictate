@@ -428,3 +428,6 @@ fn spaces_trail_and_are_taken_back_before_a_break() {
     // begins clean; taken back before a dictated break.
     assert_eq!(deliveries, [(0, "It was late. ".to_string()), (1, "\n\nMorning came. ".to_string())]);
 }
+
+#[path = "tests_pad.rs"]
+mod pad;

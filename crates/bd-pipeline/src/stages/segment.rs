@@ -42,6 +42,9 @@ pub(super) fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>
             Input::Awake(awake) => {
                 let _ = out.send(Cut::Awake(awake));
             }
+            Input::Pad(action) => {
+                let _ = out.send(Cut::Pad(action));
+            }
         }
     }
     if dirty {

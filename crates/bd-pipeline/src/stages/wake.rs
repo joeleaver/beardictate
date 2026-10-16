@@ -8,11 +8,11 @@
 //! to sleep mid-sentence doesn't stop dictation.
 
 /// How the ASR writes "bear".
-const NAMES: &[&str] = &["bear", "bare", "bair", "baer", "behr"];
+pub(super) const NAMES: &[&str] = &["bear", "bare", "bair", "baer", "behr"];
 /// What it sometimes hears instead ("Where? Go to sleep."). Counted only
 /// when the phrase is the whole segment, where prose rarely says it; a
 /// hotword boost doesn't fix these.
-const SOUND_ALIKES: &[&str] = &["where", "wear", "ware", "bar", "beer", "bears", "bert"];
+pub(super) const SOUND_ALIKES: &[&str] = &["where", "wear", "ware", "bar", "beer", "bears", "bert"];
 const WAKE: &[&[&str]] = &[&["wake", "up"], &["wakeup"], &["wake"]];
 const SLEEP: &[&[&str]] = &[&["go", "to", "sleep"], &["sleep"]];
 
@@ -31,7 +31,7 @@ pub(crate) struct Heard<'a> {
 }
 
 /// Words with their byte spans: letters, digits and apostrophes.
-fn words(text: &str) -> Vec<(usize, usize, String)> {
+pub(super) fn words(text: &str) -> Vec<(usize, usize, String)> {
     let mut out = Vec::new();
     let mut start = None;
     for (i, c) in text.char_indices().chain(std::iter::once((text.len(), ' '))) {

@@ -25,6 +25,7 @@ use crate::settings::{Paths, Settings};
 mod events;
 mod inject;
 mod mic_check;
+mod pad;
 mod standby;
 use inject::{Injected, TypeJob, spawn_injector};
 
@@ -45,6 +46,10 @@ pub enum Command {
     Apply(Settings),
     /// A cleanup model was downloaded or deleted.
     ModelsChanged,
+    /// Bear Pad: a button in the pad window.
+    Pad(bd_pipeline::PadAction),
+    /// Bear Pad: the user closed the pad window.
+    PadClosed,
     Shutdown,
 }
 
@@ -97,7 +102,10 @@ impl Engine {
         let (commands, rx) = unbounded();
         let thread = thread::Builder::new()
             .name("bd-engine".into())
-            .spawn(move || Worker::new(paths, settings, ui, rx).run())
+            .spawn({
+                let commands = commands.clone();
+                move || Worker::new(paths, settings, ui, rx, commands).run()
+            })
             .expect("spawning the engine thread");
         Engine { commands, thread: Some(thread) }
     }
@@ -173,10 +181,11 @@ struct Worker<U> {
     injected: Receiver<Injected>,
     injector_error: Option<String>,
     settings_mtime: Option<SystemTime>,
+    pad: pad::PadState,
 }
 
 impl<U: Ui> Worker<U> {
-    fn new(paths: Paths, settings: Settings, ui: U, commands: Receiver<Command>) -> Self {
+    fn new(paths: Paths, settings: Settings, ui: U, commands: Receiver<Command>, to_self: Sender<Command>) -> Self {
         let (type_text, injected) = spawn_injector(&paths);
         let gains = paths.load_gains();
         Worker {
@@ -213,6 +222,7 @@ impl<U: Ui> Worker<U> {
             type_text,
             injected,
             injector_error: None,
+            pad: pad::PadState::new(to_self),
         }
     }
 
@@ -237,6 +247,8 @@ impl<U: Ui> Worker<U> {
                             self.request_reload();
                         }
                     }
+                    Ok(Command::Pad(action)) => self.on_pad_command(action),
+                    Ok(Command::PadClosed) => self.on_pad_closed(),
                     Ok(Command::Shutdown) | Err(_) => break,
                 },
                 recv(audio) -> ev => if let Ok(ev) = ev { self.on_audio(ev) },
@@ -278,6 +290,7 @@ impl<U: Ui> Worker<U> {
             (State::Idle, self.cleanup_name.clone())
         };
         self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
+        self.sync_pad();
     }
 
     fn busy(&self) -> bool {
@@ -328,6 +341,7 @@ impl<U: Ui> Worker<U> {
         }
         self.capture.as_mut().expect("opened above").start().context("starting the microphone")?;
         self.listening_since = Some(Instant::now());
+        self.pad.dismissed = false;
         self.publish();
         Ok(())
     }

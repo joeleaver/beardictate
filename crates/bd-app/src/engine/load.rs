@@ -57,6 +57,7 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
         pause_paragraph: live.pause_paragraph,
         input_gain: gain,
         auto_gain: live.auto_gain,
+        pad: live.bear_pad,
         ..PipelineConfig::default()
     }
 }
