@@ -40,6 +40,20 @@ pub struct ModelFile {
     pub sha256: String,
 }
 
+/// A model published only as a `.tar.bz2`: the archive is downloaded from
+/// the sources like a file, then the model's `files` are taken out of it
+/// (each checked against its own hash) and the archive is deleted.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ModelArchive {
+    /// The archive's file name, appended to each source base URL.
+    pub path: String,
+    pub size: u64,
+    pub sha256: String,
+    /// The folder inside the archive that holds the files, ending in '/'.
+    pub strip: String,
+}
+
 /// Sampling parameters for a cleanup model, in llama.cpp terms.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -101,6 +115,9 @@ pub struct ModelEntry {
     pub sources: Vec<String>,
     #[serde(default)]
     pub files: Vec<ModelFile>,
+    /// Where `files` come from when they aren't published one by one.
+    #[serde(default)]
+    pub archive: Option<ModelArchive>,
     /// Required for available cleanup models, absent for every other kind.
     #[serde(default)]
     pub cleanup: Option<CleanupParams>,
@@ -111,9 +128,14 @@ fn default_true() -> bool {
 }
 
 impl ModelEntry {
-    /// Sum of all file sizes: what a full download costs on disk.
+    /// Sum of all file sizes: what the model takes on disk.
     pub fn total_size(&self) -> u64 {
         self.files.iter().map(|f| f.size).sum()
+    }
+
+    /// What a download fetches: the archive, or every file.
+    pub fn download_size(&self) -> u64 {
+        self.archive.as_ref().map_or_else(|| self.total_size(), |a| a.size)
     }
 
     /// The manifest entry for `path`, if this model has such a file.
@@ -218,6 +240,14 @@ fn validate_payload(model: &ModelEntry) -> Result<(), String> {
         }
         if source.contains("/resolve/main/") {
             return Err(format!("source {source:?} is not pinned to a revision"));
+        }
+    }
+    if let Some(a) = &model.archive {
+        if !a.path.ends_with(".tar.bz2") || !is_valid_file_path(&a.path) || a.size == 0 || !is_sha256_hex(&a.sha256) {
+            return Err(format!("archive {:?} must be a .tar.bz2 with a size and sha256", a.path));
+        }
+        if !a.strip.ends_with('/') || a.strip.contains("..") {
+            return Err(format!("archive strip {:?} must be a folder ending in '/'", a.strip));
         }
     }
     let mut paths = HashSet::new();

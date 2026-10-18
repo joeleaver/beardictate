@@ -19,7 +19,7 @@ use ureq::Agent;
 use crate::error::{Error, SourceError, SourceFailure, SourceFailures};
 use crate::hash::{hash_file, hash_file_into, hex_digest};
 use crate::http::{HttpOptions, agent};
-use crate::manifest::{ModelEntry, ModelFile};
+use crate::manifest::{ModelArchive, ModelEntry, ModelFile};
 use crate::marker;
 use crate::progress::{Event, OnEvent, Phase, Reporter};
 use crate::store::{Store, file_len, part_path};
@@ -60,6 +60,9 @@ impl Downloader {
             return Err(Error::NotAvailable(model.id.clone()));
         }
         let _lock = store.lock(&model.id)?;
+        if let Some(archive) = &model.archive {
+            return self.download_archive(store, model, archive, cancel, on_event);
+        }
         let dir = store.model_dir(&model.id);
         let total = model.total_size();
         let mut base = 0u64;
@@ -82,6 +85,44 @@ impl Downloader {
             }
             on_event(&Event::FileDone { file: &file.path });
             base += file.size;
+        }
+        Ok(())
+    }
+
+    /// [`Self::download`] for a model published as an archive: fetch the
+    /// archive (resumable, hash-checked, like any file), take the missing
+    /// files out of it, delete it.
+    fn download_archive(
+        &self,
+        store: &Store,
+        model: &ModelEntry,
+        archive: &ModelArchive,
+        cancel: &AtomicBool,
+        on_event: OnEvent<'_>,
+    ) -> Result<(), Error> {
+        let dir = store.model_dir(&model.id);
+        fs::create_dir_all(&dir).map_err(Error::io("create", &dir))?;
+        fn reporter<'a>(id: &'a str, file: &'a str, file_index: usize, file_total: u64, model_total: u64) -> Reporter<'a> {
+            Reporter { model_id: id, file, file_index, file_count: 1, file_total, model_base: 0, model_total }
+        }
+        let mut complete = true;
+        for (index, file) in model.files.iter().enumerate() {
+            let dest = store.path_of(&model.id, file);
+            complete &= already_present(&dir, &dest, file, cancel, &reporter(&model.id, &file.path, index, file.size, archive.size), on_event)?;
+        }
+        if !complete {
+            let packed = ModelFile { path: archive.path.clone(), size: archive.size, sha256: archive.sha256.clone() };
+            let dest = dir.join(&archive.path);
+            let report = reporter(&model.id, &archive.path, 0, archive.size, archive.size);
+            if !already_present(&dir, &dest, &packed, cancel, &report, on_event)? {
+                self.fetch_file(&model.sources, &dest, &packed, cancel, &report, on_event)?;
+            }
+            crate::archive::unpack(store, model, archive, &dest, cancel)?;
+            marker::forget(&dir, &archive.path)?;
+            remove(&dest)?;
+        }
+        for file in &model.files {
+            on_event(&Event::FileDone { file: &file.path });
         }
         Ok(())
     }

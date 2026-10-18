@@ -25,6 +25,7 @@ fn entry(id: &str, files: &[(&str, &[u8])]) -> ModelEntry {
                 sha256: hex::encode(Sha256::digest(data)),
             })
             .collect(),
+        archive: None,
         cleanup: None,
     }
 }

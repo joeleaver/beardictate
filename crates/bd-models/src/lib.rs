@@ -25,6 +25,7 @@
 //! # Ok::<(), bd_models::Error>(())
 //! ```
 
+mod archive;
 mod download;
 mod error;
 mod hash;
@@ -40,6 +41,6 @@ pub use download::Downloader;
 pub use error::{Error, FileProblem, SourceError, SourceFailure, SourceFailures};
 pub use http::HttpOptions;
 pub use import::{ImportReport, detect_importable, import_folder};
-pub use manifest::{CleanupParams, Manifest, ManifestError, ModelEntry, ModelFile, ModelKind, Sampling};
+pub use manifest::{CleanupParams, Manifest, ManifestError, ModelArchive, ModelEntry, ModelFile, ModelKind, Sampling};
 pub use progress::{Event, OnEvent, Phase, Progress};
 pub use store::{FileIssue, MODELS_DIR_ENV, ModelStatus, PART_SUFFIX, Store};

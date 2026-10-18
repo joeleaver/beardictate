@@ -96,6 +96,9 @@ pub enum Error {
     /// Every source failed for this file.
     #[error("could not download {file}: {failures}")]
     AllSourcesFailed { file: String, failures: SourceFailures },
+    /// A downloaded archive didn't hold the model's files as listed.
+    #[error("archive {archive}: {problem}")]
+    Archive { archive: String, problem: String },
     /// An imported folder's file didn't match the manifest.
     #[error("cannot import {file}: {problem}")]
     Import { file: String, problem: FileProblem },

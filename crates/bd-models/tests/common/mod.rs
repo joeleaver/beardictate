@@ -215,6 +215,7 @@ pub fn model(id: &str, files: &[(&str, &[u8])], sources: Vec<String>) -> ModelEn
                 sha256: hex::encode(Sha256::digest(data)),
             })
             .collect(),
+        archive: None,
         cleanup: None,
     }
 }

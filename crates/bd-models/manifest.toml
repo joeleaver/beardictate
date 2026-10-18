@@ -94,6 +94,36 @@ files = [
     { path = "silero_vad.onnx", size = 643854, sha256 = "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6" },
 ]
 
+# NVIDIA Nemotron Speech Streaming 0.6B English, 560 ms chunks, k2-fsa's
+# sherpa-onnx int8 export: the streaming recognizer, for the modes that show
+# words as you speak (not required: downloaded when one is chosen). Only
+# published as an archive in sherpa-onnx's `asr-models` GitHub release
+# (2026-04-25); the archive hash is GitHub's asset digest, the file hashes
+# from the extracted files. On 40 real microphone segments: 39 complete,
+# 0.4% word errors with beam search (0.8% greedy), about a quarter of real
+# time on 8 CPU threads (eval notes 2026-10-18).
+[[model]]
+id = "asr-nemotron-speech-streaming-en-0.6b-560ms-int8"
+kind = "asr"
+name = "Nemotron Speech Streaming 0.6B English (int8)"
+license = "LicenseRef-NVIDIA-Open-Model-License"
+attribution = "nemotron-speech-streaming-en-0.6b by NVIDIA. Licensed by NVIDIA Corporation under the NVIDIA Open Model License (https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/). ONNX export by k2-fsa/sherpa-onnx."
+homepage = "https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b"
+sources = [
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/",
+]
+files = [
+    { path = "encoder.int8.onnx", size = 652916849, sha256 = "7d932213491ad355c6e5576705dc3494731a52af87d7a1b954559340147909d8" },
+    { path = "decoder.int8.onnx", size = 7257753, sha256 = "0be9702c2f427a2b6bb241d298e0d3836a558de1f5b9fd3018f1cce6e2b3fa98" },
+    { path = "joiner.int8.onnx", size = 1735862, sha256 = "a35eac38a22ebceb04d230ed7afe0d68f446ba6914a036b97f14fece95967e23" },
+    { path = "tokens.txt", size = 8952, sha256 = "dc0b4584ab2e4ddbf888425c076c61b736e7356a015250db7d307e6f1a8188ff" },
+]
+[model.archive]
+path = "sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25.tar.bz2"
+size = 463945051
+sha256 = "78e2b79fcf7271553a74402a76b771b09ea40117a39566a79f52235b23db6358"
+strip = "sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25/"
+
 # --- Cleanup ---------------------------------------------------------------
 #
 # Bear Gemma 4 E2B v4, recommended (Joe, 2026-10-16): beardictate's own
