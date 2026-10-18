@@ -6,10 +6,16 @@
 # (this checkout is their only copy until deployed); the manifest is committed.
 #
 #   ./publish.sh add <platform> <version> <file> [--kind LABEL] [--date YYYY-MM-DD]
-#       Copy <file> into public/downloads/, hash it, write <file>.sha256 next to it, and
-#       record it in releases.json (replacing that platform's placeholders and any entry
-#       with the same file name). <platform> is an id from releases.json: windows,
-#       linux, macos. --kind defaults from the extension (Installer, Portable zip, …).
+#                    [--channel alpha]
+#       Copy <file> into public/downloads/, hash it, write <file>.sha256 next to it, sign
+#       it, and record it in releases.json (replacing that platform's placeholders and
+#       any entry with the same file name). <platform> is an id from releases.json:
+#       windows, linux, macos. --kind defaults from the extension (Installer, Portable
+#       zip, …). --channel alpha: only alpha builds update to it, and the page hides it.
+#       The app installs updates only from signed builds: the Ed25519 key is
+#       ~/.config/beardictate-release/update-signing.pem (BD_SIGNING_KEY to change it);
+#       its public half is in crates/bd-app/src/update/verify.rs. Back it up: without
+#       it, installed copies can't update themselves.
 #   ./publish.sh remove <file-name>
 #       Drop a build from the manifest and delete its file.
 #   ./publish.sh prune <platform> <keep>
@@ -63,7 +69,7 @@ op, args = sys.argv[1], sys.argv[2:]
 m = load()
 
 if op == "add":
-    platform, version, name, kind, date = args
+    platform, version, name, kind, date, channel, signature = args
     if platform not in {p["id"] for p in m["platforms"]}:
         sys.exit(f"unknown platform {platform!r}; known: {', '.join(p['id'] for p in m['platforms'])}")
     if not SAFE.match(name):
@@ -74,8 +80,13 @@ if op == "add":
         f.write(f"{digest}  {name}\n")
     m["builds"] = [b for b in m["builds"]
                    if b["file"] != name and not (b["platform"] == platform and b.get("placeholder"))]
-    m["builds"].append({"platform": platform, "version": version, "kind": kind, "file": name,
-                        "size": size, "sha256": digest, "date": date})
+    build = {"platform": platform, "version": version, "kind": kind, "file": name,
+             "size": size, "sha256": digest, "date": date}
+    if signature:
+        build["signature"] = signature
+    if channel != "stable":
+        build["channel"] = channel
+    m["builds"].append(build)
     m["builds"].sort(key=lambda b: (b["platform"], vkey(b["version"])), reverse=False)
     save(m)
     print(f"{name}\n  {size} bytes\n  sha256 {digest}")
@@ -145,9 +156,11 @@ case "$cmd" in
         name="$(basename "$src")"
         kind="$(default_kind "$name")"
         date="$(date -u +%Y-%m-%d)"
+        channel=stable
         while [ $# -gt 0 ]; do
             case "$1" in
                 --kind) kind="${2:?--kind needs a value}"; shift 2 ;;
+                --channel) channel="${2:?--channel needs a value}"; shift 2 ;;
                 --date) date="${2:?--date needs a value}"; shift 2 ;;
                 *) die "unknown option $1" ;;
             esac
@@ -158,7 +171,16 @@ case "$cmd" in
         if [ "$(realpath "$src")" != "$(realpath -m "$dest")" ]; then
             cp --reflink=auto "$src" "$dest.part" && mv "$dest.part" "$dest"
         fi
-        manifest_py add "$platform" "$version" "$name" "$kind" "$date"
+        [[ "$channel" =~ ^[a-z]+$ ]] || die "channel '$channel' should be a word like alpha"
+        key="${BD_SIGNING_KEY:-$HOME/.config/beardictate-release/update-signing.pem}"
+        signature=""
+        if [ -f "$key" ]; then
+            signature="$(openssl pkeyutl -sign -inkey "$key" -rawin -in "$dest" | od -An -v -tx1 | tr -d ' \n')"
+            [ ${#signature} -eq 128 ] || die "signing $name failed"
+        else
+            echo "publish.sh: no signing key at $key: installed apps won't update to $name" >&2
+        fi
+        manifest_py add "$platform" "$version" "$name" "$kind" "$date" "$channel" "$signature"
         echo "Recorded in releases.json. Run ./publish.sh deploy to put it live."
         ;;
     remove)
@@ -180,7 +202,7 @@ case "$cmd" in
         cd "$here" && jkbase deploy "$@"
         ;;
     *)
-        sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
         [ -z "$cmd" ] || exit 2
         ;;
 esac

@@ -82,12 +82,26 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: 
 
 [Run]
 Filename: "{app}\beardictate.exe"; Description: "Start beardictate now"; Flags: nowait postinstall skipifsilent
+; An update from the app runs this installer silently with /relaunch=1 and
+; quits; start the new version.
+Filename: "{app}\beardictate.exe"; Flags: nowait runasoriginaluser; Check: Relaunch
+
+[UninstallDelete]
+; Downloaded updates, and alpha telemetry waiting to be sent: nothing the
+; user made, so always removed.
+Type: filesandordirs; Name: "{localappdata}\beardictate\data\updates"
+Type: filesandordirs; Name: "{localappdata}\beardictate\data\telemetry"
 
 [UninstallRun]
 ; Stop the tray app so its files can be removed.
 Filename: "{sys}\taskkill.exe"; Parameters: "/IM beardictate.exe /F"; Flags: runhidden; RunOnceId: "StopApp"
 
 [Code]
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;
+
 // Models (~0.7–3 GB) and settings outlive an uninstall unless the user says
 // otherwise, so a reinstall doesn't download them again. A silent uninstall
 // keeps them.

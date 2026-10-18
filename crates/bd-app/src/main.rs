@@ -22,6 +22,7 @@ mod pad_window;
 mod settings;
 mod telemetry;
 mod ui;
+mod update;
 mod window;
 
 use std::cell::RefCell;
@@ -91,7 +92,6 @@ fn main() {
         tracing::info!("saving heard segments to {}", dir.display());
         bd_pipeline::dump::save_to(dir);
     }
-    telemetry::start(&paths);
     let settings = match paths.load() {
         Ok(s) => s,
         Err(e) => {
@@ -100,7 +100,14 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let shared = Shared::new(paths, settings);
+    // A downloaded update installs now, before anything starts.
+    let note = match update::at_start(&paths.updates, settings.auto_update) {
+        update::Start::Quit => return,
+        update::Start::Run(note) => note,
+    };
+    telemetry::start(&paths);
+    let updates = update::Updates::spawn(paths.updates.clone(), settings.auto_update, note);
+    let shared = Shared::new(paths, settings, updates);
     let first_run = shared.models.states.with(|s| !models::missing_speech(s).is_empty());
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
@@ -147,6 +154,11 @@ fn main() {
     ENGINE.with(|e| e.borrow_mut().take());
     telemetry::stop();
     TRAY.with(|t| t.borrow_mut().take());
+    // "Restart to update": the installer takes over from here.
+    let updates = SHARED.with(|s| s.borrow().as_ref().map(|s| s.paths.updates.clone()));
+    if let Some(dir) = updates {
+        update::at_exit(&dir);
+    }
 }
 
 /// Logs to stderr and to `log` (started fresh each run), so a run started

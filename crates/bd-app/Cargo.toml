@@ -25,7 +25,7 @@ pipewire = ["bd-audio/pipewire"]
 nemotron-hotwords = ["bd-asr/nemotron-hotwords"]
 # Alpha builds: record diagnostics, text and audio and send them to the
 # telemetry server (docs/telemetry.md). Release builds send nothing.
-alpha = ["dep:ureq", "dep:flate2", "dep:flacenc", "dep:sysinfo", "dep:getrandom"]
+alpha = ["dep:flacenc", "dep:sysinfo", "dep:getrandom"]
 # rinch-debug: lets the rinch MCP server inspect and drive the window
 # (RINCH_DEBUG=0 turns it off). Development only.
 debug = ["rinch/debug"]
@@ -49,13 +49,21 @@ serde_json.workspace = true
 toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
-ureq = { workspace = true, optional = true }
-flate2 = { version = "1", optional = true }
+ureq.workspace = true
+flate2 = "1"
+sha2.workspace = true
+hex.workspace = true
+# Updates are signed (update.rs).
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 flacenc = { version = "0.5", optional = true }
 sysinfo = { version = "0.39", optional = true, default-features = false, features = ["system"] }
 getrandom = { version = "0.3", optional = true }
 # No `file-dialogs`: with `system-tray` it panics on Linux (rinch#1526).
 rinch = { workspace = true, features = ["desktop", "components", "theme", "system-tray", "global-hotkeys", "notifications", "gpu"] }
+
+[target.'cfg(not(windows))'.dependencies]
+# Unpacking a Linux update.
+tar = "0.4"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [

@@ -16,11 +16,13 @@ mod cleanup;
 mod mic_page;
 mod modes;
 mod setup;
+mod updates;
 mod words;
 use cleanup::cleanup_page;
 use mic_page::microphone;
 use modes::modes;
 use setup::setup_card;
+use updates::updates;
 use words::words;
 
 /// The window's content.
@@ -135,7 +137,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s3 = s.clone();
     let s4 = s.clone();
     let s5 = s.clone();
-    let (s6, s7, s8) = (s.clone(), s.clone(), s.clone());
+    let (s6, s7, s8, s9, s10) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
     let modes = modes(__scope, s);
     let paths = s.paths.clone();
     let login = Signal::new(paths.starts_at_login());
@@ -174,6 +176,12 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                         Err(e) => tracing::warn!("start at login: {e:#}"),
                     }
                 },
+            }
+            Switch {
+                label: "Keep beardictate up to date",
+                description: "Every few hours, look for a new version on beardictate.jkbase.app and download it. It installs the next time beardictate starts, or when you choose Restart to update from the tray.",
+                checked_fn: move || s9.settings.with(|st| st.auto_update),
+                onchange: move || change(&s10, |st| st.auto_update = !st.auto_update),
             }
             Switch {
                 label: "Notify me when something needs attention",
@@ -363,10 +371,12 @@ fn about(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
         format!("Log: {}", s.paths.log.display()),
     ];
     let log = s.paths.log.clone();
+    let updates = updates(__scope, s);
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 14px;",
             Title { order: 3, "About beardictate" }
             Text { {format!("Version {}", env!("CARGO_PKG_VERSION"))} }
+            {updates}
             Text { {move || ui::status_line(&s1)} }
             for line in lines.clone() {
                 Text { size: "sm", color: "dimmed", {line} }

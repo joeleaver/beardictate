@@ -127,7 +127,8 @@
       platforms.sort(function (a, b) { return (b.id === os) - (a.id === os); });
       root.textContent = "";
       platforms.forEach(function (p) {
-        var builds = (m.builds || []).filter(function (b) { return b.platform === p.id; });
+        // Alpha builds reach testers by link and by the app's updates, not here.
+        var builds = (m.builds || []).filter(function (b) { return b.platform === p.id && (!b.channel || b.channel === "stable"); });
         root.appendChild(renderPlatform(p, builds, p.id === os));
       });
     })

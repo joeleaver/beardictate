@@ -43,7 +43,7 @@ impl Default for HttpOptions {
 
 /// Builds the agent: no status-as-error (we inspect statuses ourselves),
 /// redirects followed, and the idle-timeout connector.
-pub(crate) fn agent(opts: &HttpOptions) -> Agent {
+pub fn agent(opts: &HttpOptions) -> Agent {
     let config = Agent::config_builder()
         .http_status_as_error(false)
         .https_only(opts.https_only)

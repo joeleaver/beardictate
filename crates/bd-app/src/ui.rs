@@ -31,6 +31,7 @@ pub struct Shared {
     pub models: Models,
     /// The Microphone page: live level, gain in use, and the test.
     pub mic: MicView,
+    pub updates: crate::update::Updates,
 }
 
 /// What the engine reports about the microphone, for the Microphone page.
@@ -72,7 +73,7 @@ pub fn change(s: &Shared, edit: impl FnOnce(&mut Settings)) {
 }
 
 impl Shared {
-    pub fn new(paths: Paths, settings: Settings) -> Shared {
+    pub fn new(paths: Paths, settings: Settings, updates: crate::update::Updates) -> Shared {
         let models = Models::new(models::store(&settings.models_dir).as_ref());
         Shared {
             paths,
@@ -87,6 +88,7 @@ impl Shared {
                 testing: Signal::new(false),
                 heard: Signal::new(Vec::new()),
             },
+            updates,
         }
     }
 
@@ -199,6 +201,9 @@ pub fn tray_menu(shared: &Shared) -> Menu {
             show_current_window();
         }
     };
+    if let crate::update::Phase::Ready { version } = shared.updates.phase.get() {
+        menu = menu.separator().item(MenuItem::new(format!("Restart to update to {version}")).on_click(crate::update::restart_to_update));
+    }
     menu.separator()
         .item(MenuItem::new("Settings…").on_click(open_settings))
         .separator()
@@ -227,6 +232,19 @@ pub fn open_path(path: &Path) {
     }
 }
 
+/// Opens a web page in the default browser.
+pub fn open_url(url: &str) {
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let result = std::process::Command::new("xdg-open").arg(url).spawn();
+    if let Err(e) = result {
+        tracing::warn!("opening {url}: {e}");
+    }
+}
+
 /// Starts the effects that keep tray, settings and hotkey in step. Called
 /// once, from the app's root component.
 pub fn wire(shared: &Shared) {
@@ -236,6 +254,8 @@ pub fn wire(shared: &Shared) {
         let status = s.status.get();
         let hotkey = s.hotkey_text.get();
         let theme = s.settings.with(|st| st.tray_theme);
+        // An update ready to install adds a menu item.
+        let _ = s.updates.phase.get();
         let Some(tray) = tray() else { return };
         let _ = tray.set_icon(&tray_image(&status, theme));
         let _ = tray.set_tooltip(tooltip(&status, &hotkey));
@@ -270,6 +290,13 @@ pub fn wire(shared: &Shared) {
         });
     }
     tick(shared.clone());
+
+    // The automatic update checks follow the setting.
+    let s = shared.clone();
+    Effect::new(move || {
+        let auto = s.settings.with(|st| st.auto_update);
+        s.updates.set_auto(auto);
+    });
 
     wire_hotkey(shared);
 }

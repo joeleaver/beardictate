@@ -39,7 +39,7 @@ mod transfer;
 
 pub use download::Downloader;
 pub use error::{Error, FileProblem, SourceError, SourceFailure, SourceFailures};
-pub use http::HttpOptions;
+pub use http::{HttpOptions, agent as http_agent};
 pub use import::{ImportReport, detect_importable, import_folder};
 pub use manifest::{CleanupParams, Manifest, ManifestError, ModelArchive, ModelEntry, ModelFile, ModelKind, Sampling};
 pub use progress::{Event, OnEvent, Phase, Progress};

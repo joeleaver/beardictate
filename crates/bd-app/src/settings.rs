@@ -147,6 +147,9 @@ pub struct Settings {
     pub models_dir: String,
     /// OS notifications when something needs attention.
     pub notifications: bool,
+    /// Look for new versions every few hours, download them, and install
+    /// them at the next start. Off, only "Check for updates" looks.
+    pub auto_update: bool,
     /// Names and invented words: the recognizer listens for them, and what
     /// it hears instead is replaced.
     pub word_groups: Vec<WordGroup>,
@@ -182,6 +185,7 @@ impl Default for Settings {
             tray_theme: TrayTheme::Auto,
             models_dir: String::new(),
             notifications: true,
+            auto_update: true,
             word_groups: starter_groups(),
             special_words: Vec::new(),
         }
@@ -307,6 +311,8 @@ pub struct Paths {
     pub pad_window: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
+    /// Downloaded updates waiting to install (see [`crate::update`]).
+    pub updates: PathBuf,
     /// Present while beardictate starts at login (not on Windows, which
     /// uses the registry: see [`crate::autostart`]).
     #[cfg_attr(windows, allow(dead_code))]
@@ -325,6 +331,7 @@ impl Paths {
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
             gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
             pad_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("pad-window"),
+            updates: dirs.data_local_dir().join("updates"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
         })
     }
