@@ -1,0 +1,10 @@
+{
+  "name": "beardictate-telemetry",
+  "private": true,
+  "type": "module",
+  "description": "Alpha telemetry server for beardictate (docs/telemetry.md)",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}

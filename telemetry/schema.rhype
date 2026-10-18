@@ -1,0 +1,41 @@
+// Alpha telemetry: what the app sends (docs/telemetry.md).
+
+// One event line, as the app sent it. `data` is kept whole; `text` is the
+// event's words (heard, typed, or the cleanup's final text), for search.
+type Event {
+    v: u32
+    install: String @indexed
+    session: String @indexed
+    seq: u64
+    ts: DateTime @indexed
+    received: DateTime
+    app: String @indexed
+    os: String
+    kind: String @indexed
+    segment: i64
+    text: String @fulltext
+    data: Json
+}
+
+// One segment's audio in the object store, under `key`.
+type Audio {
+    key: String @unique
+    install: String @indexed
+    session: String @indexed
+    segment: u64
+    bytes: u64
+    received: DateTime @indexed
+}
+
+// What each install has sent, kept as it arrives (the query language has
+// no count).
+type Install {
+    install: String @unique
+    first_seen: DateTime
+    last_seen: DateTime
+    app: String
+    os: String
+    events: u64
+    audio_clips: u64
+    audio_bytes: u64
+}

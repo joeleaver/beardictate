@@ -79,11 +79,26 @@ uninstaller.
 
 ## On the server
 
-- Events: RhypeDB, type `Event` (see `telemetry/schema.rhype`): the envelope
-  fields as indexed columns, `data` as `Json`, `text` copied out of `data`
-  for full-text search.
-- Audio: the project's object store, `audio/<install>/<session>/<segment>.flac`,
-  with an `Audio` row per clip (size, time). The server keeps audio under a
-  budget (8 GiB by default, `AUDIO_BUDGET_GB`) by deleting the oldest clips
-  and their rows; events are kept.
-- `GET /v1/stats` (with the key): events and audio stored, per install.
+`telemetry/` in this repo: a dependency-free Node server (`server.js`), the
+jkbase project `beardictate-telemetry`. Its README has the deploy steps.
+
+- Events: RhypeDB, type `Event` (`telemetry/schema.rhype`): the envelope
+  fields as indexed columns, `data` as `Json`, and the event's words (`final`,
+  `text`, `heard`, `message` or `raw`, the first there) copied to `text` for
+  full-text search. Lines that aren't events are skipped and counted
+  (`{"accepted": n, "rejected": m}`); a batch with none is `400`.
+- A retried batch can be stored twice; `(session, seq)` is unique, and the
+  export drops repeats.
+- Audio: the project's object store (bucket `telemetry`, secrets
+  `S3_ACCESS_KEY`/`S3_SECRET_KEY`), `audio/<install>/<session>/<segment>.flac`,
+  with an `Audio` row per clip (size, time). A clip sent again replaces the
+  first. The server keeps audio under a budget (8 GiB by default,
+  `AUDIO_BUDGET_GB`) by deleting the oldest clips and their rows; events are
+  kept. Without the store's secrets, audio is answered `503` and stays queued
+  on the tester's computer.
+- `Install` rows count each install's events and audio as they arrive.
+- `GET /v1/stats` (with the key): the installs, most recent first, and the
+  audio stored against the budget.
+- `telemetry/export.js` dumps everything as JSONL, one line per segment with
+  its events in order and its audio key, plus one line per session for the
+  events about no segment (`system`, `load`, `settings`, `log`).

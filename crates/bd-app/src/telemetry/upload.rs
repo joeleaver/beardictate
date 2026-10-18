@@ -144,3 +144,38 @@ fn waiting(dir: &Path, prefix: &str, suffix: &str) -> Vec<PathBuf> {
 fn remove(path: &Path) {
     let _ = fs::remove_file(path);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Against a running telemetry server: `BD_TELEMETRY_URL` and
+    /// `BD_TELEMETRY_KEY` set, `cargo test -p bd-app --features alpha
+    /// -- --ignored round_trip`.
+    #[test]
+    #[ignore = "needs a telemetry server"]
+    fn round_trip() {
+        let key = std::env::var("BD_TELEMETRY_KEY").expect("BD_TELEMETRY_KEY");
+        let dir = std::env::temp_dir().join(format!("bd-upload-{}", std::process::id()));
+        fs::create_dir_all(dir.join("audio")).unwrap();
+        let install = "0badc0ffee0badc0ffee0badc0ffee00";
+        let session = "5e55105e55105e55105e55105e551050";
+        let line = serde_json::json!({
+            "v": 1, "install": install, "session": session, "seq": 0,
+            "ts": super::super::spool::rfc3339(std::time::SystemTime::now()),
+            "app": "test", "os": std::env::consts::OS, "kind": "cleaned", "segment": 1,
+            "data": {"raw": "um, round trip", "final": "Round trip.", "verdict": "accepted"},
+        });
+        fs::write(dir.join("events-1.ndjson"), format!("{line}\n")).unwrap();
+        let mut flac = b"fLaC".to_vec();
+        flac.resize(2000, 7);
+        fs::write(dir.join("audio").join(format!("{session}-000001.flac")), flac).unwrap();
+
+        let mut uploader = Uploader::new(key, install.into(), dir.clone());
+        uploader.send_waiting(None);
+        assert_eq!(uploader.backoff, EVERY, "a send failed");
+        assert!(!dir.join("events-1.ndjson").exists());
+        assert_eq!(fs::read_dir(dir.join("audio")).unwrap().count(), 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+}
