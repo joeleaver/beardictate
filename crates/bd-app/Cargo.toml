@@ -19,6 +19,10 @@ vulkan = ["bd-cleanup/vulkan"]
 vulkan-dl = ["bd-cleanup/vulkan-dl"]
 # Native PipeWire capture on Linux.
 pipewire = ["bd-audio/pipewire"]
+# Nemotron with hotwords: only with our sherpa-onnx build (scripts/
+# build-sherpa-onnx.sh, via SHERPA_ONNX_LIB_DIR). The stock library exits
+# the process when asked for it.
+nemotron-hotwords = ["bd-asr/nemotron-hotwords"]
 # rinch-debug: lets the rinch MCP server inspect and drive the window
 # (RINCH_DEBUG=0 turns it off). Development only.
 debug = ["rinch/debug"]

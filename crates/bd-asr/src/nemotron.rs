@@ -8,10 +8,12 @@
 //! that audio; 160 ms couldn't keep up on the CPU).
 //!
 //! Hotwords need beam search, which sherpa-onnx's NeMo streaming transducer
-//! gained after 1.13.8 (sherpa-onnx#3895). Asking a library without it for
-//! beam search fails, so it is behind the `nemotron-hotwords` feature,
-//! for builds linked against a library that has it; otherwise decoding is
-//! greedy and hotwords are ignored.
+//! gained after 1.13.8 (sherpa-onnx#3895). A library without it exits the
+//! process when asked for beam search (it can't be tried and fallen back
+//! from), so it is behind the `nemotron-hotwords` feature, which the release
+//! scripts turn on with our own build of the library
+//! (`scripts/build-sherpa-onnx.sh`); otherwise decoding is greedy and
+//! hotwords are ignored.
 
 use std::path::Path;
 

@@ -42,7 +42,7 @@ done
 export LINK
 cd "$repo"
 cargo xwin build --release --locked --target "$triple" -p bd-cli -p bd-app \
-    --features bd-cli/vulkan-dl,bd-app/vulkan-dl
+    --features bd-cli/vulkan-dl,bd-app/vulkan-dl,bd-cli/nemotron-hotwords,bd-app/nemotron-hotwords
 release="$target/$triple/release"
 # llama-cpp-sys hard-links its DLLs next to the exes only when none is there
 # yet, so take them from its newest vulkan-dl build folder instead (other

@@ -27,7 +27,7 @@ features="${BD_FEATURES:-vulkan,pipewire}"
 SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" linux)"
 export SHERPA_ONNX_LIB_DIR
 if $build; then
-    (cd "$repo" && cargo build --release -p bd-app --features "$features")
+    (cd "$repo" && cargo build --release -p bd-app --features "$features,nemotron-hotwords")
 fi
 
 lib="$HOME/.local/lib/beardictate"

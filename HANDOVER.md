@@ -140,6 +140,10 @@ $B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases
     docker. Windows uses cargo-xwin's clang-cl toolchain
     (it needs ninja and LLVM, like the cross-build). Each takes a few minutes.
     Bump `build_id` in the script when the patch or the options change.
+  - The app and `bd` turn Nemotron's beam search on only with the
+    `nemotron-hotwords` feature: the stock library exits the process when
+    asked for it, so it can't be tried and fallen back from. The three
+    scripts below always build with it.
   - `install-linux.sh`, `package-linux.sh` and `cross-build-windows.sh` run
     it, export `SHERPA_ONNX_LIB_DIR`, and copy the sherpa-onnx and
     onnxruntime libraries from that folder, not from `target/release`.

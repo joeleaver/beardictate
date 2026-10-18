@@ -19,6 +19,10 @@ vulkan-dl = ["bd-cleanup/vulkan-dl"]
 # Native PipeWire capture on Linux (otherwise ALSA, which reaches PipeWire
 # through its plugin).
 pipewire = ["bd-audio/pipewire"]
+# Nemotron with hotwords: only with our sherpa-onnx build (scripts/
+# build-sherpa-onnx.sh, via SHERPA_ONNX_LIB_DIR). The stock library exits
+# the process when asked for it.
+nemotron-hotwords = ["bd-asr/nemotron-hotwords"]
 
 [dependencies]
 bd-core.workspace = true

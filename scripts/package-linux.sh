@@ -17,7 +17,7 @@ name="beardictate-$version-linux-x86_64"
 SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" linux)"
 export SHERPA_ONNX_LIB_DIR
 if [ "${1:-}" != --no-build ]; then
-    (cd "$repo" && cargo build --release --locked -p bd-app --features "$features")
+    (cd "$repo" && cargo build --release --locked -p bd-app --features "$features,nemotron-hotwords")
 fi
 
 dist="$repo/dist"
