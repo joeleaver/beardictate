@@ -20,6 +20,7 @@ mod models;
 mod notify;
 mod pad_window;
 mod settings;
+mod telemetry;
 mod ui;
 mod window;
 
@@ -90,6 +91,7 @@ fn main() {
         tracing::info!("saving heard segments to {}", dir.display());
         bd_pipeline::dump::save_to(dir);
     }
+    telemetry::start(&paths);
     let settings = match paths.load() {
         Ok(s) => s,
         Err(e) => {
@@ -143,6 +145,7 @@ fn main() {
 
     // Stop dictation and the model threads, then take the tray down.
     ENGINE.with(|e| e.borrow_mut().take());
+    telemetry::stop();
     TRAY.with(|t| t.borrow_mut().take());
 }
 
@@ -166,11 +169,15 @@ fn init_logging(log: &std::path::Path) {
             std::io::stderr().flush()
         }
     }
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("info,llama-cpp-2=warn")))
-        .with_ansi(false)
-        .with_writer(move || Tee(file.clone()))
-        .init();
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::Layer;
+    let filter = EnvFilter::try_from_env("BD_LOG").unwrap_or_else(|_| EnvFilter::new("info,llama-cpp-2=warn"));
+    let fmt = tracing_subscriber::fmt::layer().with_ansi(false).with_writer(move || Tee(file.clone())).with_filter(filter);
+    let registry = tracing_subscriber::registry().with(fmt);
+    #[cfg(feature = "alpha")]
+    let registry = registry.with(telemetry::Layer);
+    registry.init();
 }
 
 /// The settings window, hidden until the tray's "Settings…" opens it.

@@ -23,6 +23,7 @@ use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
 
 mod events;
+mod notes;
 mod inject;
 mod mic_check;
 mod pad;
