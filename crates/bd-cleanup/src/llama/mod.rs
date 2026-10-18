@@ -109,6 +109,31 @@ pub fn shared_backend() -> Result<&'static Backend, CleanupError> {
         .map_err(|e| CleanupError::Llama(e.clone()))
 }
 
+/// A device llama.cpp can run on, as it lists them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Device {
+    pub name: String,
+    pub description: String,
+    pub backend: String,
+    pub free_mb: u64,
+    pub total_mb: u64,
+}
+
+/// Every device llama.cpp has (GPUs and the CPU), once its backends are
+/// loaded ([`shared_backend`]).
+pub fn devices() -> Vec<Device> {
+    llama_cpp_2::list_llama_ggml_backend_devices()
+        .into_iter()
+        .map(|d| Device {
+            name: d.name,
+            description: d.description,
+            backend: d.backend,
+            free_mb: (d.memory_free >> 20) as u64,
+            total_mb: (d.memory_total >> 20) as u64,
+        })
+        .collect()
+}
+
 /// Registers llama.cpp's backend DLLs (`ggml-cpu-*.dll`, `ggml-vulkan.dll`)
 /// shipped next to the executable. ggml picks the best CPU variant for this
 /// processor and skips a backend that can't load or finds no device (no

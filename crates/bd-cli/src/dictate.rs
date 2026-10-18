@@ -221,6 +221,8 @@ impl Reporter {
                 return Some(Output::Type(0, text.clone()));
             }
             Event::PadNotFound { words } => eprintln!("pad: {words:?} isn't in the pad"),
+            // Diagnostics, for the app's telemetry.
+            Event::Partial { .. } | Event::Commanded { .. } | Event::Cleaned { .. } => {}
         }
         None
     }

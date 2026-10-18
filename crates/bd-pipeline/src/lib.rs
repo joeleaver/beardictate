@@ -218,6 +218,23 @@ pub enum Event {
     /// With [`PipelineConfig::pad`]: "bear, change …" or "bear, delete …"
     /// named words that aren't in the pad.
     PadNotFound { words: String },
+    /// A streaming recognizer's text so far for segment `id`, `since_speech`
+    /// after the utterance began.
+    Partial { id: u64, text: String, since_speech: Duration },
+    /// Segment `id` after the user's vocabulary and the command pass: what
+    /// was heard, with the special words fixed, and with commands applied.
+    Commanded { id: u64, heard: String, vocabulary: String, commanded: String, actions: Vec<String>, pad_command: Option<String> },
+    /// The cleanup model ran on `raw` (one segment, or a pad paragraph of
+    /// several) with `context` before it, and `output` was kept.
+    Cleaned {
+        segments: Vec<u64>,
+        context: String,
+        raw: String,
+        output: String,
+        elapsed: Duration,
+        report: Option<bd_core::CleanupReport>,
+        pad: bool,
+    },
     /// A stage failed on one segment. The pipeline keeps going: an ASR
     /// failure loses that segment, a cleanup failure delivers the
     /// `commanded` text instead.

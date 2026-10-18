@@ -51,7 +51,7 @@ impl PadMode {
     }
 }
 
-type Cleaned = (Result<String, String>, Duration);
+type Cleaned = (Result<String, String>, Duration, Option<bd_core::CleanupReport>);
 
 /// Context, raw text, style and special words for one clean.
 type Job = (String, String, Style, Vec<String>);
@@ -74,7 +74,7 @@ impl Cleaner {
                     let started = Instant::now();
                     let request = CleanupRequest { context: &context, raw: &raw, style: &style, names: &names };
                     let result = engine.clean(&request).map_err(|e| e.to_string());
-                    let _ = result_tx.send((result, started.elapsed()));
+                    let _ = result_tx.send((result, started.elapsed(), engine.last_report()));
                 }
                 engine
             })
@@ -234,12 +234,17 @@ impl Finisher {
         self.pad_emit();
     }
 
-    fn pad_cleaned(&mut self, (result, elapsed): Cleaned) {
+    fn pad_cleaned(&mut self, (result, elapsed, report): Cleaned) {
         let Some(mode) = self.pad.as_mut() else { return };
         let Some(batch) = mode.in_flight.take() else { return };
         let raw = batch.raw.clone();
+        let segments = batch.segments();
         let text = match result {
-            Ok(text) => keep_leading_break(&raw, text),
+            Ok(text) => {
+                let text = keep_leading_break(&raw, text);
+                self.note_cleaned(segments, batch.context.clone(), &raw, &text, elapsed, report, true);
+                text
+            }
             Err(e) => {
                 self.emit(Event::Error { stage: Stage::Cleanup, message: e });
                 raw.clone()

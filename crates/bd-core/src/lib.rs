@@ -101,6 +101,31 @@ pub struct CleanupRequest<'a> {
 /// Turns a raw segment into clean prose.
 pub trait Cleanup: Send {
     fn clean(&mut self, request: &CleanupRequest<'_>) -> Result<String, BoxError>;
+
+    /// What happened in the last [`Cleanup::clean`], for diagnostics.
+    fn last_report(&self) -> Option<CleanupReport> {
+        None
+    }
+}
+
+/// What a cleanup model did with one request.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CleanupReport {
+    /// The model's answer, tidied, before the guardrail.
+    pub model_output: Option<String>,
+    /// `accepted`, `repaired` or `fell_back`; empty when the model wasn't asked.
+    pub verdict: String,
+    /// Why the guardrail rejected it.
+    pub reason: Option<String>,
+    /// Misheard special words allowed through: (heard, word).
+    pub respelled: Vec<(String, String)>,
+    /// Words the model dropped, as allowed (fillers, repeats).
+    pub removed: Vec<String>,
+    pub prompt_tokens: usize,
+    pub reused_tokens: usize,
+    pub generated_tokens: usize,
+    pub prefill: std::time::Duration,
+    pub decode: std::time::Duration,
 }
 
 /// How text actually reached the target app.

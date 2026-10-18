@@ -84,6 +84,13 @@ impl Cleanup for CleanupEngine {
             CleanupEngine::Http(c) => c.clean(request),
         }
     }
+
+    fn last_report(&self) -> Option<bd_core::CleanupReport> {
+        match self {
+            CleanupEngine::Llama(c) => c.last_report(),
+            CleanupEngine::Http(c) => c.last_report(),
+        }
+    }
 }
 
 /// A loaded cleanup engine, its name, and a line describing how it runs.
@@ -91,6 +98,9 @@ pub struct LoadedCleanup {
     pub engine: CleanupEngine,
     pub name: String,
     pub description: String,
+    pub template: String,
+    /// How a local model runs; `None` for a server.
+    pub info: Option<bd_cleanup::ModelInfo>,
 }
 
 /// Loads the cleanup model `source` names. `Ok(None)` means cleanup is off
@@ -102,7 +112,7 @@ pub fn load_cleanup(source: &CleanupSource, options: &CleanupOptions, store: &St
         config.disable_thinking = true;
         let engine = HttpCleanup::new(HttpChat::new(config), template)?;
         let description = format!("{model} at {url} ({template})");
-        return Ok(Some(LoadedCleanup { engine: CleanupEngine::Http(engine), name: model.clone(), description }));
+        return Ok(Some(LoadedCleanup { engine: CleanupEngine::Http(engine), name: model.clone(), description, template: template.to_string(), info: None }));
     }
     let Some((path, catalog)) = resolve_local(source, store)? else {
         return Ok(None);
@@ -116,14 +126,14 @@ pub fn load_cleanup(source: &CleanupSource, options: &CleanupOptions, store: &St
         config.sampling.temperature = params.sampling.temperature;
     }
     let chat = LlamaChat::load(config).with_context(|| format!("loading {}", path.display()))?;
-    let info = chat.info();
+    let info = chat.info().clone();
     let name = catalog.map_or_else(|| path.display().to_string(), |m| m.name.clone());
     let description = format!(
         "{name} ({template}; {} of {} layers on GPU, {} threads)",
         info.gpu_layers, info.n_layer, info.threads
     );
     let engine = LlamaCleanup::new(chat, template)?;
-    Ok(Some(LoadedCleanup { engine: CleanupEngine::Llama(engine), name, description }))
+    Ok(Some(LoadedCleanup { engine: CleanupEngine::Llama(engine), name, description, template: template.to_string(), info: Some(info) }))
 }
 
 /// Installed, released catalog cleanup models, smallest first.

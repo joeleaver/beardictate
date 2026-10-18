@@ -114,7 +114,11 @@ pub(super) fn live(mut asr: Box<dyn StreamingAsr>, input: Receiver<Cut>, out: Se
                     LiveAudio::Drop => asr.finish().map(|_| Some(String::new())),
                 };
                 match partial {
-                    Ok(Some(text)) => Some(Heard::Partial { id, text }),
+                    Ok(Some(text)) => {
+                        let since_speech = started.elapsed();
+                        let _ = report.events.send(Event::Partial { id, text: text.clone(), since_speech });
+                        Some(Heard::Partial { id, text })
+                    }
                     Ok(None) => None,
                     Err(e) => {
                         let _ = report.events.send(Event::Error { stage: Stage::Asr, message: e.to_string() });

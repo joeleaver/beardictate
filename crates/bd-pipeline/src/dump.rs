@@ -14,6 +14,15 @@ use bd_core::SAMPLE_RATE;
 
 static DIR: OnceLock<PathBuf> = OnceLock::new();
 
+/// Something else that wants each segment's audio (alpha telemetry).
+type Sink = Box<dyn Fn(u64, &[f32]) + Send + Sync>;
+static SINK: OnceLock<Sink> = OnceLock::new();
+
+/// Hands every segment's audio, as the ASR gets it, to `sink` from now on.
+pub fn audio_to(sink: Sink) {
+    let _ = SINK.set(sink);
+}
+
 /// Saves segments to `dir` from now on, when `BD_SAVE_SEGMENTS` isn't set.
 pub fn save_to(dir: PathBuf) {
     let _ = DIR.set(dir);
@@ -29,6 +38,9 @@ fn stamp() -> u64 {
 
 /// Saves segment `id`'s audio as `<time>-<id>.wav` and lists what the ASR made of it.
 pub fn segment(id: u64, samples: &[f32], heard: &str) {
+    if let Some(sink) = SINK.get() {
+        sink(id, samples);
+    }
     let Some(dir) = dir() else { return };
     let name = format!("{}-{id:04}.wav", stamp());
     let result = fs::create_dir_all(&dir)

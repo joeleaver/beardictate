@@ -13,6 +13,7 @@ use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::gain::InputGain;
 mod gate;
 mod live_type;
+mod notes;
 mod segment;
 mod transcribe;
 mod noise;
@@ -293,7 +294,7 @@ impl Finisher {
     fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let commanded = p.out.text;
-        let (text, cleanup) = self.clean(&commanded);
+        let (text, cleanup) = self.clean(p.id, &commanded);
         // A "scratch that" spoken while this was cleaning still drops it.
         self.take_in_ready(input);
         let flight = self.in_flight.take();
@@ -325,7 +326,7 @@ impl Finisher {
         }
     }
 
-    fn clean(&mut self, commanded: &str) -> (String, Option<Duration>) {
+    fn clean(&mut self, id: u64, commanded: &str) -> (String, Option<Duration>) {
         let Some(cleanup) = self.cleanup.as_mut() else {
             return (commanded.to_string(), None);
         };
@@ -336,8 +337,13 @@ impl Finisher {
         let request = CleanupRequest { context, raw: commanded, style: &self.style, names: &names };
         let result = cleanup.clean(&request);
         let elapsed = started.elapsed();
+        let report = cleanup.last_report();
+        let context = context.to_string();
         match result {
-            Ok(text) => (text, Some(elapsed)),
+            Ok(text) => {
+                self.note_cleaned(vec![id], context, commanded, &text, elapsed, report, false);
+                (text, Some(elapsed))
+            }
             Err(e) => {
                 self.emit(Event::Error { stage: Stage::Cleanup, message: e.to_string() });
                 (commanded.to_string(), Some(elapsed))
@@ -394,8 +400,8 @@ impl Finisher {
         }
     }
 
-    fn take_in_text(&mut self, id: u64, text: String, pause: Option<Duration>) {
-        let text = self.vocabulary.apply(&text);
+    fn take_in_text(&mut self, id: u64, heard: String, pause: Option<Duration>) {
+        let text = self.vocabulary.apply(&heard);
         let (text, pad_action) = self.pad_command(text);
         let mut out = self.pass.apply(&text, self.quote_open);
         let scratches = out.scratch_previous();
@@ -417,6 +423,7 @@ impl Finisher {
         }
         let quote_before = self.quote_open;
         self.quote_open = out.quote_open;
+        self.note_commanded(id, &heard, &text, &out, pad_action.as_ref());
         let long_pause = matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
         if long_pause && self.passage_has_text && !out.text.starts_with('\n') && out.has_words() {
             out.text.insert_str(0, "\n\n");

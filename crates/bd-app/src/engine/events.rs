@@ -81,6 +81,8 @@ impl<U: Ui> Worker<U> {
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
             Event::Pad(view) => self.on_pad_view(view),
+            // For alpha telemetry (not wired yet).
+            Event::Partial { .. } | Event::Commanded { .. } | Event::Cleaned { .. } => {}
             Event::PadSend { text } if self.testing => {
                 tracing::info!(chars = text.chars().count(), "microphone test: pad not typed");
             }

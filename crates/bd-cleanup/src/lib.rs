@@ -36,7 +36,7 @@ use bd_core::{BoxError, Cleanup, CleanupRequest};
 pub use guardrail::{GuardrailVerdict, Rejection, Removal, RemovalReason, Repair};
 pub use http::{HttpChat, HttpConfig};
 #[cfg(feature = "llama")]
-pub use llama::{GpuLayers, LlamaChat, LlamaConfig, ModelInfo, Sampling, shared_backend};
+pub use llama::{Device, GpuLayers, LlamaChat, LlamaConfig, ModelInfo, Sampling, devices, shared_backend};
 pub use prompt::{ChatMessage, PromptOptions, PromptTemplate, Role};
 
 #[derive(Debug, thiserror::Error)]
@@ -232,6 +232,40 @@ impl<B: ChatBackend> Cleanup for GuardedCleanup<B> {
         let text = outcome.text.clone();
         self.last = Some(outcome);
         Ok(text)
+    }
+
+    fn last_report(&self) -> Option<bd_core::CleanupReport> {
+        self.last.as_ref().map(CleanupOutcome::report)
+    }
+}
+
+impl CleanupOutcome {
+    /// The outcome as [`bd_core::CleanupReport`].
+    pub fn report(&self) -> bd_core::CleanupReport {
+        let verdict = match (&self.verdict, &self.repair) {
+            (None, _) => "",
+            (Some(GuardrailVerdict::Accepted { .. }), _) => "accepted",
+            (Some(GuardrailVerdict::Rejected(_)), Some(_)) => "repaired",
+            (Some(GuardrailVerdict::Rejected(_)), None) => "fell_back",
+        };
+        let (reason, removed) = match &self.verdict {
+            Some(GuardrailVerdict::Rejected(r)) => (Some(r.to_string()), Vec::new()),
+            Some(GuardrailVerdict::Accepted { removed }) => (None, removed.iter().map(|r| r.words.clone()).collect()),
+            None => (None, Vec::new()),
+        };
+        let stats = self.stats.clone().unwrap_or_default();
+        bd_core::CleanupReport {
+            model_output: self.model_output.clone(),
+            verdict: verdict.into(),
+            reason,
+            respelled: self.respelled.iter().map(|r| (r.heard.clone(), r.word.clone())).collect(),
+            removed,
+            prompt_tokens: stats.prompt_tokens,
+            reused_tokens: stats.reused_prompt_tokens,
+            generated_tokens: stats.generated_tokens,
+            prefill: stats.prefill,
+            decode: stats.decode,
+        }
     }
 }
 

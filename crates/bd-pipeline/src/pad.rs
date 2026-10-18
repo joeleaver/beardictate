@@ -350,6 +350,13 @@ fn pop_part(parts: &mut Vec<PadPart>) {
     }
 }
 
+impl Batch {
+    /// The segment ids in it.
+    pub fn segments(&self) -> Vec<u64> {
+        self.spans.iter().flat_map(|s| s.segs.iter().map(|g| g.id)).collect()
+    }
+}
+
 fn starts_paragraph(text: &str) -> bool {
     text.trim_start_matches([' ', '\t']).starts_with('\n')
 }
