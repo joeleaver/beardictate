@@ -23,6 +23,9 @@ done
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 target="${CARGO_TARGET_DIR:-$repo/target}"
 features="${BD_FEATURES:-vulkan,pipewire}"
+# Our sherpa-onnx build (v1.13.8 plus Nemotron beam search and hotwords).
+SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" linux)"
+export SHERPA_ONNX_LIB_DIR
 if $build; then
     (cd "$repo" && cargo build --release -p bd-app --features "$features")
 fi
@@ -35,8 +38,8 @@ mkdir -p "$lib" "$bin" "$apps" "$icons"
 
 # The binary finds its shared libraries next to itself ($ORIGIN rpath).
 install -m 755 "$target/release/beardictate" "$lib/beardictate"
-for so in "$target"/release/libsherpa-onnx-*.so "$target"/release/libonnxruntime.so*; do
-    [ -e "$so" ] && install -m 644 "$so" "$lib/"
+for so in "$SHERPA_ONNX_LIB_DIR"/lib{sherpa-onnx-c-api,onnxruntime}.so; do
+    install -m 644 "$so" "$lib/"
 done
 ln -sf "$lib/beardictate" "$bin/beardictate"
 

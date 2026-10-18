@@ -13,6 +13,9 @@ target="${CARGO_TARGET_DIR:-$repo/target}"
 features="${BD_FEATURES:-vulkan,pipewire}"
 version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/Cargo.toml" | head -1)"
 name="beardictate-$version-linux-x86_64"
+# Our sherpa-onnx build (v1.13.8 plus Nemotron beam search and hotwords).
+SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" linux)"
+export SHERPA_ONNX_LIB_DIR
 if [ "${1:-}" != --no-build ]; then
     (cd "$repo" && cargo build --release --locked -p bd-app --features "$features")
 fi
@@ -23,7 +26,7 @@ rm -rf "$stage" "$dist/$name.tar.gz"
 mkdir -p "$stage"
 install -m 755 "$target/release/beardictate" "$stage/"
 strip "$stage/beardictate"
-for so in "$target"/release/libsherpa-onnx-c-api.so "$target"/release/libonnxruntime.so*; do
+for so in "$SHERPA_ONNX_LIB_DIR"/lib{sherpa-onnx-c-api,onnxruntime}.so; do
     install -m 644 "$so" "$stage/"
 done
 install -m 644 "$repo/packaging/linux/beardictate.desktop" "$stage/"

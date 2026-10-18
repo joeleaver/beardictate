@@ -121,6 +121,42 @@ $B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases
   sherpa's build script copies `libsherpa-onnx-c-api.so` and
   `libonnxruntime.so` (DLLs on Windows) next to the binary; `bd-cli/build.rs`
   sets rpath `$ORIGIN`. **Packaging must ship those libraries with the app.**
+- **Releases link our own sherpa-onnx build** (2026-10-18): v1.13.8 plus
+  upstream PR #3895 (`scripts/sherpa-onnx-3895.patch`, its `sherpa-onnx/csrc`
+  part only), which adds `modified_beam_search`, and so hotwords, to the
+  streaming NeMo transducer (Nemotron). Stock 1.13.8 rejects it with
+  "Unsupported decoding method". The C API is untouched: the same 173
+  `SherpaOnnx*` exports, the same onnxruntime 1.28.2 bytes, the same imports
+  (Windows: static CRT, like upstream's shared-MT build). Master is not
+  usable: it added a trailing field to `SherpaOnnxOfflineRecognizerConfig`,
+  which the 1.13.8 crate would misread.
+  - `scripts/build-sherpa-onnx.sh linux|windows` clones v1.13.8, applies the
+    patch and builds just the shared libraries into
+    `$CARGO_TARGET_DIR/sherpa-onnx/v1.13.8-bd1-<linux-x64|win-x64>/lib`,
+    laid out like the crate's prebuilt download, and prints that folder.
+    It skips the build when the folder exists, and a failed build resumes.
+    Linux builds in upstream's release container
+    (`quay.io/pypa/manylinux2014_x86_64`, gcc 10, glibc 2.17), so it needs
+    docker. Windows uses cargo-xwin's clang-cl toolchain
+    (it needs ninja and LLVM, like the cross-build). Each takes a few minutes.
+    Bump `build_id` in the script when the patch or the options change.
+  - `install-linux.sh`, `package-linux.sh` and `cross-build-windows.sh` run
+    it, export `SHERPA_ONNX_LIB_DIR`, and copy the sherpa-onnx and
+    onnxruntime libraries from that folder, not from `target/release`.
+    (A later plain `cargo build` re-runs sherpa-onnx-sys's build script,
+    which puts the stock libraries back in `target/release`.)
+  - A plain `cargo build`, CI and the native `package-windows.ps1` build
+    still use the stock 1.13.8 download. Nemotron decodes greedily there,
+    and beam search fails. To develop Nemotron hotwords:
+    `export SHERPA_ONNX_LIB_DIR="$(scripts/build-sherpa-onnx.sh linux)"`.
+  - Checked 2026-10-18. Parakeet Unified `bd file --cleanup off` gave
+    byte-identical text with our libraries and with stock, with and
+    without `--words`, on 18 clips on Linux and 5 on NICO-TOP. Nemotron 1120 ms
+    int8 with `modified_beam_search` and hotwords decoded on both
+    ("Berdictate" became "beardictate").
+  - Drop all of this when a sherpa-onnx release includes #3895 and the
+    crate is updated to it. Check that release's C API structs against the
+    crate first.
 - `--words FILE` turns on hotwords (`ParakeetConfig::hotword_boost`, beam
   search, per-stream word list) and the fix-up list. Not yet in the cleanup
   prompt: the guardrail already stops the model changing those words.

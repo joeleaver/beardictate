@@ -8,6 +8,7 @@
 #
 # Needs cargo-xwin, LLVM (clang-cl, lld-link, llvm-lib, llvm-dlltool,
 # llvm-readobj) and ninja on PATH, plus what windows-vulkan-sdk.sh needs.
+# The first run also builds sherpa-onnx (build-sherpa-onnx.sh windows).
 # VULKAN_SDK, when set, names a stand-in SDK made by that script; otherwise
 # one is made under the target folder. CARGO_TARGET_DIR is honoured.
 set -euo pipefail
@@ -19,6 +20,11 @@ if [ -z "${VULKAN_SDK:-}" ]; then
     export VULKAN_SDK="$target/vulkan-sdk-windows"
     "$repo/scripts/windows-vulkan-sdk.sh" "$VULKAN_SDK"
 fi
+
+# Our sherpa-onnx build (v1.13.8 plus Nemotron beam search and hotwords;
+# static C runtime, like upstream's shared-MT build).
+SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" windows)"
+export SHERPA_ONNX_LIB_DIR
 
 # llama.cpp's DLLs hand C runtime objects to each other (a FILE* from
 # ggml_fopen), so they must share one C runtime: the DLL one (/MD), unlike
@@ -48,7 +54,8 @@ test -n "$out" || { echo "no vulkan-dl build of llama.cpp in $release" >&2; exit
 
 rm -rf "$stage"
 mkdir -p "$stage"
-cp "$release"/{beardictate.exe,bd.exe,sherpa-onnx-c-api.dll,onnxruntime.dll,onnxruntime_providers_shared.dll} "$stage/"
+cp "$release"/{beardictate.exe,bd.exe} "$stage/"
+cp "$SHERPA_ONNX_LIB_DIR"/{sherpa-onnx-c-api,onnxruntime,onnxruntime_providers_shared}.dll "$stage/"
 # llama.cpp's libraries (not llama-common.dll, which nothing here imports)
 # and its backends: ggml-cpu-<variant>.dll for each x86 level, ggml-vulkan.dll.
 cp "$out"/bin/{llama,ggml,ggml-base}.dll "$out"/backends/*.dll "$stage/"
