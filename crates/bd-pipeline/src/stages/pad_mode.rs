@@ -150,6 +150,14 @@ impl Finisher {
         self.pad_emit();
     }
 
+    /// A streaming recognizer's text so far, shown at the end of the pad.
+    pub(super) fn pad_live(&mut self, text: &str) {
+        let Some(mode) = self.pad.as_mut() else { return };
+        mode.pad.set_live(text);
+        mode.last_heard = Instant::now();
+        self.pad_emit();
+    }
+
     /// "Scratch that": see [`Pad::undo`].
     pub(super) fn pad_undo(&mut self) -> Option<bool> {
         let quote = self.pad.as_mut()?.pad.undo(self.quote_open);

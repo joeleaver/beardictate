@@ -64,6 +64,12 @@ pub struct DictateArgs {
     /// "bear, send it", and for `bd file` at the end of each file.
     #[arg(long)]
     pub pad: bool,
+    /// Stream: Nemotron transcribes as you speak, and the words are typed
+    /// as they come (with --pad, shown in the pad), with no cleanup. The
+    /// text as typed is printed on stderr at the end, since stdout can't
+    /// take text back.
+    #[arg(long)]
+    pub stream: bool,
 }
 
 #[derive(Debug, Args)]
@@ -103,15 +109,20 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
     };
     let store = bd_models::Store::from_env()?;
     let segmenter = setup::load_segmenter(&store)?;
-    let asr = setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?;
-    let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
+    let asr = if args.stream {
+        let asr = setup::load_streaming_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?;
+        bd_pipeline::Recognizer::Live(Box::new(asr))
+    } else {
+        bd_pipeline::Recognizer::Segments(Box::new(setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?))
+    };
+    let cleanup = if args.stream && !args.pad { None } else { setup::load_cleanup(&args.cleanup, &store)? };
     match &cleanup {
         Some(c) => eprintln!("cleanup: {}", c.description),
         None => eprintln!("cleanup: off (ASR text with spoken commands applied)"),
     }
     let parts = Parts {
         segmenter: Box::new(segmenter),
-        asr: Box::new(asr),
+        asr,
         cleanup: cleanup.map(|c| Box::new(c.engine) as _),
     };
     let mut style = args.style.style();
@@ -131,6 +142,10 @@ struct Reporter {
     /// Trailing spaces not yet printed: stdout can't take one back before
     /// a break or a closing mark, so they wait for the next text.
     pending: std::cell::Cell<usize>,
+    /// The text as typed, take-backs and erasures applied.
+    page: std::cell::RefCell<String>,
+    /// Print the page at each session's end.
+    show_page: bool,
 }
 
 /// What a pipeline event asks of the focused window.
@@ -144,6 +159,23 @@ impl Reporter {
     /// Handles one event; returns what to do in the focused window, if
     /// anything.
     fn report(&self, event: &Event) -> Option<Output> {
+        match event {
+            Event::Text { take_back, text, .. } => {
+                let mut page = self.page.borrow_mut();
+                for _ in 0..*take_back {
+                    page.pop();
+                }
+                page.push_str(text);
+            }
+            Event::Erase { text, .. } => {
+                let mut page = self.page.borrow_mut();
+                for _ in text.chars() {
+                    page.pop();
+                }
+            }
+            Event::SessionEnded if self.show_page => eprintln!("\n--- as typed ---\n{}\n---", self.page.borrow().trim_end()),
+            _ => {}
+        }
         match event {
             Event::Transcribed { id, text, audio, pause, elapsed, .. } if self.verbose => {
                 let pause = pause.map_or(String::new(), |p| format!(" after {:.1}s pause", p.as_secs_f32()));
@@ -197,7 +229,7 @@ impl Reporter {
 pub fn file(args: &FileArgs) -> Result<()> {
     let audio: Vec<Vec<f32>> = args.wavs.iter().map(|p| read_wav(p)).collect::<Result<_>>()?;
     let pipeline = spawn_pipeline(&args.dictate)?;
-    let reporter = Reporter { verbose: args.dictate.verbose, pending: Default::default() };
+    let reporter = Reporter { verbose: args.dictate.verbose, pending: Default::default(), page: Default::default(), show_page: args.dictate.stream && !args.dictate.pad };
     let mut injector = if args.inject {
         let mut injector = PlatformInjector::new(InjectorConfig::default())?;
         injector.prepare()?;
@@ -367,7 +399,7 @@ fn spawn_output(events: Receiver<Event>, verbose: bool, inject: bool) -> Result<
             let _ = ready_tx.send(Ok("none"));
             None
         };
-        let reporter = Reporter { verbose, pending: Default::default() };
+        let reporter = Reporter { verbose, pending: Default::default(), page: Default::default(), show_page: false };
         for event in events {
             let Some(output) = reporter.report(&event) else { continue };
             let Some(injector) = injector.as_mut() else { continue };

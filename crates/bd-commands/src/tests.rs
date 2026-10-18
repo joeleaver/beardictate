@@ -2,7 +2,7 @@
 
 use bd_core::{QuoteStyle, Style};
 
-use crate::{ActionKind, CommandConfig, CommandPass};
+use crate::{ActionKind, CommandConfig, CommandPass, command_tail};
 
 fn pass() -> CommandPass {
     CommandPass::default()
@@ -224,4 +224,18 @@ fn speech_running_on_into_a_new_paragraph() {
     assert_eq!(pass().apply("It rose. New paragraph. Open quote, gone.", true).text, "It rose.\n\n\u{201C}Gone.");
     // Outside a quotation a break is just a break.
     assert_eq!(pass().apply("It ended. New paragraph. Morning came.", false).text, "It ended.\n\nMorning came.");
+}
+
+#[test]
+fn the_tail_that_may_still_be_a_command_is_held() {
+    let c = CommandConfig::default();
+    let tail = |s: &str| command_tail(&s.split_whitespace().collect::<Vec<_>>(), &c);
+    assert_eq!(tail("It was late. New"), 1);
+    assert_eq!(tail("It was late. New paragraph."), 2, "complete, but the next word decides");
+    assert_eq!(tail("and then, end of"), 2);
+    assert_eq!(tail("she said open"), 1);
+    assert_eq!(tail("It was late."), 0);
+    assert_eq!(tail("a period"), 0, "literal punctuation is off by default");
+    let lit = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
+    assert_eq!(command_tail(&["a", "period"], &lit), 1);
 }

@@ -57,6 +57,21 @@ impl Default for CommandConfig {
     }
 }
 
+/// How many of the last `words` (as the ASR wrote them) to hold back while
+/// dictation streams in: the trailing run that could still turn out to be a
+/// spoken command once the next word arrives. 0 when none could.
+pub fn command_tail(words: &[&str], config: &CommandConfig) -> usize {
+    let plain: Vec<String> = words
+        .iter()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .collect();
+    let plain: Vec<&str> = plain.iter().map(String::as_str).collect();
+    (1..=plain.len().min(3))
+        .rev()
+        .find(|&n| rules::may_start_command(&plain[plain.len() - n..], config.literal_punctuation))
+        .unwrap_or(0)
+}
+
 /// The result of running the pass over one segment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {

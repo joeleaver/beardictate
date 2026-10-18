@@ -228,15 +228,44 @@ starts dictating, then stops both.
 once the models load, the microphone comes on and typing is awake. The
 tray shows a violet dot while models load: nothing to do but wait.
 
-## Bear Pad (optional)
+## Modes
 
-Off by default; a switch on the General page and in the tray menu
-(`bear_pad`). Dictation collects in a small floating pad instead of being
-typed, and goes to the focused app in one piece on "bear, send it" (or the
-pad's Send button).
+Four ways for dictation to reach the page (`mode`; a radio group on the
+General page and in the tray menu; Joe, 2026-10-18):
 
-- **Raw first, then cleaned.** Each segment shows in the pad as soon as it's
-  heard (commands applied), in grey italics. The cleanup model runs on the
+| Mode | Recognizer | Where words go | Cleanup |
+|---|---|---|---|
+| Classic (default) | Parakeet, a finished segment at a time | typed into the app per sentence | yes |
+| Streaming | Nemotron, as you speak | typed into the app as you speak | no |
+| Bear Pad, streaming | Nemotron | the pad, as you speak | no |
+| Bear Pad, author | Nemotron | the pad, as you speak | yes, in the pad |
+
+- **Nemotron** (`asr-nemotron-speech-streaming-en-0.6b-560ms-int8`, not
+  required, downloaded from the General page when a streaming mode is
+  chosen) is fed live from the VAD: a stream starts at speech onset with the
+  audio from just before it and ends with the segment (`Segmenter::accept_live`,
+  `bd_core::StreamingAsr`), so it only runs while you speak. 560 ms chunks:
+  the best accuracy on Joe's microphone and words about every half second;
+  160 ms couldn't keep up on the CPU, Nemotron 3.5 (multilingual) was worse.
+  sherpa-onnx 1.13.8 has no beam search for it, so no hotwords until a build
+  with sherpa-onnx#3895 (feature `nemotron-hotwords`).
+- **Typing as you speak** (`stages/live_type.rs`): each update types only
+  the words that can't change: not the one still being spoken, not a
+  trailing run that may be a command ("new" before "paragraph"), not a
+  "bear, …" sentence with voice wake on. When a later word changes how
+  earlier ones read, the page is taken back to where they differ and typed
+  again. At a pause an utterance ending on a letter gets a full stop
+  (Nemotron often leaves it off).
+- Older settings with `bear_pad = true` become Bear Pad, author.
+
+## Bear Pad
+
+Dictation collects in a small floating pad instead of being typed, and goes
+to the focused app in one piece on "bear, send it" (or the pad's Send
+button).
+
+- **Raw first, then cleaned.** The words show in the pad as they're spoken,
+  in grey italics, and each finished utterance stays there raw. The cleanup model runs on the
   pad, on a thread of its own, when the speaker pauses (1.5 s for finished
   sentences, 5 s for an unfinished one): it cleans the whole paragraph being
   dictated, already-clean part included, so a later sentence can still fix

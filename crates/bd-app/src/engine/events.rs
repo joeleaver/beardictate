@@ -34,8 +34,11 @@ impl<U: Ui> Worker<U> {
                 }
                 self.publish();
             }
+            Event::Erase { id, text } if self.testing => {
+                tracing::info!(segment = id, chars = text.chars().count(), "microphone test: not erased");
+            }
             Event::Erase { id, text } => {
-                tracing::info!(segment = id, chars = text.chars().count(), "erasing (scratch that)");
+                tracing::info!(segment = id, chars = text.chars().count(), "erasing");
                 let _ = self.type_text.send(TypeJob::Erase(text));
             }
             Event::ScratchTooLate => {

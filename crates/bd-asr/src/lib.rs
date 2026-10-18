@@ -11,9 +11,11 @@
 //! models were downloaded.
 
 mod hotwords;
+mod nemotron;
 mod parakeet;
 mod segmenter;
 
+pub use nemotron::{NemotronAsr, NemotronConfig};
 pub use parakeet::{ParakeetAsr, ParakeetConfig};
 pub use segmenter::{Segmenter, SegmenterConfig};
 

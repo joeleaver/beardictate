@@ -58,7 +58,7 @@ fn parse_gpu_layers(s: &str) -> Result<GpuLayers, String> {
     }
 }
 
-pub use bd_pipeline::setup::{LoadedCleanup, load_asr, load_segmenter};
+pub use bd_pipeline::setup::{LoadedCleanup, load_asr, load_segmenter, load_streaming_asr};
 
 /// Loads the cleanup model the options name. `Ok(None)` means cleanup is
 /// off.

@@ -40,6 +40,16 @@ impl Gate {
         }
     }
 
+    /// Voice wake is on.
+    pub fn on(&self) -> bool {
+        self.on
+    }
+
+    /// Segments are delivered (always, with voice wake off).
+    pub fn awake(&self) -> bool {
+        self.awake
+    }
+
     /// A transcribed segment.
     pub fn pass(&mut self, text: String) -> Step {
         if !self.on {

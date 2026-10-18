@@ -41,9 +41,15 @@ pub fn speech() -> Vec<&'static ModelEntry> {
     Manifest::builtin().models.iter().filter(|m| m.required && m.available).collect()
 }
 
-/// Every model the manager tracks: the speech models, then the catalog.
+/// The streaming recognizer, downloaded when a mode that streams is chosen.
+pub fn streaming() -> &'static ModelEntry {
+    Manifest::builtin().get(bd_pipeline::setup::STREAMING_ASR_MODEL).expect("in the catalog")
+}
+
+/// Every model the manager tracks: the speech models, the streaming
+/// recognizer, then the catalog.
 fn tracked() -> impl Iterator<Item = &'static ModelEntry> {
-    speech().into_iter().chain(catalog())
+    speech().into_iter().chain([streaming()]).chain(catalog())
 }
 
 /// The speech models not yet downloaded and verified.

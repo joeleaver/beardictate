@@ -36,7 +36,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use bd_commands::CommandConfig;
-use bd_core::{Asr, AudioSegment, BoxError, Cleanup, Style};
+use bd_core::{Asr, AudioSegment, BoxError, Cleanup, LiveAudio, StreamingAsr, Style};
 use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
@@ -51,6 +51,21 @@ pub trait Segmenting: Send {
     /// Ends the dictation session: returns the utterance in progress, if
     /// any, and starts the next session's numbering from 0.
     fn flush(&mut self) -> Vec<AudioSegment>;
+
+    /// [`accept`](Self::accept) for a streaming recognizer: the default
+    /// hands out each finished utterance whole.
+    fn accept_live(&mut self, samples: &[f32]) -> Vec<LiveAudio> {
+        whole(self.accept(samples))
+    }
+
+    /// [`flush`](Self::flush) for [`accept_live`](Self::accept_live).
+    fn flush_live(&mut self) -> Vec<LiveAudio> {
+        whole(self.flush())
+    }
+}
+
+fn whole(segments: Vec<AudioSegment>) -> Vec<LiveAudio> {
+    segments.into_iter().flat_map(|s| [LiveAudio::Start(s.samples.clone()), LiveAudio::End(s)]).collect()
 }
 
 impl Segmenting for bd_asr::Segmenter {
@@ -61,12 +76,31 @@ impl Segmenting for bd_asr::Segmenter {
     fn flush(&mut self) -> Vec<AudioSegment> {
         bd_asr::Segmenter::flush(self)
     }
+
+    fn accept_live(&mut self, samples: &[f32]) -> Vec<LiveAudio> {
+        bd_asr::Segmenter::accept_live(self, samples)
+    }
+
+    fn flush_live(&mut self) -> Vec<LiveAudio> {
+        bd_asr::Segmenter::flush_live(self)
+    }
+}
+
+/// The speech recognizer a pipeline runs.
+pub enum Recognizer {
+    /// A finished segment at a time (Parakeet): text arrives when the
+    /// speaker pauses.
+    Segments(Box<dyn Asr>),
+    /// As the speaker talks (Nemotron): with [`PipelineConfig::pad`] off,
+    /// the words are typed as they come, with no cleanup; with it on, they
+    /// show in the pad.
+    Live(Box<dyn StreamingAsr>),
 }
 
 /// The stages a pipeline runs. Each moves onto its own thread.
 pub struct Parts {
     pub segmenter: Box<dyn Segmenting>,
-    pub asr: Box<dyn Asr>,
+    pub asr: Recognizer,
     /// `None` runs without a cleanup model: ASR text with spoken commands
     /// applied.
     pub cleanup: Option<Box<dyn Cleanup>>,

@@ -184,10 +184,13 @@ pub fn tray_menu(shared: &Shared) -> Menu {
         menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
     }
 
-    // Checked while Bear Pad is on; a click flips the mark, then saves it.
-    let pad = Signal::new(shared.settings.with(|st| st.bear_pad));
-    let s = shared.clone();
-    menu = menu.item(MenuItem::checkbox("Bear Pad", pad).on_click(move || change(&s, |st| st.bear_pad = pad.get())));
+    // The mode: a radio group; a click moves the mark, then saves it.
+    let mode = Signal::new(shared.settings.with(|st| st.mode));
+    menu = menu.separator();
+    for m in crate::settings::Mode::ALL {
+        let s = shared.clone();
+        menu = menu.item(MenuItem::radio(m.label(), mode, m).on_click(move || change(&s, |st| st.mode = mode.get())));
+    }
 
     let open_settings = {
         let s = shared.clone();

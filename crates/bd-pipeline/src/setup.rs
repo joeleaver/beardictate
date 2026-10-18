@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use bd_asr::{ParakeetAsr, ParakeetConfig, Segmenter, SegmenterConfig};
+use bd_asr::{NemotronAsr, NemotronConfig, ParakeetAsr, ParakeetConfig, Segmenter, SegmenterConfig};
 use bd_cleanup::prompt::DEFAULT_TEMPLATE;
 use bd_cleanup::{
     CleanupError, CleanupOutcome, GpuLayers, HttpChat, HttpCleanup, HttpConfig, LlamaChat, LlamaCleanup, LlamaConfig,
@@ -13,6 +13,8 @@ use bd_core::{BoxError, Cleanup, CleanupRequest};
 use bd_models::{Manifest, ModelEntry, ModelKind, ModelStatus, Store};
 
 pub const ASR_MODEL: &str = "asr-parakeet-unified-en-0.6b-int8";
+/// The streaming recognizer, for the modes that show words as you speak.
+pub const STREAMING_ASR_MODEL: &str = "asr-nemotron-speech-streaming-en-0.6b-560ms-int8";
 pub const VAD_MODEL: &str = "vad-silero";
 
 /// Which cleanup model to run.
@@ -201,6 +203,17 @@ pub fn load_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<Parake
     let asr = ParakeetAsr::new(&dir, &config).with_context(|| format!("loading ASR from {}", dir.display()))?;
     asr.set_hotwords(hotwords)?;
     asr.set_hotword_boost(boost)?;
+    Ok(asr)
+}
+
+/// The streaming recognizer, listening for `hotwords` where the build can.
+pub fn load_streaming_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<NemotronAsr> {
+    use bd_core::StreamingAsr;
+    required(store, STREAMING_ASR_MODEL)?;
+    let dir = store.model_dir(STREAMING_ASR_MODEL);
+    let config = NemotronConfig { hotword_boost: Some(DEFAULT_HOTWORD_BOOST), ..NemotronConfig::default() };
+    let mut asr = NemotronAsr::new(&dir, &config).with_context(|| format!("loading ASR from {}", dir.display()))?;
+    asr.set_hotwords(hotwords, boost).map_err(|e| anyhow!("{e}"))?;
     Ok(asr)
 }
 

@@ -63,6 +63,17 @@ pub(crate) fn is_command_phrase(words: &[&str]) -> bool {
     PHRASES.iter().any(|ph| ph.words == words)
 }
 
+/// Whether `words` (lowercase, no marks) could still turn out to be a
+/// command when more words follow: they begin a command phrase, or are one
+/// (whose context rules look at the word after it).
+pub(crate) fn may_start_command(words: &[&str], literal_punctuation: bool) -> bool {
+    !words.is_empty()
+        && PHRASES
+            .iter()
+            .filter(|ph| literal_punctuation || !ph.opt_in)
+            .any(|ph| ph.words.len() >= words.len() && ph.words[..words.len()] == *words)
+}
+
 /// Words that, directly before `open quote` / `end quote`, make it a noun
 /// phrase ("the open quote", "an end quote") rather than a command. Kept
 /// short on purpose: "told her open quote …" is a command.

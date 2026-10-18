@@ -3,7 +3,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use bd_core::{AudioSegment, SAMPLE_RATE};
+use bd_core::{AudioSegment, LiveAudio, SAMPLE_RATE};
 use sherpa_onnx::{SileroVadModelConfig, VadModelConfig, VoiceActivityDetector};
 
 use crate::{AsrError, existing};
@@ -81,6 +81,9 @@ pub struct Segmenter {
     /// Set by a forced cut: where its continuation must start.
     carry_from: Option<u64>,
     seq: u64,
+    /// With [`Segmenter::accept_live`]: how far the utterance in progress
+    /// has been handed out live; `None` when none is.
+    live_from: Option<u64>,
 }
 
 impl Segmenter {
@@ -125,11 +128,77 @@ impl Segmenter {
             last_speech: 0,
             carry_from: None,
             seq: 0,
+            live_from: None,
         })
     }
 
     /// Feeds 16 kHz mono samples; returns any utterances that ended.
     pub fn accept(&mut self, samples: &[f32]) -> Vec<AudioSegment> {
+        let out = self.take(samples);
+        self.trim();
+        out
+    }
+
+    /// [`accept`](Self::accept) for a streaming recognizer: speech as it
+    /// happens. An utterance starts with its audio from just before the
+    /// detected speech ([`LiveAudio::Start`]), goes on as audio arrives, and
+    /// ends with the same segment [`accept`](Self::accept) would return.
+    pub fn accept_live(&mut self, samples: &[f32]) -> Vec<LiveAudio> {
+        let segments = self.take(samples);
+        let out = self.live(segments);
+        self.trim();
+        out
+    }
+
+    /// [`flush`](Self::flush) for [`accept_live`](Self::accept_live).
+    pub fn flush_live(&mut self) -> Vec<LiveAudio> {
+        let segments = self.finish();
+        let mut out = self.live(segments);
+        if self.live_from.take().is_some() {
+            out.push(LiveAudio::Drop);
+        }
+        self.reset();
+        out
+    }
+
+    fn live(&mut self, segments: Vec<AudioSegment>) -> Vec<LiveAudio> {
+        let mut out = Vec::new();
+        for seg in segments {
+            let end = seg.start_sample + seg.samples.len() as u64;
+            match self.live_from.take() {
+                Some(from) if end > from => out.push(LiveAudio::More(self.slice(from, end))),
+                Some(_) => {}
+                None => out.push(LiveAudio::Start(seg.samples.clone())),
+            }
+            out.push(LiveAudio::End(seg));
+        }
+        let pad = dur_samples(self.config.padding) as u64;
+        match (self.run_start, self.live_from) {
+            (Some(start), None) => {
+                let from = start.saturating_sub(pad).max(self.emitted_until).max(self.base);
+                if self.pos > from {
+                    out.push(LiveAudio::Start(self.slice(from, self.pos)));
+                    self.live_from = Some(self.pos);
+                }
+            }
+            (Some(_), Some(from)) if self.pos > from => {
+                out.push(LiveAudio::More(self.slice(from, self.pos)));
+                self.live_from = Some(self.pos);
+            }
+            (None, Some(_)) => {
+                self.live_from = None;
+                out.push(LiveAudio::Drop);
+            }
+            _ => {}
+        }
+        out
+    }
+
+    fn slice(&self, from: u64, to: u64) -> Vec<f32> {
+        self.buf[(from - self.base) as usize..(to - self.base) as usize].to_vec()
+    }
+
+    fn take(&mut self, samples: &[f32]) -> Vec<AudioSegment> {
         let mut out = Vec::new();
         let mut rest = samples;
         while !rest.is_empty() {
@@ -143,13 +212,19 @@ impl Segmenter {
                 self.partial.clear();
             }
         }
-        self.trim();
         out
     }
 
     /// Ends the session: returns the utterance in progress (if any speech
     /// was detected) and resets, so the next segment is `seq` 0 again.
     pub fn flush(&mut self) -> Vec<AudioSegment> {
+        let out = self.finish();
+        self.reset();
+        out
+    }
+
+    /// The utterance in progress, ended; no reset.
+    fn finish(&mut self) -> Vec<AudioSegment> {
         let mut out = Vec::new();
         if !self.partial.is_empty() {
             let tail = std::mem::take(&mut self.partial);
@@ -159,7 +234,6 @@ impl Segmenter {
         }
         self.vad.flush();
         self.collect(&mut out);
-        self.reset();
         out
     }
 
@@ -176,6 +250,7 @@ impl Segmenter {
         self.last_speech = 0;
         self.carry_from = None;
         self.seq = 0;
+        self.live_from = None;
     }
 
     fn feed_window(&mut self, window: &[f32], out: &mut Vec<AudioSegment>) {

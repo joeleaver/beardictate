@@ -51,6 +51,38 @@ pub trait Asr: Send {
     }
 }
 
+/// Speech-to-text as the speaker talks: one utterance at a time, fed audio
+/// as it arrives, with the text so far after each piece.
+pub trait StreamingAsr: Send {
+    /// Starts an utterance, dropping any unfinished one.
+    fn start(&mut self) -> Result<(), BoxError>;
+
+    /// Feeds 16 kHz mono samples of the current utterance. Returns the whole
+    /// utterance's text so far when it changed.
+    fn feed(&mut self, samples: &[f32]) -> Result<Option<String>, BoxError>;
+
+    /// Ends the utterance and returns its final text.
+    fn finish(&mut self) -> Result<String, BoxError>;
+
+    /// As [`Asr::set_hotwords`], from the next utterance.
+    fn set_hotwords(&mut self, _words: &[String], _boost: f32) -> Result<(), BoxError> {
+        Ok(())
+    }
+}
+
+/// Audio for a [`StreamingAsr`], as the segmenter hears it.
+#[derive(Debug, Clone)]
+pub enum LiveAudio {
+    /// Speech began: an utterance's audio so far, from just before it.
+    Start(Vec<f32>),
+    /// More of the utterance.
+    More(Vec<f32>),
+    /// The utterance ended; the same audio as one finished segment.
+    End(AudioSegment),
+    /// What looked like speech never became an utterance.
+    Drop,
+}
+
 /// What the cleanup model is asked to do with one segment.
 #[derive(Debug, Clone)]
 pub struct CleanupRequest<'a> {

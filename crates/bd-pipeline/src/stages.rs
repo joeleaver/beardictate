@@ -12,6 +12,7 @@ use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::gain::InputGain;
 mod gate;
+mod live_type;
 mod segment;
 mod transcribe;
 mod noise;
@@ -20,7 +21,7 @@ mod pad_voice;
 mod wake;
 
 use gate::{Gate, Step};
-use crate::{Event, Input, PadAction, Parts, PipelineConfig, Stage};
+use crate::{Event, Input, PadAction, Parts, PipelineConfig, Recognizer, Stage};
 use pad_mode::PadMode;
 
 /// From the segmenter to the ASR.
@@ -32,6 +33,9 @@ enum Cut {
     Reconfigure(Box<PipelineConfig>),
     Awake(bool),
     Pad(PadAction),
+    /// A live utterance's audio (see [`bd_core::LiveAudio`]), its id, and
+    /// the input gain it was raised by.
+    Live(u64, bd_core::LiveAudio, f32),
 }
 
 /// From the ASR to the finisher.
@@ -39,6 +43,9 @@ enum Heard {
     /// A transcript, with the silence before it in this session (`None` for
     /// a session's first segment).
     Text { id: u64, text: String, pause: Option<Duration> },
+    /// A streaming recognizer's text so far for utterance `id`; empty when
+    /// it turned out not to be speech.
+    Partial { id: u64, text: String },
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
@@ -55,13 +62,17 @@ pub(crate) fn spawn(
     let (cut_tx, cut_rx) = unbounded();
     let (heard_tx, heard_rx) = unbounded();
     let Parts { segmenter, asr, cleanup } = parts;
+    let live = matches!(asr, Recognizer::Live(_));
     let asr_events = events.clone();
     let gain = InputGain::new(config.input_gain, config.auto_gain);
     let learner = gain.clone();
-    let finisher = Finisher::new(cleanup, config, events);
+    let finisher = Finisher::new(cleanup, config, events, live);
     Ok(vec![
-        thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain))?,
-        thread::Builder::new().name("bd-asr".into()).spawn(move || transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner))?,
+        thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live))?,
+        thread::Builder::new().name("bd-asr".into()).spawn(move || match asr {
+            Recognizer::Segments(asr) => transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner),
+            Recognizer::Live(asr) => transcribe::live(asr, cut_rx, heard_tx, asr_events, learner),
+        })?,
         thread::Builder::new().name("bd-finish".into()).spawn(move || finisher.run(heard_rx))?,
     ])
 }
@@ -83,6 +94,8 @@ enum Item {
     Wake,
     /// Voice wake went to sleep here.
     Sleep,
+    /// A streaming recognizer's text so far (see [`Heard::Partial`]).
+    Partial(u64, String),
 }
 
 impl Pending {
@@ -155,10 +168,14 @@ struct Finisher {
     gate: Gate,
     /// Bear Pad mode ([`PipelineConfig::pad`]).
     pad: Option<PadMode>,
+    /// The recognizer streams: its text so far arrives as [`Item::Partial`].
+    live: bool,
+    /// Outside the pad, the live utterance being typed as it's spoken.
+    typing: Option<live_type::Typing>,
 }
 
 impl Finisher {
-    fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>) -> Self {
+    fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>, live: bool) -> Self {
         let pad = config.pad;
         let mut finisher = Self {
             vocabulary: config.vocabulary,
@@ -177,6 +194,8 @@ impl Finisher {
             blank_line_paragraphs: config.blank_line_paragraphs,
             gate: Gate::new(config.voice_wake),
             pad: None,
+            live,
+            typing: None,
         };
         finisher.set_pad(pad);
         finisher
@@ -228,11 +247,16 @@ impl Finisher {
                 self.emit(Event::Slept);
             }
             Item::Segment(p) => self.finish(p, input),
+            Item::Partial(id, text) => self.partial(id, &text),
         }
     }
 
     /// Whether everything queued is one sentence still being spoken.
     fn waiting_for_rest(&self) -> bool {
+        // Live text is on the page already: each utterance is finished alone.
+        if self.live {
+            return false;
+        }
         let mut segments = self.queue.iter().enumerate().map(|(i, item)| match item {
             Item::Segment(p) if i == 0 || p.continues() => Some(p),
             _ => None,
@@ -248,7 +272,7 @@ impl Finisher {
     fn pop_sentence(&mut self) -> Option<Item> {
         let mut item = self.queue.pop_front()?;
         if let Item::Segment(p) = &mut item {
-            while !p.ends_sentence() {
+            while !self.live && !p.ends_sentence() {
                 let Some(Item::Segment(next)) = self.queue.front() else { break };
                 if !next.continues() {
                     break;
@@ -277,6 +301,7 @@ impl Finisher {
             return;
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
+        let base = self.composer.context().to_string();
         let (take_back, text) = self.composer.append(&text);
         if take_back > 0
             && let Some(last) = self.typed.last_mut()
@@ -285,6 +310,9 @@ impl Finisher {
             for _ in 0..take_back {
                 last.text.pop();
             }
+        }
+        if self.live {
+            return self.typed_live(p.id, p.quote_before, &base, take_back, text);
         }
         if text.is_empty() {
             tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
@@ -325,9 +353,11 @@ impl Finisher {
 
     fn take_in(&mut self, heard: Heard) {
         let (id, text, pause) = match heard {
+            Heard::Text { id, text, pause } if self.live => (id, live_type::end_sentence(text), pause),
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
+            Heard::Partial { id, text } => return self.queue.push_back(Item::Partial(id, text)),
             Heard::Pad(action) => return self.pad_action(action),
             Heard::Awake(awake) => {
                 let step = self.gate.set(awake);
@@ -394,7 +424,10 @@ impl Finisher {
         if out.has_words() {
             self.passage_has_text = true;
         }
-        if !out.text.is_empty() {
+        // Live text may be on the page already: an utterance that comes to
+        // nothing still has to take it back.
+        let typed_live = self.live && self.pad.is_none();
+        if !out.text.is_empty() || typed_live {
             if self.pad.is_some() {
                 self.pad_push(id, out.text, quote_before);
             } else {
@@ -431,9 +464,10 @@ impl Finisher {
             match &self.queue[i] {
                 Item::NewPassage => return None,
                 Item::EndSession | Item::Sleep => crossed_session = true,
-                Item::Wake => {}
+                Item::Wake | Item::Partial(..) => {}
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
+                    self.untype(p.id);
                     self.emit(Event::Scratched { id: p.id });
                     return Some(p.quote_before);
                 }

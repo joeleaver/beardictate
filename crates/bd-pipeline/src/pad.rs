@@ -114,6 +114,8 @@ pub(crate) struct Batch {
 pub(crate) struct Pad {
     spans: Vec<Span>,
     history: Vec<Change>,
+    /// A streaming recognizer's text for the utterance still being spoken.
+    live: String,
 }
 
 impl Pad {
@@ -125,8 +127,15 @@ impl Pad {
         self.spans.iter().any(|s| s.cleaned.is_none())
     }
 
+    /// Shows the utterance being spoken after the pad's text, until it's
+    /// [`pushed`](Self::push). Empty clears it.
+    pub fn set_live(&mut self, text: &str) {
+        text.clone_into(&mut self.live);
+    }
+
     /// Adds a segment, raw. `text` is after the command pass.
     pub fn push(&mut self, id: u64, text: String, quote_before: bool) {
+        self.live.clear();
         if text.trim().is_empty() && !text.contains('\n') {
             return;
         }
@@ -198,7 +207,7 @@ impl Pad {
     /// Everything in the pad, ready to send; the pad is left empty, with
     /// nothing to undo (the text has gone to another application).
     pub fn take(&mut self) -> String {
-        let text: String = self.view(true).text();
+        let text = self.settled();
         self.spans.clear();
         self.history.clear();
         text.trim_end_matches([' ', '\t']).to_string()
@@ -213,22 +222,33 @@ impl Pad {
             let (back, delta) = join(&acc, span.text());
             for _ in 0..back {
                 acc.pop();
-                if let Some(last) = parts.last_mut() {
-                    last.text.pop();
-                    if last.text.is_empty() {
-                        parts.pop();
-                    }
-                }
+                pop_part(&mut parts);
             }
             acc.push_str(&delta);
             let clean = no_model || span.cleaned.is_some();
-            match parts.last_mut() {
-                Some(last) if last.clean == clean => last.text.push_str(&delta),
-                _ if delta.is_empty() => {}
-                _ => parts.push(PadPart { text: delta, clean }),
+            push_part(&mut parts, delta, clean);
+        }
+        if !self.live.is_empty() {
+            let (back, delta) = join(&acc, &self.live);
+            for _ in 0..back {
+                pop_part(&mut parts);
             }
+            push_part(&mut parts, delta.trim_end_matches(' ').to_string(), false);
         }
         PadView { parts, cleaning: false }
+    }
+
+    /// The pad's text without the live line.
+    fn settled(&self) -> String {
+        let mut acc = String::new();
+        for span in &self.spans {
+            let (back, delta) = join(&acc, span.text());
+            for _ in 0..back {
+                acc.pop();
+            }
+            acc.push_str(&delta);
+        }
+        acc
     }
 
     /// The next part to clean, if any: the paragraph the first raw span is
@@ -274,7 +294,7 @@ impl Pad {
         }
         let full = raw.chars().count() >= BATCH_CHARS;
         let (end, raw) = if all || (full && finished.is_none()) { (end, raw) } else { finished? };
-        let before = self.view(true).text();
+        let before = self.settled();
         let before = &before[..self.prefix_len(start).min(before.len())];
         Some(Batch {
             start,
@@ -308,6 +328,25 @@ impl Pad {
             acc.push_str(&delta);
         }
         acc.len()
+    }
+}
+
+/// Adds `text` to the last part when it's the same kind, else as a new one.
+fn push_part(parts: &mut Vec<PadPart>, text: String, clean: bool) {
+    match parts.last_mut() {
+        Some(last) if last.clean == clean => last.text.push_str(&text),
+        _ if text.is_empty() => {}
+        _ => parts.push(PadPart { text, clean }),
+    }
+}
+
+/// Takes the last character off the parts.
+fn pop_part(parts: &mut Vec<PadPart>) {
+    if let Some(last) = parts.last_mut() {
+        last.text.pop();
+        if last.text.is_empty() {
+            parts.pop();
+        }
     }
 }
 

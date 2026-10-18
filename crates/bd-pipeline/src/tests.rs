@@ -84,7 +84,7 @@ fn rig_with(script: Vec<&'static str>, cleanup: bool, gated: bool, config: Pipel
     let cleanup: Option<Box<dyn Cleanup>> = cleanup.then(|| {
         Box::new(FakeCleanup { contexts: contexts.clone(), gate: gated.then_some((started_tx, go_rx)) }) as _
     });
-    let parts = Parts { segmenter: Box::new(ChunkSegmenter { seq: 0, offset: 0 }), asr: Box::new(ScriptAsr(script)), cleanup };
+    let parts = Parts { segmenter: Box::new(ChunkSegmenter { seq: 0, offset: 0 }), asr: crate::Recognizer::Segments(Box::new(ScriptAsr(script))), cleanup };
     let pipeline = Pipeline::spawn(parts, config).unwrap();
     Rig { pipeline, contexts, started, go }
 }
@@ -431,3 +431,6 @@ fn spaces_trail_and_are_taken_back_before_a_break() {
 
 #[path = "tests_pad.rs"]
 mod pad;
+
+#[path = "tests_live.rs"]
+mod live;

@@ -34,6 +34,51 @@ pub enum Punctuation {
     Logical,
 }
 
+/// How dictation reaches the page.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Mode {
+    /// Each sentence is cleaned up and typed into your app when you pause
+    /// (Parakeet).
+    #[default]
+    Classic,
+    /// Words are typed into your app as you say them, with no cleanup
+    /// (Nemotron).
+    Streaming,
+    /// Words collect in the Bear Pad as you say them; "bear, send it" types
+    /// them (Nemotron).
+    PadStreaming,
+    /// The same, with the pad cleaned up as you go.
+    PadAuthor,
+}
+
+impl Mode {
+    pub const ALL: [Mode; 4] = [Mode::Classic, Mode::Streaming, Mode::PadStreaming, Mode::PadAuthor];
+
+    /// Words show as they're spoken, from the streaming recognizer.
+    pub fn streams(self) -> bool {
+        self != Mode::Classic
+    }
+
+    pub fn pad(self) -> bool {
+        matches!(self, Mode::PadStreaming | Mode::PadAuthor)
+    }
+
+    /// The cleanup model runs.
+    pub fn cleans(self) -> bool {
+        matches!(self, Mode::Classic | Mode::PadAuthor)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Mode::Classic => "Classic",
+            Mode::Streaming => "Streaming",
+            Mode::PadStreaming => "Bear Pad, streaming",
+            Mode::PadAuthor => "Bear Pad, author",
+        }
+    }
+}
+
 /// The tray glyph's colours: dark ink for a light taskbar, light ink for a
 /// dark one.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,9 +134,11 @@ pub struct Settings {
     pub auto_gain: bool,
     /// The gain when `auto_gain` is off, in dB (0 to 30).
     pub mic_gain_db: f32,
-    /// Bear Pad: dictation collects in a floating pad, cleaned there, and is
-    /// typed only when you say "bear, send it".
-    pub bear_pad: bool,
+    /// How dictation reaches the page (see [`Mode`]).
+    pub mode: Mode,
+    /// Earlier versions' Bear Pad switch, moved into [`Settings::mode`] on load.
+    #[serde(skip_serializing)]
+    bear_pad: bool,
     /// Keep the microphone open between dictations. The first syllable is
     /// never clipped, but the desktop shows the mic as in use all the time.
     pub keep_mic_open: bool,
@@ -128,6 +175,7 @@ impl Default for Settings {
             hotword_boost: 2.0,
             microphone: String::new(),
             keep_mic_open: false,
+            mode: Mode::Classic,
             bear_pad: false,
             auto_gain: true,
             mic_gain_db: 0.0,
@@ -147,6 +195,8 @@ impl Default for Settings {
 pub struct ModelSettings {
     cleanup: String,
     models_dir: String,
+    streams: bool,
+    cleans: bool,
 }
 
 /// The settings a running pipeline takes without reloading.
@@ -161,7 +211,7 @@ pub struct LiveSettings {
     pub voice_wake: bool,
     pub auto_gain: bool,
     pub mic_gain_db: f32,
-    pub bear_pad: bool,
+    pub pad: bool,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -180,6 +230,10 @@ impl Settings {
             // The old list replaces the starter group it never had.
             let words = std::mem::take(&mut self.special_words);
             self.word_groups = vec![WordGroup { words, ..WordGroup::new(FIRST_GROUP) }];
+            changed = true;
+        }
+        if std::mem::take(&mut self.bear_pad) {
+            self.mode = Mode::PadAuthor;
             changed = true;
         }
         if dropped_from_catalog(&self.cleanup) {
@@ -217,7 +271,12 @@ impl Settings {
     }
 
     pub fn models(&self) -> ModelSettings {
-        ModelSettings { cleanup: self.cleanup.clone(), models_dir: self.models_dir.clone() }
+        ModelSettings {
+            cleanup: self.cleanup.clone(),
+            models_dir: self.models_dir.clone(),
+            streams: self.mode.streams(),
+            cleans: self.mode.cleans(),
+        }
     }
 
     pub fn live(&self) -> LiveSettings {
@@ -231,7 +290,7 @@ impl Settings {
             voice_wake: self.voice_wake,
             auto_gain: self.auto_gain,
             mic_gain_db: self.mic_gain_db,
-            bear_pad: self.bear_pad,
+            pad: self.mode.pad(),
         }
     }
 }
@@ -369,8 +428,9 @@ const SETTINGS_HEADER: &str = "\
 # models_dir: where the models are; empty for the default location.
 # auto_gain: learn the microphone gain from your speech; mic_gain_db: the gain
 #   in dB (0 to 30) when auto_gain is false.
-# bear_pad: true to collect dictation in the floating Bear Pad, typed when you say
-#   \"bear, send it\".
+# mode: \"classic\" (each sentence cleaned and typed when you pause), \"streaming\" (typed as
+#   you speak, no cleanup), \"pad-streaming\" (collected in the Bear Pad as you speak; \"bear,
+#   send it\" types it) or \"pad-author\" (the same, cleaned up in the pad).
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";
@@ -420,6 +480,14 @@ mod tests {
         assert_eq!(s.word_groups[0].words, [SpecialWord::new("Beardictate", &["bare dictate"])]);
         assert!(!s.upgrade());
         assert!(!toml::to_string_pretty(&s).unwrap().contains("special_words"));
+
+        // Bear Pad on in an earlier version: the pad's author mode.
+        let mut pad: Settings = toml::from_str("bear_pad = true\n").unwrap();
+        assert!(pad.upgrade());
+        assert_eq!(pad.mode, Mode::PadAuthor);
+        assert!(!toml::to_string_pretty(&pad).unwrap().contains("bear_pad"));
+        let modes: Settings = toml::from_str("mode = \"pad-streaming\"\n").unwrap();
+        assert!(modes.mode.pad() && modes.mode.streams() && !modes.mode.cleans());
 
         let mut gone: Settings = toml::from_str("cleanup = \"cleanup-qwen3-4b-q4_k_m\"\n").unwrap();
         assert!(gone.upgrade());

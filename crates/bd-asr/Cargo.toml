@@ -6,6 +6,11 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 
+[features]
+# Beam search with hotwords for Nemotron: only for builds linked against a
+# sherpa-onnx with sherpa-onnx#3895 (none of the released ones as of 1.13.8).
+nemotron-hotwords = []
+
 [dependencies]
 bd-core.workspace = true
 thiserror.workspace = true
