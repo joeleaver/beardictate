@@ -32,6 +32,8 @@ const SITE: &str = "https://beardictate.jkbase.app";
 /// The first check a minute after start, then every six hours.
 const FIRST_CHECK: Duration = Duration::from_secs(60);
 const EVERY: Duration = Duration::from_secs(6 * 3600);
+/// When what the last update left behind is cleared.
+const LEFTOVERS: Duration = Duration::from_secs(30);
 
 /// Where updates stand, for the window and the tray.
 #[derive(Debug, Clone, PartialEq)]
@@ -230,28 +232,21 @@ impl Updates {
         let install = Install::detect();
         tracing::info!(?install, channel = feed::channel(), "updates");
         let checker = Checker {
-            dir: dir.clone(),
+            dir,
             phase,
             last: std::cell::RefCell::new(Phase::Idle),
             install,
         };
-        // What an update left: on Windows the installer is still running
-        // when it starts the new version, so its file can't go at start.
-        let leftovers = dir;
         thread::Builder::new()
             .name("bd-updates".into())
-            .spawn(move || {
-                thread::sleep(Duration::from_secs(30));
-                if read_staged(&leftovers).is_none() {
-                    clear(&leftovers);
-                }
-                checker.run(rx, auto)
-            })
+            .spawn(move || checker.run(rx, auto))
             .expect("spawning the update checker");
         Updates { phase, note, tx }
     }
 
+    /// Checks now; on the UI thread, which shows it at once.
     pub fn check_now(&self) {
+        self.phase.set(Phase::Checking);
         let _ = self.tx.send(Msg::Check);
     }
 
@@ -276,12 +271,19 @@ impl Checker {
 
     fn run(self, rx: Receiver<Msg>, mut auto: bool) {
         let mut next = Instant::now() + FIRST_CHECK;
+        // What an update left: on Windows the installer is still running
+        // when it starts the new version, so its file can't go at start.
+        let mut leftovers = Some(Instant::now() + LEFTOVERS);
         loop {
-            let wait = if auto {
-                next.saturating_duration_since(Instant::now())
-            } else {
-                Duration::from_secs(24 * 3600)
-            };
+            let check_at = if auto { next } else { Instant::now() + Duration::from_secs(24 * 3600) };
+            let wait = leftovers.map_or(check_at, |at| at.min(check_at)).saturating_duration_since(Instant::now());
+            if leftovers.is_some_and(|at| at <= Instant::now()) {
+                leftovers = None;
+                if read_staged(&self.dir).is_none() {
+                    clear(&self.dir);
+                }
+                continue;
+            }
             match rx.recv_timeout(wait) {
                 Ok(Msg::Check) => {
                     self.check();
@@ -293,7 +295,7 @@ impl Checker {
                     }
                     auto = on;
                 }
-                Err(RecvTimeoutError::Timeout) if auto => {
+                Err(RecvTimeoutError::Timeout) if auto && Instant::now() >= next => {
                     self.check();
                     next = Instant::now() + EVERY;
                 }
@@ -304,11 +306,9 @@ impl Checker {
     }
 
     fn check(&self) {
-        // A download that's ready stays ready while checking again.
+        // A download that's ready stays ready if checking again fails.
         let before = self.last.borrow().clone();
-        if !matches!(before, Phase::Ready { .. }) {
-            self.show(Phase::Checking);
-        }
+        self.show(Phase::Checking);
         let phase = match self.find_and_fetch() {
             Ok(p) => p,
             Err(e) => {

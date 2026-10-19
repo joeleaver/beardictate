@@ -18,7 +18,7 @@ fn describe(phase: &Phase) -> String {
             total,
         } => format!("Downloading {version}… {} of {}", size(*done), size(*total)),
         Phase::Ready { version } => {
-            format!("Version {version} is ready. It installs the next time beardictate starts.")
+            format!("Version {version} is downloaded. It installs when beardictate restarts: now, or the next time it starts.")
         }
         Phase::Manual { version } => format!(
             "Version {version} is out. This copy can't update itself: get it from the download page."
