@@ -5,7 +5,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use rinch::core::{KeyEventData, clear_keyboard_interceptor, set_keyboard_interceptor};
+use rinch::core::{KeyEventData, set_keyboard_interceptor};
 use rinch::hotkey::{CaptureStep, HotkeyCapture};
 use rinch::prelude::*;
 
@@ -103,37 +103,45 @@ fn shown(on: bool) -> &'static str {
 fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let capturing = Signal::new(false);
     let note = Signal::new(String::new());
-    let start_capture = Rc::new({
-        let s = s.clone();
-        move || {
-            capturing.set(true);
-            note.set("Press the new shortcut (at least two keys). Escape cancels.".into());
-            let capture = RefCell::new(HotkeyCapture::new());
-            let s = s.clone();
-            set_keyboard_interceptor(move |k: &KeyEventData| {
-                match capture.borrow_mut().feed(k) {
-                    CaptureStep::Pending(held) => note.set(format!("Press the new shortcut: {held}")),
-                    CaptureStep::Cancelled => {
-                        capturing.set(false);
-                        note.set(String::new());
-                        clear_keyboard_interceptor();
-                    }
-                    CaptureStep::Done(sc) => {
-                        capturing.set(false);
-                        clear_keyboard_interceptor();
-                        let shortcut = sc.to_string();
-                        match check_hotkey(&shortcut) {
-                            Ok(()) => {
-                                note.set(String::new());
-                                change(&s, |st| st.hotkey = shortcut);
-                            }
-                            Err(why) => note.set(format!("{shortcut}: {why}")),
+    // The capture's keyboard hook lives as long as the page: installed from
+    // the "Change…" click, it went with the click's scope as soon as the
+    // handler returned, and no key (not even Escape) ever reached it.
+    let capture = Rc::new(RefCell::new(HotkeyCapture::new()));
+    // Modifiers seen held, by kind ("Control", …), during a capture.
+    let held: Rc<RefCell<Vec<&'static str>>> = Rc::default();
+    {
+        let (s, capture, held) = (s.clone(), capture.clone(), held.clone());
+        set_keyboard_interceptor(move |k: &KeyEventData| {
+            if !capturing.get() {
+                return false;
+            }
+            let step = feed_capture(&mut capture.borrow_mut(), &held, k);
+            match step {
+                CaptureStep::Pending(held) => note.set(format!("Press the new shortcut: {held}")),
+                CaptureStep::Cancelled => {
+                    capturing.set(false);
+                    note.set(String::new());
+                }
+                CaptureStep::Done(sc) => {
+                    capturing.set(false);
+                    let shortcut = sc.to_string();
+                    match check_hotkey(&shortcut) {
+                        Ok(()) => {
+                            note.set(String::new());
+                            change(&s, |st| st.hotkey = shortcut);
                         }
+                        Err(why) => note.set(format!("{shortcut}: {why}")),
                     }
                 }
-                true
-            });
-        }
+            }
+            true
+        });
+    }
+    let start_capture = Rc::new(move || {
+        *capture.borrow_mut() = HotkeyCapture::new();
+        held.borrow_mut().clear();
+        capturing.set(true);
+        note.set("Press the new shortcut (at least two keys). Escape cancels.".into());
     });
     let s1 = s.clone();
     let s2 = s.clone();
@@ -141,7 +149,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s4 = s.clone();
     let s5 = s.clone();
     let (s6, s7, s8, s9, s10) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
-    let (s11, s12) = (s.clone(), s.clone());
+    let (s11, s12, s13) = (s.clone(), s.clone(), s.clone());
     let modes = modes(__scope, s);
     let old_models = old_models(__scope, s);
     let paths = s.paths.clone();
@@ -163,6 +171,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                     Button { variant: "light", size: "xs", disabled: {move || capturing.get()}, onclick: { let f = start_capture.clone(); move || f() }, "Change…" }
                 }
                 Text { size: "sm", color: "dimmed", {move || note.get()} }
+                Text { size: "sm", color: "dimmed", {move || s13.hotkey_note.get()} }
             }
             Switch {
                 label: "Always listening",
@@ -219,6 +228,44 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
         }
     }
+}
+
+/// Whether a key event says a modifier is held.
+type Held = fn(&KeyEventData) -> bool;
+
+/// Modifier kinds, the code of the left one, and whether an event says it's held.
+const MODIFIERS: [(&str, &str, Held); 4] = [
+    ("Control", "ControlLeft", |k| k.ctrl),
+    ("Shift", "ShiftLeft", |k| k.shift),
+    ("Alt", "AltLeft", |k| k.alt),
+    ("Super", "SuperLeft", |k| k.meta),
+];
+
+/// Feeds a key to the shortcut capture. A key whose event says a modifier
+/// is held that the capture never saw go down (a platform or input that
+/// reports modifiers only as flags) gets that modifier's press first.
+fn feed_capture(capture: &mut HotkeyCapture, held: &RefCell<Vec<&'static str>>, k: &KeyEventData) -> CaptureStep {
+    let down = k.kind == rinch::core::KeyEventKind::Down;
+    let kind = MODIFIERS.iter().find(|(name, _, _)| k.code.starts_with(name) || (*name == "Super" && k.code.starts_with("Meta")));
+    if let Some((name, _, _)) = kind {
+        let mut h = held.borrow_mut();
+        h.retain(|n| n != name);
+        if down {
+            h.push(name);
+        }
+    } else if down {
+        for (name, code, on) in MODIFIERS {
+            if on(k) && !held.borrow().contains(&name) {
+                held.borrow_mut().push(name);
+                let _ = capture.feed(&KeyEventData::new(name, code));
+            }
+        }
+    }
+    let step = capture.feed(k);
+    if !matches!(step, CaptureStep::Pending(_)) {
+        held.borrow_mut().clear();
+    }
+    step
 }
 
 fn theme_key(t: TrayTheme) -> &'static str {

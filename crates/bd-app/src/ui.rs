@@ -25,6 +25,8 @@ pub struct Shared {
     pub status: Signal<Status>,
     /// How the hotkey reads in the menu and tooltip.
     pub hotkey_text: Signal<String>,
+    /// Why the shortcut isn't the one chosen, when the desktop keeps its own.
+    pub hotkey_note: Signal<String>,
     /// The settings window's current section.
     pub section: Signal<Section>,
     /// The cleanup models: what's downloaded, downloads in progress.
@@ -79,6 +81,7 @@ impl Shared {
             paths,
             section: Signal::new(Section::General),
             hotkey_text: Signal::new(readable(&settings.hotkey)),
+            hotkey_note: Signal::new(String::new()),
             status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false }),
             settings: Signal::new(settings),
             models,
@@ -256,6 +259,15 @@ pub fn wire(shared: &Shared) {
 /// Registers the dictation hotkey and rebinds it when the setting changes.
 fn wire_hotkey(shared: &Shared) {
     let text = shared.hotkey_text;
+    let note = shared.hotkey_note;
+    // The desktop (a Wayland portal) keeps its own shortcut: say where to
+    // change it when it isn't the one chosen here.
+    let explain = move |b: &Binding, wanted: &str| match b {
+        Binding::SystemChosen { description: Some(d) } if !d.eq_ignore_ascii_case(&readable(wanted)) => {
+            note.set(format!("Your desktop keeps its own shortcut for beardictate ({d}): change it in your desktop\u{2019}s shortcut settings."));
+        }
+        _ => note.set(String::new()),
+    };
     let describe = move |b: &Binding, wanted: &str| match b {
         Binding::Exact(sc) => readable(&sc.to_string()),
         Binding::SystemChosen { description } => description.clone().unwrap_or_else(|| readable(wanted)),
@@ -275,7 +287,10 @@ fn wire_hotkey(shared: &Shared) {
             let mut slot = handle.borrow_mut();
             if let Some(hk) = slot.as_ref() {
                 match hk.rebind(&wanted) {
-                    Ok(()) => text.set(describe(&hk.binding(), &wanted)),
+                    Ok(()) => {
+                        text.set(describe(&hk.binding(), &wanted));
+                        explain(&hk.binding(), &wanted);
+                    }
                     Err(e) => text.set(format!("{wanted} unavailable: {e}")),
                 }
                 return;
@@ -292,8 +307,13 @@ fn wire_hotkey(shared: &Shared) {
                 Ok(hk) => {
                     tracing::info!(backend = ?hotkey::backend(), binding = ?hk.binding(), "hotkey registered");
                     text.set(describe(&hk.binding(), &wanted));
-                    let w = wanted.clone();
-                    hk.on_binding_change(move |b| text.set(describe(b, &w)));
+                    explain(&hk.binding(), &wanted);
+                    let settings = s.settings;
+                    hk.on_binding_change(move |b| {
+                        let wanted = settings.with(|st| st.hotkey.clone());
+                        text.set(describe(b, &wanted));
+                        explain(b, &wanted);
+                    });
                     *slot = Some(hk);
                 }
                 Err(e) => {
