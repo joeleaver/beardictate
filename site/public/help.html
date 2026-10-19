@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>beardictate help</title>
-<meta name="description" content="How to use beardictate: the shortcut, waking and sleeping the bear, voice commands, special words, system requirements and common questions.">
+<meta name="description" content="How to use beardictate: the shortcut, the bear, what you can say (commands, punctuation, numbers, lists), special words, settings, system requirements and common questions.">
 <meta name="theme-color" content="#0E1A30">
 <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
 <link rel="icon" href="/assets/mark-96.png" type="image/png" sizes="96x96">
@@ -48,18 +48,20 @@
     <article>
       <section>
         <h2 id="first-run">First run</h2>
-        <p>The first time you start beardictate, it downloads the models it needs: a speech model of about 460 MB, then a cleanup model of 0.6 to 2.5 GB. It picks the cleanup model by trying it on your computer, so a fast machine gets a bigger model and a laptop gets one that keeps up. Every file is checked against a known checksum, and an interrupted download resumes where it stopped.</p>
-        <p>You can start dictating as soon as the speech model is in. Until the cleanup model arrives, you get your words with punctuation but without the tidying.</p>
-        <p>beardictate lives in your system tray as a small bear. Its colour shows what it’s doing: loading, listening, cleaning up, or asleep. On Windows, new tray icons hide in the overflow menu, so drag the bear onto the taskbar where you can see it.</p>
+        <p>The first time you start beardictate, it asks to download the speech models it needs: Nemotron, which turns speech into text, and Silero, which hears your pauses, 663 MB in all. Every file is checked against a known checksum, and an interrupted download resumes where it stopped. You can dictate as soon as they’re in.</p>
+        <p>Tidying your words (taking out the ums, mending sentences) needs a post-processing model too, of about 2.7 to 2.9 GB. Download one from <em>Settings › Post-processing</em>; the recommended one is marked. Until you do, you get your words as heard, with punctuation and your voice commands.</p>
+        <p>beardictate shows a small bear floating over your other windows, and another in your system tray. Its glow shows what it’s doing: red while it listens, green while it finishes the last sentence, amber when it needs you, violet while it loads, slate while it’s asleep. Drag the bear wherever suits you; turn it off under <em>Settings › General</em> if you’d rather have only the tray icon. (On Windows, new tray icons hide in the overflow menu, which is why the floating bear is there.)</p>
       </section>
 
       <section>
         <h2 id="talking">Starting and stopping</h2>
-        <p>Put your cursor where you want the text, in any app, and talk. beardictate types each sentence a moment after you finish it, while you’re already saying the next.</p>
+        <p>Put your cursor where you want the text, in any app, and talk. Your words are typed as you say them, and when you pause, the sentence is tidied in place. Click the bear (on screen or in the tray) to start or stop; right-click it for its menu.</p>
+        <h3>Into your app, or the Bear Pad</h3>
+        <p>Words go straight into the app you’re using. Or choose <em>Into the Bear Pad</em> (the bear’s menu, or <em>Settings › General</em>): your words collect in a floating pad instead, where you can fix them by voice, and <q>bear, send it</q> types the lot where your cursor is.</p>
         <h3>Wake and sleep by voice</h3>
-        <p>The microphone stays on while beardictate runs. Say <q>bear, wake up</q> to start typing and <q>bear, go to sleep</q> to stop. While it’s asleep, nothing you say is typed or kept. Turn the microphone off completely from the tray menu.</p>
+        <p>The microphone stays on while beardictate runs. Say <q>bear, wake up</q> to start typing and <q>bear, go to sleep</q> to stop. While it’s asleep, nothing you say is typed or kept. Turn the microphone off completely from the bear’s menu.</p>
         <h3>The shortcut</h3>
-        <p>Press <kbd>Ctrl</kbd>+<kbd>`</kbd> (the key left of <kbd>1</kbd>) to wake or sleep it. You can change the shortcut in Settings. It must use at least two keys, so you can’t set it off by accident.</p>
+        <p>Press <kbd>Ctrl</kbd>+<kbd>`</kbd> (the key left of <kbd>1</kbd>) to wake or sleep it. Change the shortcut under <em>Settings › General</em>; it must use at least two keys, so you can’t set it off by accident. On Linux with Wayland (KDE Plasma, GNOME), your desktop asks you to approve the shortcut the first time and keeps its own copy: to change it later, change it in your desktop’s shortcut settings.</p>
         <p>If you’d rather the microphone were only on while you dictate, turn off <em>Always listening</em> in Settings. The shortcut then switches the microphone and typing on and off together.</p>
       </section>
 
@@ -132,31 +134,32 @@
 
       <section>
         <h2 id="words">Special words</h2>
-        <p>Fantasy names, invented places, a character called Ysolde: speech recognition has never heard them. Add them under <em>Special words</em> in Settings, with any ways it tends to mishear them:</p>
-        <pre><code>Ysolde: Isolde, Ussel</code></pre>
-        <p>beardictate listens harder for those words and corrects the mishearings to your spelling. Keep a group of words per book and switch groups on and off as you move between projects.</p>
+        <p>Fantasy names, invented places, a character called Ysolde: speech recognition has never heard them. Add them under <em>Settings › Special words</em>, each with any ways it tends to mishear them (for Ysolde, <q>Isolde, Ussel</q>).</p>
+        <p>beardictate listens harder for those words and corrects the mishearings to your spelling. Keep a group of words per book and switch groups on and off as you move between projects. <em>How hard to listen for these words</em>, on the same page, trades catching more of them against turning ordinary words into them.</p>
       </section>
 
       <section>
         <h2 id="settings">Settings worth knowing</h2>
+        <h3>Tidy up and Dialog</h3>
+        <p>On <em>Settings › Post-processing</em> (and in the bear’s menu). <em>Tidy up</em> takes out fillers, mends sentences and fixes punctuation and capitals; off, you get your words as heard. <em>Dialog</em>, for fiction, puts what your characters say in quotation marks and starts a new paragraph for a new speaker; it’s off unless you turn it on. The same page picks the model that does both: a bigger one is more reliable but needs a faster computer.</p>
         <h3>Paragraphs</h3>
-        <p>By default a new paragraph starts where you say <q>new paragraph</q> and when a different character starts speaking. You can also have one start when you pause for a few seconds, and choose between a blank line or a single return between paragraphs.</p>
+        <p>A new paragraph starts where you say <q>new paragraph</q>, and, with <em>Dialog</em> on, when a different character starts speaking. You can also have one start when you pause for a few seconds, or where the prose calls for one, and choose between a blank line or a single return between paragraphs (<em>Settings › Writing</em>).</p>
         <h3>Quotation marks</h3>
         <p>Double or single quotes, curly or straight, and US placement (<q>To the river,</q> he said) or UK placement, where punctuation goes inside the quotes only when it belongs to the speech. Match whatever your manuscript uses.</p>
-        <h3>Cleanup model</h3>
-        <p>Pick a smaller model if typing feels slow, or a larger one for better dialog. <em>Off</em> types exactly what the speech model heard, with only your voice commands applied.</p>
+        <h3>Punctuation and numbers</h3>
+        <p>Whether spoken marks (<q>comma</q>, <q>question mark</q>) become marks, and how numbers are written: see <a href="#punctuation">Punctuation</a> and <a href="#numbers">Numbers</a> above.</p>
       </section>
 
       <section>
         <h2 id="requirements">System requirements</h2>
         <table>
           <tbody>
-            <tr><td>Windows</td><td>Windows 10 or 11, 64-bit. The installer is coming soon.</td></tr>
-            <tr><td>Linux</td><td>64-bit x86. KDE Plasma or GNOME on Wayland, or X11.</td></tr>
+            <tr><td>Windows</td><td>Windows 10 or 11, 64-bit.</td></tr>
+            <tr><td>Linux</td><td>64-bit x86 with glibc 2.43 or newer (such as Ubuntu 26.04). KDE Plasma or GNOME on Wayland, or X11.</td></tr>
             <tr><td>macOS</td><td>Planned after Windows.</td></tr>
-            <tr><td>Memory</td><td>8 GB is enough. With 16 GB or more it can use a larger cleanup model.</td></tr>
-            <tr><td>Graphics</td><td>Not needed. A graphics card (NVIDIA, AMD or Intel, through Vulkan) makes cleanup faster.</td></tr>
-            <tr><td>Disk</td><td>About 630 MB for the speech model, plus 0.6 to 2.5 GB for the cleanup model.</td></tr>
+            <tr><td>Memory</td><td>8 GB to dictate; 16 GB is comfortable with a post-processing model.</td></tr>
+            <tr><td>Graphics</td><td>Not needed. A graphics card (NVIDIA, AMD or Intel, through Vulkan) makes post-processing faster.</td></tr>
+            <tr><td>Disk</td><td>About 650 MB for the speech models, plus about 2.7 to 2.9 GB for each post-processing model you download.</td></tr>
             <tr><td>Microphone</td><td>Any. A headset mic gives the cleanest results in a noisy room.</td></tr>
           </tbody>
         </table>
@@ -166,10 +169,10 @@
         <h2 id="faq">Questions</h2>
         <dl class="faq">
           <dt>Does anything I say get sent anywhere?</dt>
-          <dd>While beardictate is an alpha, yes: every copy sends its developer the recordings of what you dictate, the text recognized from them, what the cleanup changed and what was typed, with timings and your computer’s details, tied to a random install number rather than your name. Only what you say while dictating is sent; with “Always listening” on, nothing said while it’s asleep leaves your computer. Speech recognition and cleanup themselves run on your computer. <a href="/download.html#alpha">The details</a>.</dd>
+          <dd>While beardictate is an alpha, yes: every copy sends its developer the recordings of what you dictate, the text recognized from them, what post-processing changed and what was typed, with timings and your computer’s details, tied to a random install number rather than your name. Only what you say while dictating is sent; with “Always listening” on, nothing said while it’s asleep leaves your computer. Speech recognition and post-processing themselves run on your computer. <a href="/download.html#alpha">The details</a>.</dd>
 
           <dt>Will it change what I wrote?</dt>
-          <dd>Only in the ways you’d want: punctuation, capitals, quotes, paragraphs, and removing ums and repeated words. Every sentence is compared with what you said, and if the cleanup changed any other word, you get your own words instead.</dd>
+          <dd>Only in the ways you’d want: punctuation, capitals, removing ums and repeated words, and with <em>Dialog</em> on, quotes and paragraphs. Every sentence is compared with what you said, and if tidying changed any other word, you get your own words instead.</dd>
 
           <dt>Which apps does it work in?</dt>
           <dd>Anything you can type into: Word, Scrivener, Google Docs in a browser, Obsidian, a plain text editor.</dd>
@@ -181,7 +184,7 @@
           <dd>Early builds may not be code-signed yet. Check the file’s SHA-256 against the one on the <a href="/download.html#verify">download page</a>, then choose <em>More info</em> and <em>Run anyway</em>.</dd>
 
           <dt>Does it work in languages other than English?</dt>
-          <dd>Not yet: the speech model, the cleanup and the voice commands are all English for now.</dd>
+          <dd>Not yet: the speech model, the post-processing and the voice commands are all English for now.</dd>
 
           <dt>Is it really free?</dt>
           <dd>Yes. It’s open source under the MIT license, and the models it uses are openly licensed.</dd>
