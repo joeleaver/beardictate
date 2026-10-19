@@ -65,7 +65,7 @@ One JSON object per line:
 | `state` | dictation starts, stops, wakes, sleeps | `state` (`listening`, `idle`, `asleep`, `cleaning`…) |
 | `mic` | microphone opened, lost, or warned about | `device`, `event`, `detail` |
 | `partial` | the streaming recognizer's text so far | `text`, `since_speech_ms` |
-| `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms`, `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent) |
+| `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms` (from the utterance's start; from 0.1.11 it includes the wait to hear whether the sentence went on), `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent) |
 | `commanded` | after the vocabulary and command pass | `heard`, `vocabulary` (text after special-word fixes), `commanded`, `actions` (`["new_paragraph", "open_quote", …]`), `pad_command` |
 | `cleaned` | the cleanup model ran (a sentence, or a pad paragraph) | `segments`, `context`, `raw`, `names`, `model_output`, `final`, `verdict` (`accepted`/`repaired`/`fell_back`), `reason`, `respelled` `[[heard, word]]`, `removed`, `prompt_tokens`, `reused_tokens`, `generated_tokens`, `prefill_ms`, `decode_ms`, `total_ms`, `pad` (bool) |
 | `typed` | text sent to the focused app | `text`, `take_back`, `erase` (characters taken back), `backend`, `outcome` (`typed`/`pasted`/`clipboard`/`failed`), `inject_ms`, `live` (typed while spoken: your app with tidy off) |

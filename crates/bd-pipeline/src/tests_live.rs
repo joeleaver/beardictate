@@ -375,3 +375,6 @@ fn an_edit_while_the_sentence_is_being_tidied_wins() {
     // The tidy was of "Smith": it's dropped, and the edit stays.
     assert_eq!(page(&events), "Um, we met Smythe.");
 }
+
+#[path = "tests_hold.rs"]
+mod hold;

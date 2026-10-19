@@ -14,6 +14,7 @@ use crate::gain::InputGain;
 mod cleaner;
 mod edit;
 mod gate;
+mod listen;
 mod live_type;
 mod notes;
 mod segment;
@@ -51,8 +52,9 @@ enum Heard {
     /// a session's first segment).
     Text { id: u64, text: String, pause: Option<Duration> },
     /// A streaming recognizer's text so far for utterance `id`; empty when
-    /// it turned out not to be speech.
-    Partial { id: u64, text: String },
+    /// it turned out not to be speech. `settled` when the utterance has
+    /// ended: no word of it changes now but the last one's punctuation.
+    Partial { id: u64, text: String, settled: bool },
     EndSession,
     NewPassage,
     Reconfigure(Box<PipelineConfig>),
@@ -78,7 +80,7 @@ pub(crate) fn spawn(
         thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live))?,
         thread::Builder::new().name("bd-asr".into()).spawn(move || match asr {
             Recognizer::Segments(asr) => transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner),
-            Recognizer::Live(asr) => transcribe::live(asr, cut_rx, heard_tx, asr_events, learner),
+            Recognizer::Live(asr) => listen::live(asr, cut_rx, heard_tx, asr_events, learner),
         })?,
         thread::Builder::new().name("bd-finish".into()).spawn(move || finisher.run(heard_rx))?,
     ])
@@ -104,8 +106,9 @@ enum Item {
     Wake,
     /// Voice wake went to sleep here.
     Sleep,
-    /// A streaming recognizer's text so far (see [`Heard::Partial`]).
-    Partial(u64, String),
+    /// A streaming recognizer's text so far, and whether it's settled (see
+    /// [`Heard::Partial`]).
+    Partial(u64, String, bool),
     /// A spoken edit of what's been typed into your app ("bear, change …").
     Edit(PadAction),
 }
@@ -302,7 +305,7 @@ impl Finisher {
                 self.emit(Event::Slept);
             }
             Item::Segment(p) => self.finish(p, input),
-            Item::Partial(id, text) => self.partial(id, &text),
+            Item::Partial(id, text, settled) => self.partial(id, &text, settled),
             Item::Edit(action) => self.edit_typed(action),
         }
     }
@@ -417,15 +420,14 @@ impl Finisher {
             self.speaking = None;
         }
         let (id, text, pause) = match heard {
-            Heard::Text { id, text, pause } if self.live => (id, live_type::end_sentence(text), pause),
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
-            Heard::Partial { id, text } => {
+            Heard::Partial { id, text, settled } => {
                 self.speaking = (!text.is_empty()).then_some(id);
                 // Typed a sentence at a time, it only says someone's speaking.
                 if self.types_live() || self.pad.is_some() {
-                    self.queue.push_back(Item::Partial(id, text));
+                    self.queue.push_back(Item::Partial(id, text, settled));
                 }
                 return;
             }

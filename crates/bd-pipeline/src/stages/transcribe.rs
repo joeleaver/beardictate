@@ -1,9 +1,9 @@
 //! Stage 2: speech to text, a finished segment at a time ([`transcribe`])
-//! or as the speaker talks ([`live`]).
+//! or as the speaker talks ([`super::listen`]).
 
 use std::time::{Duration, Instant};
 
-use bd_core::{Asr, AudioSegment, BoxError, LiveAudio, SAMPLE_RATE, StreamingAsr};
+use bd_core::{Asr, AudioSegment, BoxError, SAMPLE_RATE};
 use crossbeam_channel::{Receiver, Sender};
 
 use super::{Cut, Heard, noise};
@@ -15,16 +15,16 @@ fn secs(samples: u64) -> Duration {
 }
 
 /// What both kinds of recognizer report about a finished segment.
-struct Report {
-    events: Sender<Event>,
-    gain: InputGain,
+pub(super) struct Report {
+    pub(super) events: Sender<Event>,
+    pub(super) gain: InputGain,
     /// Where the previous segment of this session ended, in session samples.
-    previous_end: Option<u64>,
+    pub(super) previous_end: Option<u64>,
 }
 
 impl Report {
     /// The finished segment's text, or `None` after reporting a failure.
-    fn finished(&mut self, id: u64, seg: &AudioSegment, used: f32, started: Instant, text: Result<String, BoxError>) -> Option<Heard> {
+    pub(super) fn finished(&mut self, id: u64, seg: &AudioSegment, used: f32, started: Instant, text: Result<String, BoxError>) -> Option<Heard> {
         let audio = secs(seg.samples.len() as u64);
         let pause = self.previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
         self.previous_end = Some(seg.start_sample + seg.samples.len() as u64);
@@ -51,7 +51,7 @@ impl Report {
     }
 
     /// The control messages both stages pass on alike.
-    fn control(&mut self, cut: Cut, hotwords: impl FnOnce(&[String], f32) -> Result<(), BoxError>) -> Option<Heard> {
+    pub(super) fn control(&mut self, cut: Cut, hotwords: impl FnOnce(&[String], f32) -> Result<(), BoxError>) -> Option<Heard> {
         Some(match cut {
             Cut::EndSession => {
                 self.previous_end = None;
@@ -80,51 +80,6 @@ pub(super) fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<He
                 let started = Instant::now();
                 let text = asr.transcribe(&seg);
                 report.finished(id, &seg, used, started, text)
-            }
-            other => report.control(other, |words, boost| asr.set_hotwords(words, boost)),
-        };
-        if let Some(heard) = heard {
-            let _ = out.send(heard);
-        }
-    }
-}
-
-/// Stage 2 for a streaming recognizer: the text so far while an utterance
-/// goes on ([`Heard::Partial`]), its final text when it ends.
-pub(super) fn live(mut asr: Box<dyn StreamingAsr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>, gain: InputGain) {
-    let mut report = Report { events, gain, previous_end: None };
-    // When the utterance in progress started being heard.
-    let mut started = Instant::now();
-    for cut in &input {
-        let heard = match cut {
-            Cut::Live(id, audio, used) => {
-                let partial = match audio {
-                    LiveAudio::Start(samples) => {
-                        started = Instant::now();
-                        asr.start().and_then(|()| asr.feed(&samples))
-                    }
-                    LiveAudio::More(samples) => asr.feed(&samples),
-                    LiveAudio::End(seg) => {
-                        let text = asr.finish();
-                        if let Some(heard) = report.finished(id, &seg, used, started, text) {
-                            let _ = out.send(heard);
-                        }
-                        continue;
-                    }
-                    LiveAudio::Drop => asr.finish().map(|_| Some(String::new())),
-                };
-                match partial {
-                    Ok(Some(text)) => {
-                        let since_speech = started.elapsed();
-                        let _ = report.events.send(Event::Partial { id, text: text.clone(), since_speech });
-                        Some(Heard::Partial { id, text })
-                    }
-                    Ok(None) => None,
-                    Err(e) => {
-                        let _ = report.events.send(Event::Error { stage: Stage::Asr, message: e.to_string() });
-                        None
-                    }
-                }
             }
             other => report.control(other, |words, boost| asr.set_hotwords(words, boost)),
         };

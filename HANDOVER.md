@@ -105,6 +105,11 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   never built llama.cpp's Vulkan shader tool, so CI had never passed) and
   runs Nemotron greedily on the stock library; a new Linux job builds our
   sherpa-onnx (cached) and runs clippy, the tests and `bd` with hotwords.
+- Done (6): punctuation at pauses. A full stop was added at every pause,
+  mid-sentence too; now Nemotron's stream is held over a pause and the next
+  words decide (DESIGN.md "Pauses", `stages/listen.rs`). Checked with
+  `bd file --realtime` on Piper TTS with paused sentences; not yet by
+  voice in the app.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.

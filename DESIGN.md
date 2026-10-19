@@ -320,8 +320,18 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   trailing run that may be a command ("new" before "paragraph"), not a
   "bear, …" sentence with voice wake on. When a later word changes how
   earlier ones read, the page is taken back to where they differ and typed
-  again. At a pause an utterance ending on a letter gets a full stop
-  (Nemotron often leaves it off).
+  again. An utterance's last word is typed when it ends.
+- **Pauses** (`stages/listen.rs`): Nemotron only punctuates a word once it
+  hears what follows, so cutting the stream at every pause put a full stop
+  at every mid-sentence pause (testers, 2026-10-19). Instead the stream is
+  held open over a pause and the next utterance goes on in it: the stopped
+  one ends as Nemotron punctuates it once the next words come in (full
+  stop, comma or nothing). After 1.5 s more silence (4 s after "and",
+  "the", a comma…) it's a sentence's end: a question mark when it reads as
+  one ("can you…", "how do…"), else a full stop. On Piper TTS, all seven
+  mid-sentence pauses of 1.2–2.5 s came out right and 3 of 5 real
+  sentence ends. The cost: a sentence's end, and so its tidying or a
+  typed-once sentence, comes about 1.5 s later.
 - Measured 2026-10-19, `bd file --stream --realtime` on NICO-TOP, tidy on:
   cleanup 0.3–0.5 s a sentence on its Radeon iGPU, about 2 s on its CPU
   alone with Nemotron running, never behind, so the tidied sentence lands

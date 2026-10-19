@@ -31,7 +31,8 @@ pub(super) struct Typing {
 
 impl Finisher {
     /// A streaming recognizer's text so far for utterance `id`.
-    pub(super) fn partial(&mut self, id: u64, text: &str) {
+    /// `settled` once it has ended: its last word is typed too.
+    pub(super) fn partial(&mut self, id: u64, text: &str, settled: bool) {
         if !self.gate.awake() {
             return;
         }
@@ -39,7 +40,7 @@ impl Finisher {
             let shown = self.vocabulary.apply(text);
             return self.pad_live(&shown);
         }
-        let Some(body) = self.stable(text) else { return };
+        let Some(body) = self.stable(text, settled) else { return };
         let base = self.composer.context().to_string();
         let (take_back, delta) = join(&base, &body);
         // The space after it comes with the next words, or at the end.
@@ -63,7 +64,7 @@ impl Finisher {
     /// Utterance `id` was scratched before it finished: drops its live text
     /// still queued and takes back what of it was typed.
     pub(super) fn untype(&mut self, id: u64) {
-        self.queue.retain(|item| !matches!(item, super::Item::Partial(i, _) if *i == id));
+        self.queue.retain(|item| !matches!(item, super::Item::Partial(i, ..) if *i == id));
         if self.typing.as_ref().is_some_and(|t| t.id == id) {
             let base = self.composer.context().to_string();
             self.retype(id, &base, 0, "");
@@ -72,10 +73,10 @@ impl Finisher {
     }
 
     /// The part of `text` that won't change, vocabulary and commands
-    /// applied; `None` when nothing is sure yet.
-    fn stable(&self, text: &str) -> Option<String> {
+    /// applied; `None` when nothing is sure yet. All of it when `settled`.
+    fn stable(&self, text: &str, settled: bool) -> Option<String> {
         let words: Vec<&str> = text.split_whitespace().collect();
-        let mut n = words.len().saturating_sub(1);
+        let mut n = if settled { words.len() } else { words.len().saturating_sub(1) };
         // A sentence starting "bear, …" may be voice wake's, or an edit
         // ("bear, change Smith to Smythe"): it waits for the utterance's end.
         if let Some(i) = name_at_sentence_start(&words[..n])
@@ -117,16 +118,6 @@ impl Finisher {
             self.emit(Event::Text { id, take_back: 0, text: added.to_string(), commanded: added.to_string(), cleanup: None });
         }
         self.typing = Some(Typing { id, take_back, typed: text.to_string() });
-    }
-}
-
-/// A streamed utterance, ended at a pause, with the full stop Nemotron
-/// often leaves off (it ends on a letter or digit). A pause in the middle of
-/// a sentence then gets one too; without it, sentences run together.
-pub(super) fn end_sentence(text: String) -> String {
-    match text.trim_end().chars().last() {
-        Some(c) if c.is_alphanumeric() => format!("{}.", text.trim_end()),
-        _ => text,
     }
 }
 

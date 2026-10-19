@@ -64,6 +64,22 @@ pub trait StreamingAsr: Send {
     /// Ends the utterance and returns its final text.
     fn finish(&mut self) -> Result<String, BoxError>;
 
+    /// The utterance stopped at a pause: brings out its last word and keeps
+    /// the stream open, so that the next utterance goes on from it
+    /// ([`resume`](Self::resume)) and the recognizer punctuates the pause
+    /// knowing what came after it. Returns the whole stream's text so far,
+    /// or `None` when this recognizer can't (the caller then finishes).
+    fn hold(&mut self) -> Result<Option<String>, BoxError> {
+        Ok(None)
+    }
+
+    /// Goes on with a held stream after `gap` of silence; starts one when
+    /// none is held. [`feed`](Self::feed) and [`finish`](Self::finish) then
+    /// return the text of everything since [`start`](Self::start).
+    fn resume(&mut self, _gap: std::time::Duration) -> Result<(), BoxError> {
+        self.start()
+    }
+
     /// As [`Asr::set_hotwords`], from the next utterance.
     fn set_hotwords(&mut self, _words: &[String], _boost: f32) -> Result<(), BoxError> {
         Ok(())

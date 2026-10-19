@@ -17,6 +17,7 @@
 //! hotwords are ignored.
 
 use std::path::Path;
+use std::time::Duration;
 
 use bd_core::{BoxError, SAMPLE_RATE, StreamingAsr};
 use sherpa_onnx::{OnlineRecognizer, OnlineRecognizerConfig, OnlineStream, OnlineTransducerModelConfig};
@@ -27,6 +28,12 @@ use crate::{AsrError, existing, hotwords};
 /// 0.3 s ahead, 0.8 s behind (so the last chunk is complete).
 const LEAD_SAMPLES: usize = SAMPLE_RATE as usize * 3 / 10;
 const TAIL_SAMPLES: usize = SAMPLE_RATE as usize * 8 / 10;
+/// Silence added when an utterance is held open: with the VAD's 0.6 s it
+/// makes the 1.2 s the model needs to bring out the last word.
+const HOLD_SAMPLES: usize = SAMPLE_RATE as usize * 6 / 10;
+/// The most of a pause put into a held stream: longer ones are heard as
+/// this long (2.5 s pauses were punctuated as well as 1.2 s ones).
+const MAX_GAP: Duration = Duration::from_millis(1500);
 
 /// Runtime options for [`NemotronAsr`].
 #[derive(Debug, Clone)]
@@ -126,6 +133,20 @@ impl StreamingAsr for NemotronAsr {
         self.decode();
         self.stream = None;
         Ok(std::mem::take(&mut self.last))
+    }
+
+    fn hold(&mut self) -> Result<Option<String>, BoxError> {
+        let Some(stream) = &self.stream else { return Ok(None) };
+        stream.accept_waveform(SAMPLE_RATE as i32, &vec![0.0; HOLD_SAMPLES]);
+        self.decode();
+        Ok(Some(self.last.clone()))
+    }
+
+    fn resume(&mut self, gap: Duration) -> Result<(), BoxError> {
+        let Some(stream) = &self.stream else { return self.start() };
+        let n = (gap.min(MAX_GAP).as_secs_f64() * f64::from(SAMPLE_RATE)) as usize;
+        stream.accept_waveform(SAMPLE_RATE as i32, &vec![0.0; n]);
+        Ok(())
     }
 
     fn set_hotwords(&mut self, words: &[String], boost: f32) -> Result<(), BoxError> {
