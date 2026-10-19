@@ -5,7 +5,7 @@
 //! can't change any more: all but the word still being spoken, minus a
 //! trailing run that may yet turn out to be a spoken command ("new" before
 //! "paragraph", "open" before "quote"), and minus a "bear, …" at the start
-//! of a sentence with voice wake on (it may be "bear, go to sleep"). They
+//! of a sentence (it may be "bear, go to sleep", or an edit). They
 //! go through the user's vocabulary and the command pass first, as the
 //! finished utterance will. When a later word changes how earlier ones read
 //! (a bare "quote" that an "end quote" makes an opening mark), the page is
@@ -76,8 +76,9 @@ impl Finisher {
     fn stable(&self, text: &str) -> Option<String> {
         let words: Vec<&str> = text.split_whitespace().collect();
         let mut n = words.len().saturating_sub(1);
-        if self.gate.on()
-            && let Some(i) = name_at_sentence_start(&words[..n])
+        // A sentence starting "bear, …" may be voice wake's, or an edit
+        // ("bear, change Smith to Smythe"): it waits for the utterance's end.
+        if let Some(i) = name_at_sentence_start(&words[..n])
         {
             n = i;
         }

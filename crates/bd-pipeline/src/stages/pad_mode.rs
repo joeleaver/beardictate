@@ -99,8 +99,12 @@ impl Finisher {
     }
 
     /// Splits a pad command off the end of a segment.
+    /// In your app, only the edits: there's no pad to send or clear.
     pub(super) fn pad_command(&self, text: String) -> (String, Option<PadAction>) {
-        match self.pad.as_ref().and_then(|_| pad_voice::heard(&text)) {
+        let in_pad = self.pad.is_some();
+        let heard = pad_voice::heard(&text)
+            .filter(|h| in_pad || matches!(h.action, PadAction::Change { .. } | PadAction::Delete(_) | PadAction::Undo));
+        match heard {
             Some(h) => (h.before, Some(h.action)),
             None => (text, None),
         }

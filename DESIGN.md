@@ -293,6 +293,21 @@ take back. Text that didn't reach the page (left on the clipboard, typing
 failed, an erase refused) starts a new passage, so nothing earlier is
 rewritten.
 
+**Voice edits in your app** (`stages/edit.rs`, 2026-10-19): the pad's
+"bear, change Smith to Smythe", "bear, delete very" and "bear, undo" work on
+what was typed into your app in the last 60 s of this passage: the last
+match (whole words, ignoring case, capitalized like what it replaces) is
+changed on the page the same way a tidy is (`stages/rewrite.rs`: same app in
+front, at most 400 characters back). "bear, undo" takes back the last edit,
+if nothing was typed since, and otherwise the last thing typed, like
+"scratch that". An edit is handled in order after what was said before it,
+and a tidy of the edited sentence still with the model is dropped, so it
+can't undo the edit. "Send it" and "clear" stay dictation outside the pad.
+While typing as you speak, a sentence starting "bear, …" is held back until
+the utterance ends (it may be a command), with or without voice wake. As for
+the pad, an edit needs "bear" heard as a name (bear, bare, bair, baer,
+behr); Piper's voices are heard as "There", "Rare", so test with your own.
+
 - **Nemotron** is fed live from the VAD in every case: a stream starts at
   speech onset with the audio from just before it and ends with the segment
   (`Segmenter::accept_live`, `bd_core::StreamingAsr`), so it only runs while

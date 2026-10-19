@@ -3,12 +3,11 @@
 //! when the cleaned sentence comes back the page is taken back to where the
 //! two differ and typed again from there, words typed since included.
 //!
-//! The page can't be read, only what was typed onto it remembered, so a
-//! sentence is swapped only while that is still sure to be what's there:
-//! every piece of it still delivered in this passage (not scratched, no new
-//! passage or stop since), typed in the last [`REWRITE_WINDOW`], the same
-//! app still in front (where the platform can tell), and at most
-//! [`MAX_ERASE`] characters to take back. Otherwise it stays as typed.
+//! A sentence is swapped only while what was typed is sure to be what's
+//! there: every piece of it still delivered in this passage (not scratched
+//! or edited, no new passage or stop since), typed in the last
+//! [`REWRITE_WINDOW`], and as [`super::rewrite`] checks. Otherwise it stays
+//! as typed.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -16,6 +15,7 @@ use std::time::{Duration, Instant};
 use crossbeam_channel::{Receiver, never};
 
 use super::cleaner::{Cleaned, Cleaner};
+use super::rewrite::drop_last;
 use super::{Finisher, Typed};
 use crate::compose::{join, single_return_paragraphs};
 use crate::{Event, Stage};
@@ -23,11 +23,6 @@ use crate::{Event, Stage};
 /// A sentence typed longer ago than this stays as typed: the speaker may
 /// have moved on, clicked, or typed.
 const REWRITE_WINDOW: Duration = Duration::from_secs(15);
-
-/// A rewrite that would take back more than this many characters is left
-/// undone: too slow to watch, and too much to lose if the page isn't what
-/// we think.
-const MAX_ERASE: usize = 400;
 
 pub(super) struct Tidy {
     cleaner: Cleaner,
@@ -45,6 +40,8 @@ struct Sent {
     ids: Vec<u64>,
     raw: String,
     context: String,
+    /// Edited by voice since it was sent: the answer is for old words.
+    void: bool,
 }
 
 impl Finisher {
@@ -93,7 +90,8 @@ impl Finisher {
         match result {
             Ok(text) => {
                 self.note_cleaned(sent.ids.clone(), sent.context.clone(), &sent.raw, &text, elapsed, report, false);
-                if let Err(why) = self.rewrite(&sent, &text, elapsed) {
+                let swapped = if sent.void { Err("edited since") } else { self.rewrite(&sent, &text, elapsed) };
+                if let Err(why) = swapped {
                     tracing::info!(segment = sent.ids[0], why, "tidied sentence left as typed");
                 }
             }
@@ -126,6 +124,17 @@ impl Finisher {
             tidy.open.clear();
             tidy.open_since = None;
             tidy.waiting.clear();
+        }
+    }
+
+    /// Typed pieces `ids` were edited by voice: a tidy of the old words
+    /// mustn't undo that.
+    pub(super) fn tidy_void(&mut self, ids: &[u64]) {
+        let Some(tidy) = self.tidy.as_mut() else { return };
+        if let Some(sent) = tidy.in_flight.as_mut()
+            && sent.ids.iter().any(|id| ids.contains(id))
+        {
+            sent.void = true;
         }
     }
 
@@ -167,7 +176,7 @@ impl Finisher {
             let job = (context.clone(), raw.clone(), self.style.clone(), self.vocabulary.spellings());
             let tidy = self.tidy.as_mut().expect("checked above");
             if tidy.cleaner.jobs.send(job).is_ok() {
-                tidy.in_flight = Some(Sent { ids, raw, context });
+                tidy.in_flight = Some(Sent { ids, raw, context, void: false });
             }
             return;
         }
@@ -192,10 +201,6 @@ impl Finisher {
         if self.typed[k].at.elapsed() > REWRITE_WINDOW {
             return Err("typed too long ago");
         }
-        let app = self.focus.as_mut().and_then(|probe| probe());
-        if matches!((&app, &self.last_focus), (Some(now), Some(then)) if now != then) {
-            return Err("another app is in front");
-        }
         let tail = self.composer.context();
         let base = &tail[..tail.len() - finished.len()];
         let cleaned = if self.blank_line_paragraphs { cleaned.to_string() } else { single_return_paragraphs(cleaned) };
@@ -204,24 +209,8 @@ impl Finisher {
         // before, when the new sentence takes its trailing space back.
         let cut = drop_last(base, back).len();
         let later: String = self.typed[k + sent.ids.len()..].iter().map(|t| t.text.as_str()).collect();
-        let new_rest = format!("{delta}{later}");
-        let (live_back, live) = self.typing.as_ref().map_or((0, ""), |t| (t.take_back, t.typed.as_str()));
-        let old_page = format!("{}{live}", drop_last(&tail[cut..], live_back));
-        let new_page = format!("{}{live}", drop_last(&new_rest, live_back));
-        let common = old_page.chars().zip(new_page.chars()).take_while(|(a, b)| a == b).map(|(c, _)| c.len_utf8()).sum::<usize>();
-        let (gone, added) = (&old_page[common..], &new_page[common..]);
-        if gone.chars().count() > MAX_ERASE {
-            return Err("too much to take back");
-        }
         let id = sent.ids[0];
-        tracing::info!(segment = id, erased = gone.chars().count(), typed = added.chars().count(), "tidied in place");
-        if !gone.is_empty() {
-            self.emit(Event::Erase { id, text: gone.to_string() });
-        }
-        if !added.is_empty() {
-            self.emit(Event::Text { id, take_back: 0, text: added.to_string(), commanded: sent.raw.clone(), cleanup: Some(elapsed) });
-        }
-        self.composer.replace_from(cut, &new_rest);
+        self.rewrite_from(cut, &format!("{delta}{later}"), id, &sent.raw, Some(elapsed))?;
         if back > 0
             && let Some(before) = k.checked_sub(1).and_then(|i| self.typed.get_mut(i))
         {
@@ -234,10 +223,4 @@ impl Finisher {
         self.typed.splice(k..k + sent.ids.len(), (!merged.text.is_empty()).then_some(merged));
         Ok(())
     }
-}
-
-/// `text` without its last `n` characters.
-fn drop_last(text: &str, n: usize) -> &str {
-    let keep = text.chars().count().saturating_sub(n);
-    text.char_indices().nth(keep).map_or(text, |(i, _)| &text[..i])
 }

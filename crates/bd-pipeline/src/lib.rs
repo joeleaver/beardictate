@@ -257,8 +257,9 @@ pub enum Event {
     /// [`Feeder::pad`]`(Send)`): deliver this, the whole pad, cleaned. The
     /// pad is empty now.
     PadSend { text: String },
-    /// With [`PipelineConfig::pad`]: "bear, change …" or "bear, delete …"
-    /// named words that aren't in the pad.
+    /// "bear, change …" or "bear, delete …" named words that aren't in the
+    /// pad, or (typing into your app) in what was typed in the last minute,
+    /// or that can't safely be changed there any more.
     PadNotFound { words: String },
     /// A streaming recognizer's text so far for segment `id`, `since_speech`
     /// after the utterance began.

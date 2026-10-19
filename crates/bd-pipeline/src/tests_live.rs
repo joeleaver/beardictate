@@ -304,3 +304,74 @@ fn a_tidy_that_comes_back_in_another_app_is_left_undone() {
     assert_eq!(page(&events), "Um, we go now.");
     assert_eq!(contexts.lock().unwrap().len(), 1, "it was tidied, just not swapped in");
 }
+
+/// A spoken edit, as Nemotron hears it while it's said.
+fn edit_line(final_text: &'static str) -> Vec<&'static str> {
+    vec!["Bear", "Bear, do", final_text, final_text]
+}
+
+fn cold() -> Vec<&'static str> {
+    vec!["It was", "It was very very", "It was very very cold.", "It was very very cold."]
+}
+
+fn run_live(lines: Vec<Vec<&'static str>>) -> Vec<Event> {
+    let n = lines.len();
+    let p = live_rig(lines, PipelineConfig::default());
+    for line in 0..n {
+        say(&p, line);
+    }
+    p.finish().try_iter().collect()
+}
+
+#[test]
+fn bear_change_edits_what_was_typed_and_is_never_typed_itself() {
+    let events = run_live(vec![
+        vec!["The man", "The man named Smith", "The man named Smith left.", "The man named Smith left."],
+        edit_line("Bear, change Smith to Smythe."),
+    ]);
+    assert_eq!(page(&events), "The man named Smythe left.");
+    assert!(events.iter().all(|e| !matches!(e, Event::Text { text, .. } if text.to_lowercase().contains("bear"))));
+}
+
+#[test]
+fn bear_delete_takes_out_the_last_one() {
+    let events = run_live(vec![cold(), edit_line("Bear, delete very.")]);
+    assert_eq!(page(&events), "It was very cold.");
+}
+
+#[test]
+fn bear_undo_takes_the_edit_back_then_works_like_scratch_that() {
+    let events = run_live(vec![cold(), edit_line("Bear, delete very."), edit_line("Bear, undo.")]);
+    assert_eq!(page(&events), "It was very very cold.");
+    let events = run_live(vec![cold(), edit_line("Bear, undo.")]);
+    assert_eq!(page(&events), "");
+}
+
+#[test]
+fn an_edit_of_words_not_there_says_so() {
+    let events = run_live(vec![cold(), edit_line("Bear, change Smith to Smythe.")]);
+    assert_eq!(page(&events), "It was very very cold.");
+    assert!(events.iter().any(|e| matches!(e, Event::PadNotFound { words } if words == "Smith")));
+}
+
+#[test]
+fn an_edit_while_the_sentence_is_being_tidied_wins() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let (started_tx, started) = unbounded();
+    let (go, go_rx) = bounded(0);
+    let p = live_rig_gated(
+        vec![vec!["Um, we", "Um, we met", "Um, we met Smith.", "Um, we met Smith."], edit_line("Bear, change Smith to Smythe.")],
+        PipelineConfig::default(),
+        Some(contexts),
+        None,
+        Some((started_tx, go_rx)),
+    );
+    say(&p, 0);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    say(&p, 1);
+    std::thread::sleep(Duration::from_millis(100));
+    go.send(()).unwrap();
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    // The tidy was of "Smith": it's dropped, and the edit stays.
+    assert_eq!(page(&events), "Um, we met Smythe.");
+}

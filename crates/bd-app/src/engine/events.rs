@@ -91,8 +91,11 @@ impl<U: Ui> Worker<U> {
                 tracing::info!(chars = text.chars().count(), "typing the pad");
                 let _ = self.type_text.send(TypeJob::Type(text));
             }
-            Event::PadNotFound { words } => {
+            Event::PadNotFound { words } if self.settings.pad() => {
                 self.notifier.notify("pad", "Not in the pad", &format!("\u{201C}{words}\u{201D} isn't in the pad, so nothing was changed."));
+            }
+            Event::PadNotFound { words } => {
+                self.notifier.notify("pad", "Nothing changed", &format!("\u{201C}{words}\u{201D} isn't in what you dictated in the last minute (or it can't be reached from the cursor any more), so nothing was changed."));
             }
         }
     }

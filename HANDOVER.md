@@ -91,8 +91,11 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   sentence is tidied in place on the cleanup thread (DESIGN.md "Tidying in
   place"); guards: still all there, within 15 s, same app (not on Wayland),
   at most 400 characters back; text that didn't land starts a new passage.
-- Next, in order: (4) voice edits of
-  the last sentence in your app ("bear, change X to Y"); (5) remove
+- Done (4): voice edits in your app, "bear, change/delete/undo" on what
+  was typed in the last 60 s (DESIGN.md "Voice edits in your app").
+  Checked with tests and `bd file --stream` on Piper TTS spelled "Bear.";
+  not yet by voice in the app.
+- Next: (5) remove
   Parakeet: `ParakeetAsr`, `bd` without `--stream`, the tests and CI on its
   wav (CI also needs our sherpa-onnx build for hotwords), and offer to
   delete old model files (Parakeet, Nemotron 560 ms) on upgrade.

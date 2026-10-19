@@ -12,6 +12,7 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::gain::InputGain;
 mod cleaner;
+mod edit;
 mod gate;
 mod live_type;
 mod notes;
@@ -21,6 +22,7 @@ mod noise;
 mod pace;
 mod pad_mode;
 mod pad_voice;
+mod rewrite;
 mod tidy;
 mod wake;
 
@@ -104,6 +106,8 @@ enum Item {
     Sleep,
     /// A streaming recognizer's text so far (see [`Heard::Partial`]).
     Partial(u64, String),
+    /// A spoken edit of what's been typed into your app ("bear, change …").
+    Edit(PadAction),
 }
 
 impl Pending {
@@ -130,6 +134,7 @@ impl Pending {
 const MAX_ERASABLE: usize = 20;
 
 /// A segment delivered in the current dictation session.
+#[derive(Debug, Clone, PartialEq)]
 struct Typed {
     id: u64,
     /// Exactly what was delivered, separator included.
@@ -202,6 +207,8 @@ struct Finisher {
     /// Text typed as it's spoken, tidied in place (the cleanup model moves
     /// here, onto its own thread, the first time).
     tidy: Option<tidy::Tidy>,
+    /// Spoken edits in this session, for "bear, undo".
+    edits: Vec<edit::Edit>,
 }
 
 impl Finisher {
@@ -236,6 +243,7 @@ impl Finisher {
             live,
             typing: None,
             tidy: None,
+            edits: Vec::new(),
         };
         finisher.set_pad(pad);
         finisher
@@ -276,11 +284,13 @@ impl Finisher {
             Item::EndSession => {
                 self.tidy_flush();
                 self.typed.clear();
+                self.edits.clear();
                 self.emit(Event::SessionEnded);
             }
             Item::NewPassage => {
                 self.tidy_drop();
                 self.typed.clear();
+                self.edits.clear();
                 self.composer.clear();
             }
             Item::Wake => self.emit(Event::Woke),
@@ -288,10 +298,12 @@ impl Finisher {
                 // Like a stop: "scratch that" won't reach back past it.
                 self.tidy_flush();
                 self.typed.clear();
+                self.edits.clear();
                 self.emit(Event::Slept);
             }
             Item::Segment(p) => self.finish(p, input),
             Item::Partial(id, text) => self.partial(id, &text),
+            Item::Edit(action) => self.edit_typed(action),
         }
     }
 
@@ -497,8 +509,11 @@ impl Finisher {
                 self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now() }));
             }
         }
-        if let Some(action) = pad_action {
-            self.pad_action(action);
+        match pad_action {
+            Some(action) if self.pad.is_some() => self.pad_action(action),
+            // In order, after what was said before it.
+            Some(action) => self.queue.push_back(Item::Edit(action)),
+            None => {}
         }
     }
 
@@ -535,7 +550,7 @@ impl Finisher {
             match &self.queue[i] {
                 Item::NewPassage => return None,
                 Item::EndSession | Item::Sleep => crossed_session = true,
-                Item::Wake | Item::Partial(..) => {}
+                Item::Wake | Item::Partial(..) | Item::Edit(_) => {}
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
                     self.untype(p.id);

@@ -190,13 +190,7 @@ impl Pad {
         }
         let before = self.spans.clone();
         for span in self.spans.iter_mut().rev() {
-            let text = span.text_mut();
-            if let Some((s, e)) = find_last(text, from) {
-                let to = match_case(&text[s..e], to.trim());
-                text.replace_range(s..e, &to);
-                if to.is_empty() {
-                    tidy_cut(text, s);
-                }
+            if edit_text(span.text_mut(), from, to) {
                 self.history.push(Change::Edit(before));
                 return true;
             }
@@ -397,6 +391,23 @@ fn last_paragraphs(text: &str, n: usize) -> &str {
 }
 
 /// The byte range of the last whole-word, ASCII-case-insensitive `needle`.
+/// Replaces the last `from` in `text` (whole words, ignoring case) with
+/// `to`, capitalized like what it replaces; an empty `to` cuts it out. False
+/// when `from` isn't there.
+pub(crate) fn edit_text(text: &mut String, from: &str, to: &str) -> bool {
+    let from = from.trim();
+    if from.is_empty() {
+        return false;
+    }
+    let Some((s, e)) = find_last(text, from) else { return false };
+    let to = match_case(&text[s..e], to.trim());
+    text.replace_range(s..e, &to);
+    if to.is_empty() {
+        tidy_cut(text, s);
+    }
+    true
+}
+
 fn find_last(hay: &str, needle: &str) -> Option<(usize, usize)> {
     let (h, n) = (hay.as_bytes(), needle.as_bytes());
     if n.len() > h.len() {
