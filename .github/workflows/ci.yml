@@ -99,6 +99,23 @@ jobs:
       - name: Build
         run: cargo build --workspace --release --locked --features ${{ env.FEATURES }}
 
+      # The DLLs bd.exe and the tests load, next to them: sherpa-onnx's
+      # (its build script copies them only when it runs, not on a cached
+      # build) and llama.cpp's, as package-windows.ps1 collects them.
+      - name: Runtime DLLs next to the binaries
+        shell: pwsh
+        run: |
+          $release = "C:\t\release"
+          Copy-Item (Get-ChildItem "C:\t\sherpa-onnx-prebuilt\*\lib\*.dll").FullName $release
+          $llama = Get-ChildItem -Directory "$release\build\llama-cpp-sys-2-*\out" |
+            Where-Object { Test-Path "$($_.FullName)\backends\ggml-vulkan.dll" } |
+            Sort-Object { (Get-Item "$($_.FullName)\backends\ggml-vulkan.dll").LastWriteTime } | Select-Object -Last 1
+          Copy-Item "$($llama.FullName)\bin\*.dll", "$($llama.FullName)\backends\*.dll" $release
+          Copy-Item "$release\*.dll" "$release\deps"
+          dumpbin /dependents "$release\bd.exe" | Select-String "\.dll"
+          & "$release\bd.exe" --version
+          if ($LASTEXITCODE) { throw "bd.exe doesn't start (exit $LASTEXITCODE)" }
+
       - name: Download the models (and the test wav the ASR tests read)
         shell: pwsh
         run: |
@@ -171,8 +188,14 @@ jobs:
           path: target/sherpa-onnx/v1.13.8-bd1-linux-x64
           key: sherpa-onnx-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-onnx-3895.patch') }}
 
+      # The binaries find its libraries through LD_LIBRARY_PATH: its build
+      # script copies them next to them only when it runs, not on a cached
+      # build.
       - name: Build sherpa-onnx
-        run: echo "SHERPA_ONNX_LIB_DIR=$(scripts/build-sherpa-onnx.sh linux)" >> "$GITHUB_ENV"
+        run: |
+          lib="$(scripts/build-sherpa-onnx.sh linux)"
+          echo "SHERPA_ONNX_LIB_DIR=$lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$lib" >> "$GITHUB_ENV"
 
       - name: Speech models (cached by manifest)
         uses: actions/cache@v4
