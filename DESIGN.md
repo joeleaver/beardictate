@@ -16,7 +16,7 @@ Status: sketch (2026-10-14). Nothing here is built yet.
 - Ships small: the installer contains no models; models download on demand,
   verified, resumable, and the app is useful as soon as the ASR model lands.
 - UI in rinch: lives in the tray (the tray icon *is* the status display),
-  plus settings and first-run windows. No floating overlay (decided 2026-10-14).
+  plus settings and first-run windows, and the bear on screen (2026-10-19).
 
 ## Non-goals (for v1)
 
@@ -400,7 +400,17 @@ from Right Ctrl+C (rinch's `chorded` flag is always false there).
   silhouette never changes. Tooltip mirrors the state ("Listening — 0:12",
   "Downloading Bear Medium 43%"). Left-click toggles dictation; right-click
   menu: start/stop, cleanup model (radio), paste-in-this-app, settings, quit.
-- **No floating overlay.** Dropped 2026-10-14: it bought little and cost a
+- **The bear on screen** (Joe, 2026-10-19; `bear.rs`, `bear_window.rs`):
+  testers found the tray icon too small, and Windows hides it by default.
+  So a small round bear floats over other windows, on by default (General ›
+  Bear on screen). Its glow is the tray dot's colour (red listening, pulsing;
+  green finishing; amber needs you; violet loading; slate asleep), its snout
+  cobalt at work. Click: start/stop (wake/sleep). Press and move: drag.
+  Right-click: the tray's menu (`menu.rs`, one list for both), drawn in the
+  window, which grows towards the middle of the screen. It is a process of
+  its own (`beardictate --bear`), non-activating like the Bear Pad's, so the
+  focus worry below no longer applies.
+- **No floating overlay** (superseded by the bear on screen, above). Dropped 2026-10-14: it bought little and cost a
   focus-stealing risk on every platform (rinch#1519 is no longer on our
   critical path). Things the overlay would have said go to:
   - tray icon + tooltip for live state;

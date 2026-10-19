@@ -42,7 +42,7 @@ fn description(destination: Destination) -> &'static str {
 const DIALOG: &str = "For fiction: what your characters say goes in quotation marks, and a new speaker starts a new paragraph. Off, the only quotation marks are the ones you dictate (\u{201C}open quote\u{201D}, \u{201C}end quote\u{201D}). Needs Tidy up.";
 
 /// What "Tidy up" does, wherever the words go.
-const TIDY: &str = "Fillers out, sentences mended, punctuation and capitals fixed. Your words still appear as you say them; when you pause, the sentence (in the pad, the paragraph) is tidied in place, unless you've moved on to another app. Spoken commands work either way.";
+const TIDY: &str = "Fillers out, sentences mended, punctuation and capitals fixed. Your words still appear as you say them; when you pause, the sentence (in the Bear Pad, the paragraph) is tidied in place, unless you've moved on to another app. Spoken commands work either way.";
 
 fn choice(__scope: &mut RenderScope, s: &Shared, destination: Destination) -> NodeHandle {
     let (a, b) = (s.clone(), s.clone());

@@ -12,9 +12,12 @@
 
 #[cfg(windows)]
 mod autostart;
+mod bear;
+mod bear_window;
 mod control;
 mod engine;
 mod icon;
+mod menu;
 mod mic;
 mod models;
 mod notify;
@@ -45,6 +48,11 @@ thread_local! {
     static SHARED: RefCell<Option<Shared>> = const { RefCell::new(None) };
 }
 
+/// The app's shared state, on the UI thread.
+pub(crate) fn shared() -> Option<Shared> {
+    SHARED.with(|s| s.borrow().clone())
+}
+
 pub(crate) fn tray() -> Option<Rc<TrayIcon>> {
     TRAY.with(|t| t.borrow().clone())
 }
@@ -62,6 +70,7 @@ fn main() {
         None => {}
         // The Bear Pad window, started by the app (see pad_window.rs).
         Some("--pad") => return pad_window::run(),
+        Some("--bear") => return bear_window::run(),
         Some("--toggle") => match control::send(control::Request::Toggle) {
             Ok(()) => return,
             Err(e) => {
@@ -158,6 +167,7 @@ fn main() {
 
     // Stop dictation and the model threads, then take the tray down.
     ENGINE.with(|e| e.borrow_mut().take());
+    bear::stop();
     telemetry::stop();
     TRAY.with(|t| t.borrow_mut().take());
     // "Restart to update": the installer takes over from here.
@@ -214,5 +224,6 @@ fn app() -> NodeHandle {
         }
     });
     ui::wire(&shared);
+    bear::wire(&shared);
     window::view(__scope, &shared)
 }

@@ -140,6 +140,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s4 = s.clone();
     let s5 = s.clone();
     let (s6, s7, s8, s9, s10) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
+    let (s11, s12) = (s.clone(), s.clone());
     let modes = modes(__scope, s);
     let old_models = old_models(__scope, s);
     let paths = s.paths.clone();
@@ -151,9 +152,9 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 Text { style: "font-weight: 600;", "Dictation shortcut" }
                 Text { size: "sm", color: "dimmed",
                     {move || if s6.settings.with(|st| st.voice_wake) {
-                        "Press to wake up and start typing, press again to go to sleep. You can also click the bear."
+                        "Press to wake up and start dictating, press again to go to sleep. Clicking the bear on screen or the tray icon does the same."
                     } else {
-                        "Press to start dictating, press again to stop. You can also click the bear."
+                        "Press to start dictating, press again to stop. Clicking the bear on screen or the tray icon does the same."
                     }}
                 }
                 Group {
@@ -164,12 +165,34 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
             Switch {
                 label: "Always listening",
-                description: "The microphone stays on. Say \u{201C}bear, wake up\u{201D} (or press the shortcut) to start typing, and \u{201C}bear, go to sleep\u{201D} to stop. Turn the microphone off and on from the tray menu. Off, the shortcut turns the microphone on and off.",
+                description: "The microphone stays on. Say \u{201C}bear, wake up\u{201D} (or press the shortcut) to start dictating, and \u{201C}bear, go to sleep\u{201D} to stop. Turn the microphone off and on from the bear\u{2019}s menu. Off, the shortcut turns the microphone on and off.",
                 checked_fn: move || s7.settings.with(|st| st.voice_wake),
                 onchange: move || change(&s8, |st| st.voice_wake = !st.voice_wake),
             }
             {modes}
             {old_models}
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "The bear" }
+                Switch {
+                    label: "Bear on screen",
+                    description: "A small bear that floats over your other windows and glows to show what beardictate is doing: red while it listens, green while it finishes, amber when it needs you. Click it to start or stop dictating, drag it anywhere, right-click it for its menu (the same as the tray icon\u{2019}s).",
+                    checked_fn: move || s11.settings.with(|st| st.show_bear),
+                    onchange: move || change(&s12, |st| st.show_bear = !st.show_bear),
+                }
+            }
+            div { style: "display: flex; flex-direction: column; gap: 6px;",
+                Text { style: "font-weight: 600;", "Tray icon colours" }
+                Select {
+                    data: vec![
+                        SelectOption::new("auto", "Match my desktop"),
+                        SelectOption::new("light", "For a light taskbar"),
+                        SelectOption::new("dark", "For a dark taskbar"),
+                    ],
+                    value_fn: move || theme_key(s4.settings.with(|st| st.tray_theme)).to_string(),
+                    onchange: move |v: String| change(&s5, |st| st.tray_theme = theme_from(&v)),
+                }
+            }
+            Text { style: "font-weight: 600;", "Starting and updating" }
             Switch {
                 label: "Start beardictate when I sign in",
                 checked_fn: move || login.get(),
@@ -183,7 +206,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
             Switch {
                 label: "Keep beardictate up to date",
-                description: "Every few hours, look for a new version on beardictate.jkbase.app and download it. It installs the next time beardictate starts, or when you choose Restart to update from the tray.",
+                description: "Every few hours, look for a new version on beardictate.jkbase.app and download it. It installs the next time beardictate starts, or when you choose Restart to update from the bear\u{2019}s menu.",
                 checked_fn: move || s9.settings.with(|st| st.auto_update),
                 onchange: move || change(&s10, |st| st.auto_update = !st.auto_update),
             }
@@ -192,18 +215,6 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 description: "A microphone problem, text left on the clipboard, a model that won't load.",
                 checked_fn: move || s2.settings.with(|st| st.notifications),
                 onchange: move || change(&s3, |st| st.notifications = !st.notifications),
-            }
-            div { style: "display: flex; flex-direction: column; gap: 6px;",
-                Text { style: "font-weight: 600;", "Tray icon colours" }
-                Select {
-                    data: vec![
-                        SelectOption::new("auto", "Match my desktop"),
-                        SelectOption::new("light", "For a light taskbar"),
-                        SelectOption::new("dark", "For a dark taskbar"),
-                    ],
-                    value_fn: move || theme_key(s4.settings.with(|st| st.tray_theme)).to_string(),
-                    onchange: move |v: String| change(&s5, |st| st.tray_theme = theme_from(&v)),
-                }
             }
         }
     }
@@ -233,7 +244,7 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let p1 = punct(__scope, s, "Always inside: “To the river,” he said.", Punctuation::Inside);
     let p2 = punct(__scope, s, "Inside only when they belong to the speech: she called it ‘the end’.", Punctuation::Logical);
     let t1 = toggle(__scope, s, "When I say “new paragraph”", "And a line break for “new line”. Off, those words are typed.", |st| st.paragraph_on_command, |st| st.paragraph_on_command = !st.paragraph_on_command);
-    let t2 = toggle(__scope, s, "When a different character speaks", "With Dialog on (General). The model follows who's speaking.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
+    let t2 = toggle(__scope, s, "When a different character speaks", "Needs Dialog on (General page). The post-processing model follows who's speaking.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The post-processing model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
     let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);

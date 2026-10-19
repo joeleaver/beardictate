@@ -137,6 +137,9 @@ pub struct Settings {
     /// marks and a different character's line starts a paragraph. Off,
     /// only dictated quote marks stay.
     pub dialog: bool,
+    /// The bear on screen: a small floating window showing the state, with
+    /// the tray's menu on a right-click.
+    pub show_bear: bool,
     /// Earlier versions' modes, moved into `destination` and `tidy` on load.
     #[serde(skip_serializing)]
     mode: Option<OldMode>,
@@ -186,6 +189,7 @@ impl Default for Settings {
             destination: Destination::App,
             tidy: true,
             dialog: false,
+            show_bear: true,
             mode: None,
             bear_pad: false,
             auto_gain: true,
@@ -253,6 +257,12 @@ impl Settings {
                 OldMode::PadStreaming => (Destination::Pad, false),
                 OldMode::PadAuthor => (Destination::Pad, true),
             };
+            changed = true;
+        }
+        if self.cleanup == "off" {
+            // The Post-processing page's own off switch is gone: Tidy up
+            // says whether the model runs.
+            (self.tidy, self.cleanup) = (false, "auto".into());
             changed = true;
         }
         if dropped_from_catalog(&self.cleanup) {
@@ -329,6 +339,8 @@ pub struct Paths {
     pub gains: PathBuf,
     /// Where the Bear Pad window was, and its size.
     pub pad_window: PathBuf,
+    /// Where the bear on screen was left.
+    pub bear_window: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
     /// Downloaded updates waiting to install (see [`crate::update`]).
@@ -351,6 +363,7 @@ impl Paths {
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
             gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
             pad_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("pad-window"),
+            bear_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("bear-window"),
             updates: dirs.data_local_dir().join("updates"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
         })
@@ -458,6 +471,7 @@ const SETTINGS_HEADER: &str = "\
 #   in dB (0 to 30) when auto_gain is false.
 # destination: \"app\" (typed into the app you're in) or \"pad\" (collected in the Bear Pad;
 #   \"bear, send it\" types it).
+# show_bear: true to show the bear on screen (the state, and the tray's menu on a right-click).
 # dialog: with tidy, true to put speech in quote marks (fiction); false keeps only dictated quotes.
 # tidy: true to post-process with the model: words are typed as you say them, and each
 #   sentence (in the pad, the paragraph) is tidied in place when you pause; false leaves them be.
@@ -480,6 +494,14 @@ mod tests {
         assert!(!partial.style().dialog_paragraphs);
         assert!(partial.commands().break_commands);
         assert_eq!(partial.pause_paragraph(), None);
+    }
+
+    #[test]
+    fn post_processing_off_becomes_tidy_up_off() {
+        let mut s: Settings = toml::from_str("cleanup = \"off\"\n").unwrap();
+        assert!(s.upgrade());
+        assert_eq!((s.tidy, s.cleanup.as_str()), (false, "auto"));
+        assert!(s.show_bear && !s.dialog, "the bear on, dialog off, by default");
     }
 
     #[test]

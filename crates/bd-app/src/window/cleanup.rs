@@ -10,17 +10,14 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let custom = Signal::new(s.settings.with(|st| {
         if st.cleanup.ends_with(".gguf") { st.cleanup.clone() } else { String::new() }
     }));
-    let off = choice(__scope, s, false, "Off", "Your words as heard, with spoken commands. Fastest.");
-    let on = choice(__scope, s, true, "On", "With the model checked below: the recommended one, unless you pick another.");
     let rows: Vec<NodeHandle> = catalog().into_iter().map(|m| row(__scope, s, m)).collect();
     let (s1, s2) = (s.clone(), s.clone());
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Post-processing" }
             Text { size: "sm", color: "dimmed",
-                "With Tidy up on, a small model on your computer drops the ums and fixes punctuation after each sentence, and with Dialog on, quotes what your characters say."
+                "The model that does Tidy up (the ums out, punctuation fixed, after each sentence) and Dialog (what your characters say, quoted). It runs on your computer. Switch Tidy up and Dialog on and off on the General page or from the bear\u{2019}s menu."
             }
-            Stack { gap: "sm", {off} {on} }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Models" }
                 Text { size: "sm", color: "dimmed", "Bigger models tidy and quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }
@@ -39,27 +36,6 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 },
             }
             Text { size: "sm", color: "dimmed", {move || ui::status_line(&s2)} }
-        }
-    }
-}
-
-/// Cleanup off or on. Turning it on from off starts with "auto" (the
-/// recommended model); a model already picked stays picked.
-fn choice(__scope: &mut RenderScope, s: &Shared, on: bool, label: &'static str, description: &'static str) -> NodeHandle {
-    let (a, b) = (s.clone(), s.clone());
-    rsx! {
-        Radio {
-            name: "cleanup-on",
-            label: label,
-            description: description,
-            checked_fn: move || a.settings.with(|st| (st.cleanup != "off") == on),
-            onchange: move || change(&b, |st| {
-                if !on {
-                    st.cleanup = "off".into();
-                } else if st.cleanup == "off" {
-                    st.cleanup = "auto".into();
-                }
-            }),
         }
     }
 }

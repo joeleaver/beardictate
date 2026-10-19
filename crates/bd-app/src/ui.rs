@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use crate::models::{self, Models};
 use rinch::hotkey::{self, Binding, HotkeySpec, HotkeyState};
-use rinch::menu::{Menu, MenuItem};
+use rinch::menu::Menu;
 use rinch::prelude::*;
 use rinch::reactive::{Effect, untracked};
 use rinch::tray::TrayIconImage;
@@ -158,72 +158,9 @@ fn tooltip(status: &Status, hotkey: &str) -> String {
     }
 }
 
-/// The right-click menu for the current state.
+/// The tray's right-click menu for the current state.
 pub fn tray_menu(shared: &Shared) -> Menu {
-    let status = shared.status.get();
-    let hotkey = shared.hotkey_text.get();
-    let toggle = || engine_send(engine::Command::Toggle);
-    let first = match status.state {
-        State::Loading => MenuItem::new(status.detail.clone()).enabled(false),
-        State::Listening if status.voice => MenuItem::new(format!("Go to sleep   ({hotkey})")).on_click(toggle),
-        State::Asleep => MenuItem::new(format!("Wake up   ({hotkey})")).on_click(toggle),
-        State::MicOff => MenuItem::new("Microphone off").enabled(false),
-        State::Listening => {
-            MenuItem::new(format!("Stop dictating   ({hotkey})")).on_click(|| engine_send(engine::Command::Toggle))
-        }
-        State::NeedsYou if status.detail.starts_with("Can't type") => MenuItem::new("Start dictating").enabled(false),
-        State::NeedsYou => MenuItem::new("Try again").on_click(|| engine_send(engine::Command::Toggle)),
-        _ => MenuItem::new(format!("Start dictating   ({hotkey})")).on_click(|| engine_send(engine::Command::Toggle)),
-    };
-    let mut menu = Menu::new().item(first);
-    if status.state == State::NeedsYou {
-        menu = menu.item(MenuItem::new(shorten(&status.detail, 70)).enabled(false));
-    }
-    if status.voice && status.state != State::Loading {
-        let on = status.state != State::MicOff;
-        let s = shared.clone();
-        let label = if on { "Turn microphone off" } else { "Turn microphone on" };
-        menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
-    }
-
-    // Where the words go: a radio group; a click moves the mark, then saves
-    // it. Then whether they're tidied up, and with dialog.
-    let destination = Signal::new(shared.settings.with(|st| st.destination));
-    menu = menu.separator();
-    for d in crate::settings::Destination::ALL {
-        let s = shared.clone();
-        menu = menu.item(MenuItem::radio(d.label(), destination, d).on_click(move || change(&s, |st| st.destination = destination.get())));
-    }
-    let tidy = Signal::new(shared.settings.with(|st| st.tidy));
-    let s = shared.clone();
-    menu = menu.item(MenuItem::checkbox("Tidy up", tidy).on_click(move || change(&s, |st| st.tidy = tidy.get())));
-    let dialog = Signal::new(shared.settings.with(|st| st.dialog));
-    let s = shared.clone();
-    menu = menu.item(MenuItem::checkbox("Dialog", dialog).on_click(move || change(&s, |st| st.dialog = dialog.get())));
-
-    let open_settings = {
-        let s = shared.clone();
-        move || {
-            s.section.set(Section::General);
-            show_current_window();
-        }
-    };
-    if let crate::update::Phase::Ready { version } = shared.updates.phase.get() {
-        menu = menu.separator().item(MenuItem::new(format!("Restart to update to {version}")).on_click(crate::update::restart_to_update));
-    }
-    menu.separator()
-        .item(MenuItem::new("Settings…").on_click(open_settings))
-        .separator()
-        .item(MenuItem::new("Quit beardictate").on_click(close_current_window))
-}
-
-fn shorten(text: &str, max: usize) -> String {
-    let line = text.lines().next().unwrap_or("");
-    if line.chars().count() <= max {
-        return line.to_string();
-    }
-    let cut: String = line.chars().take(max - 1).collect();
-    format!("{cut}…")
+    crate::menu::tray(shared, crate::menu::entries(shared))
 }
 
 /// Opens a file in the user's default app for it.
@@ -411,6 +348,6 @@ mod tests {
     fn tooltips_say_what_to_do() {
         let idle = Status { state: State::Idle, detail: "Post-processing: Qwen3 4B".into(), since: None, voice: false };
         assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nPost-processing: Qwen3 4B");
-        assert_eq!(shorten("abcdef", 4), "abc…");
+        assert_eq!(crate::menu::shorten("abcdef", 4), "abc…");
     }
 }

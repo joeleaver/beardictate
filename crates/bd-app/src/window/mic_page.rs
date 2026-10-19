@@ -116,7 +116,7 @@ pub fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
             Switch {
                 label: "Keep the microphone open between dictations",
-                description: "When always listening is off: your first word is never clipped, but the desktop shows the microphone as in use all the time.",
+                description: "When Always listening is off: your first word is never clipped, but the desktop shows the microphone as in use all the time.",
                 checked_fn: move || s6.settings.with(|st| st.keep_mic_open),
                 onchange: {let s = s6.clone(); move || change(&s, |st| st.keep_mic_open = !st.keep_mic_open)},
             }

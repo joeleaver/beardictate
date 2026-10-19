@@ -123,6 +123,13 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   line. `bd --no-dialog`. Retraining Bear with a dialog tag is the lasting
   fix. "Cleanup" is "Post-processing" everywhere in the app (the site's
   help page still says cleanup).
+- Done (9): the bear on screen (DESIGN.md), on by default: state glow,
+  click to dictate, drag, right-click for the tray's menu. Settings words made
+  consistent: dictating, wake up/go to sleep, Tidy up, Dialog,
+  Post-processing (the model and its page, whose own Off/On is gone: an old
+  `cleanup = "off"` becomes `tidy = false`), Bear Pad, the bear's menu. Tried
+  in a nested KWin; not yet on Windows or X11 (drag and the menu's growing
+  are untested there).
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.
