@@ -258,6 +258,28 @@ README.md.
 - New release: bump `version` in Cargo.toml, `scripts/package-linux.sh`, ask the Windows session to build the same commit, `site/publish.sh add …`, `prune <platform> 1`, deploy (Joe's OK), commit `releases.json`.
 - The binaries live in `site/public/downloads/` (gitignored) and `/mnt/data/beardictate-targets/win-dist/`.
 
+## Telemetry (testers' logs)
+
+**Not live yet (2026-10-19).** The server is in `telemetry/` (contract:
+`docs/telemetry.md`), but the jkbase project `beardictate-telemetry` doesn't
+exist, and no alpha build has been published. Testers on 0.1.8 run release
+builds, which record and send nothing. Going live needs Joe's OK for each
+step:
+1. Deploy the server (`telemetry/README.md` "Deploying").
+2. Build with `--features alpha` and `BD_TELEMETRY_KEY`, then publish with
+   `site/publish.sh add … --channel alpha`.
+3. Joe makes a managed-DB key with
+   `jkbase db key create --project beardictate-telemetry` and writes it to
+   `~/.config/beardictate/telemetry-db.env` (mode 600, as
+   `JKBASE_DB_ACCESS_KEY_ID=` and `JKBASE_DB_SECRET=` lines).
+
+After that, the one way for any agent to read the logs is
+`telemetry/pull.sh <out.jsonl> [--install <id>] [--since <date>]`. It runs
+`jkbase db proxy` on a free port, `export.js`, then stops the proxy. The key
+stays in that file. Write the export outside the repo: it holds testers'
+words. Until then, a tester's own log (`~/.local/state/beardictate/beardictate.log`
+on Linux) has segment numbers, timings and joins, but never the words.
+
 ## Where things live (outside the repo)
 
 - Models (dev): `/mnt/data/beardictate-dev/models/` —

@@ -47,6 +47,12 @@ environment of `cargo build --features alpha`.
 
 ## Reading it
 
+Agents and people alike: `./pull.sh <out.jsonl> [--install <id>] [--since 2026-10-18]`.
+It takes the managed-DB key from `~/.config/beardictate/telemetry-db.env`
+(see the top of `pull.sh`; Joe makes it once with `jkbase db key create`),
+runs the proxy, exports, and stops the proxy. Write the export outside the
+repo: it holds testers' words. By hand:
+
 ```
 jkbase db proxy --project beardictate-telemetry     # RhypeDB on 127.0.0.1:4200
 node export.js telemetry.jsonl [--install <id>] [--since 2026-10-18]
