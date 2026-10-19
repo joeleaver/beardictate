@@ -1,0 +1,7 @@
+# Files compiled into the binaries as text (include_str!) keep the same bytes
+# on every checkout: a Windows checkout's CRLF would change the cleanup
+# prompts the Bear models were trained on.
+crates/bd-cleanup/prompts/*.txt text eol=lf
+crates/bd-models/manifest.toml text eol=lf
+crates/bd-app/src/*.b64 text eol=lf
+crates/bd-app/src/update/*.sig text eol=lf
