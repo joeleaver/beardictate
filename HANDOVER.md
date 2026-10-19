@@ -116,6 +116,13 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   after a pause joins the utterance before it (`stages/listen.rs`), so the
   sentence is tidied once with it; `compose::join` lets a mark replace the
   one the recognizer put there. Checked with `bd file` on Piper TTS.
+- Done (8): Dialog split from Tidy (Joe, 2026-10-19): a peer of Tidy up on
+  General and in the tray, off by default. Off, `keep_dictated_quotes`
+  (bd-cleanup guardrail) takes out quote marks the model added and no
+  paragraph starts per speaker; Bear, trained on novels, quoted every short
+  line. `bd --no-dialog`. Retraining Bear with a dialog tag is the lasting
+  fix. "Cleanup" is "Post-processing" everywhere in the app (the site's
+  help page still says cleanup).
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.

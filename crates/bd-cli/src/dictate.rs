@@ -75,6 +75,10 @@ pub struct DictateArgs {
     /// spoken and then tidied in place.
     #[arg(long)]
     pub type_once: bool,
+    /// Keep only dictated quote marks: no dialog quoted by the model, no
+    /// paragraph per speaker (the app's Dialog off).
+    #[arg(long)]
+    pub no_dialog: bool,
 }
 
 #[derive(Debug, Args)]
@@ -133,7 +137,8 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         focus: None,
     };
     let mut style = args.style.style();
-    style.dialog_paragraphs = args.paragraphs != ParagraphsArg::Off;
+    style.dialog = !args.no_dialog;
+    style.dialog_paragraphs = style.dialog && args.paragraphs != ParagraphsArg::Off;
     let pause_paragraph = (args.paragraphs == ParagraphsArg::Auto)
         .then(|| Duration::try_from_secs_f32(args.pause_paragraph))
         .transpose()

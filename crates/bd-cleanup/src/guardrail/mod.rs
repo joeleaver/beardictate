@@ -39,7 +39,7 @@ mod tests;
 use std::fmt;
 
 pub use align::RemovalReason;
-pub use breaks::keep_dictated_breaks;
+pub use breaks::{keep_dictated_breaks, keep_dictated_quotes};
 pub use echo::strip_context_echo;
 pub use repair::{Repair, repair};
 pub use words::{Gap, Tokens, Word, normalize, tokenize};

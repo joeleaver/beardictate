@@ -1,4 +1,4 @@
-//! The Cleanup page: which model cleans up your dictation, and the model
+//! The Post-processing page: which model tidies your dictation, and the model
 //! manager (download, resume, delete).
 
 use rinch::prelude::*;
@@ -16,14 +16,14 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let (s1, s2) = (s.clone(), s.clone());
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
-            Title { order: 3, "Cleanup" }
+            Title { order: 3, "Post-processing" }
             Text { size: "sm", color: "dimmed",
-                "After each sentence is transcribed, a small model on your computer drops the ums, fixes punctuation and quotes your dialog."
+                "With Tidy up on, a small model on your computer drops the ums and fixes punctuation after each sentence, and with Dialog on, quotes what your characters say."
             }
             Stack { gap: "sm", {off} {on} }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Models" }
-                Text { size: "sm", color: "dimmed", "Bigger models quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }
+                Text { size: "sm", color: "dimmed", "Bigger models tidy and quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }
                 {rows}
             }
             TextInput {

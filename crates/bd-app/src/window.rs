@@ -32,7 +32,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let [n1, n2, n3, n4, n5, n6] = [
         (Section::General, "General"),
         (Section::Microphone, "Microphone"),
-        (Section::Cleanup, "Cleanup"),
+        (Section::Cleanup, "Post-processing"),
         (Section::Writing, "Writing"),
         (Section::Words, "Special words"),
         (Section::About, "About"),
@@ -233,9 +233,9 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let p1 = punct(__scope, s, "Always inside: “To the river,” he said.", Punctuation::Inside);
     let p2 = punct(__scope, s, "Inside only when they belong to the speech: she called it ‘the end’.", Punctuation::Logical);
     let t1 = toggle(__scope, s, "When I say “new paragraph”", "And a line break for “new line”. Off, those words are typed.", |st| st.paragraph_on_command, |st| st.paragraph_on_command = !st.paragraph_on_command);
-    let t2 = toggle(__scope, s, "When a different character speaks", "The cleanup model follows the dialog.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
+    let t2 = toggle(__scope, s, "When a different character speaks", "With Dialog on (General). The model follows who's speaking.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
-    let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The cleanup model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
+    let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The post-processing model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
     let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);
     let r1 = run_on(__scope, s, "Leave it open, and open the next paragraph: \u{201C}…the river.  \u{201C}And then…", false);
     let r2 = run_on(__scope, s, "Close it, and open the next paragraph: \u{201C}…the river.\u{201D}  \u{201C}And then…", true);
@@ -388,7 +388,7 @@ fn about(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             {updates}
             if cfg!(feature = "alpha") {
                 Text { size: "sm",
-                    "This is an alpha: what you dictate (the recordings and the text), with timings and your computer's details, is sent to the developer to fix problems and train better cleanup. Nothing said while beardictate is asleep is sent."
+                    "This is an alpha: what you dictate (the recordings and the text), with timings and your computer's details, is sent to the developer to fix problems and train better post-processing. Nothing said while beardictate is asleep is sent."
                 }
                 Group {
                     Button { variant: "light", size: "xs", onclick: move || ui::open_url("https://beardictate.jkbase.app/download.html#alpha"), "What it sends" }

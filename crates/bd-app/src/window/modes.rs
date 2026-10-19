@@ -1,5 +1,5 @@
 //! The General page's choice of where dictated words go, and whether
-//! they're tidied up.
+//! they're tidied up, with or without fiction's dialog.
 
 use rinch::prelude::*;
 
@@ -8,7 +8,8 @@ use crate::ui::{Shared, change};
 
 pub fn modes(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let choices: Vec<NodeHandle> = Destination::ALL.into_iter().map(|d| choice(__scope, s, d)).collect();
-    let (b, c) = (s.clone(), s.clone());
+    let (b, c, e) = (s.clone(), s.clone(), s.clone());
+    let settings = s.settings;
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 8px;",
             Text { style: "font-weight: 600;", "Where your words go" }
@@ -18,6 +19,13 @@ pub fn modes(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 description: TIDY,
                 checked_fn: move || b.settings.with(|st| st.tidy),
                 onchange: move || change(&c, |st| st.tidy = !st.tidy),
+            }
+            Switch {
+                label: "Dialog",
+                description: DIALOG,
+                disabled: {move || !settings.with(|st| st.tidy)},
+                checked_fn: move || settings.with(|st| st.dialog),
+                onchange: {let e = e.clone(); move || change(&e, |st| st.dialog = !st.dialog)},
             }
         }
     }
@@ -30,8 +38,11 @@ fn description(destination: Destination) -> &'static str {
     }
 }
 
+/// What "Dialog" adds to tidying.
+const DIALOG: &str = "For fiction: what your characters say goes in quotation marks, and a new speaker starts a new paragraph. Off, the only quotation marks are the ones you dictate (\u{201C}open quote\u{201D}, \u{201C}end quote\u{201D}). Needs Tidy up.";
+
 /// What "Tidy up" does, wherever the words go.
-const TIDY: &str = "Fillers out, sentences mended, dialog quoted. Your words still appear as you say them; when you pause, the sentence (in the pad, the paragraph) is tidied in place, unless you've moved on to another app. Spoken commands work either way.";
+const TIDY: &str = "Fillers out, sentences mended, punctuation and capitals fixed. Your words still appear as you say them; when you pause, the sentence (in the pad, the paragraph) is tidied in place, unless you've moved on to another app. Spoken commands work either way.";
 
 fn choice(__scope: &mut RenderScope, s: &Shared, destination: Destination) -> NodeHandle {
     let (a, b) = (s.clone(), s.clone());

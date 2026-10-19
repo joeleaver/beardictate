@@ -187,7 +187,7 @@ pub fn tray_menu(shared: &Shared) -> Menu {
     }
 
     // Where the words go: a radio group; a click moves the mark, then saves
-    // it. Then whether they're tidied up.
+    // it. Then whether they're tidied up, and with dialog.
     let destination = Signal::new(shared.settings.with(|st| st.destination));
     menu = menu.separator();
     for d in crate::settings::Destination::ALL {
@@ -197,6 +197,9 @@ pub fn tray_menu(shared: &Shared) -> Menu {
     let tidy = Signal::new(shared.settings.with(|st| st.tidy));
     let s = shared.clone();
     menu = menu.item(MenuItem::checkbox("Tidy up", tidy).on_click(move || change(&s, |st| st.tidy = tidy.get())));
+    let dialog = Signal::new(shared.settings.with(|st| st.dialog));
+    let s = shared.clone();
+    menu = menu.item(MenuItem::checkbox("Dialog", dialog).on_click(move || change(&s, |st| st.dialog = dialog.get())));
 
     let open_settings = {
         let s = shared.clone();
@@ -406,8 +409,8 @@ mod tests {
 
     #[test]
     fn tooltips_say_what_to_do() {
-        let idle = Status { state: State::Idle, detail: "Cleanup: Qwen3 4B".into(), since: None, voice: false };
-        assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nCleanup: Qwen3 4B");
+        let idle = Status { state: State::Idle, detail: "Post-processing: Qwen3 4B".into(), since: None, voice: false };
+        assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nPost-processing: Qwen3 4B");
         assert_eq!(shorten("abcdef", 4), "abc…");
     }
 }

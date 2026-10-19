@@ -64,7 +64,7 @@ pub fn setup_card(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }},
             Text { style: "font-weight: 700; font-size: 15px;", "One more step: the speech models" }
             Text { size: "sm",
-                {format!("beardictate listens on your computer, so it needs Nemotron (speech to text) and Silero (which hears your pauses) before it can dictate: {} in all, downloaded once from their makers' published copies and checked byte for byte. Cleanup models are optional, on the Cleanup page.", size(total))}
+                {format!("beardictate listens on your computer, so it needs Nemotron (speech to text) and Silero (which hears your pauses) before it can dictate: {} in all, downloaded once from their makers' published copies and checked byte for byte. Post-processing models are optional, on the Post-processing page.", size(total))}
             }
             if states.with(downloading) {
                 Progress { value_fn: move || states.with(|st| { let (d, t) = progress(st); if t == 0 { 0.0 } else { (d as f64 * 100.0 / t as f64) as f32 } }), size: "lg" }

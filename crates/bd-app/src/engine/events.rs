@@ -50,7 +50,11 @@ impl<U: Ui> Worker<U> {
                 );
             }
             Event::Error { stage, message } => {
-                self.notifier.notify("pipeline", &format!("{stage:?} failed on a sentence"), &message);
+                let what = match stage {
+                    bd_pipeline::Stage::Asr => "Speech recognition",
+                    bd_pipeline::Stage::Cleanup => "Post-processing",
+                };
+                self.notifier.notify("pipeline", &format!("{what} failed on a sentence"), &message);
             }
             Event::Woke => {
                 tracing::info!("voice wake: awake");

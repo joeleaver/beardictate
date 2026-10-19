@@ -209,6 +209,11 @@ impl<B: ChatBackend> GuardedCleanup<B> {
                 }
             },
         };
+        let text = if request.style.dialog || text == request.raw {
+            text
+        } else {
+            guardrail::keep_dictated_quotes(request.context, dictated, &text)
+        };
         let text = if request.style.model_paragraphs() || text == request.raw {
             text
         } else {

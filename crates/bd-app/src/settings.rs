@@ -133,6 +133,10 @@ pub struct Settings {
     /// you say them either way, and each sentence is tidied in place when
     /// you pause; in the pad, the paragraph you're on.
     pub tidy: bool,
+    /// With `tidy`: fiction's dialog. Speech in the prose is put in quote
+    /// marks and a different character's line starts a paragraph. Off,
+    /// only dictated quote marks stay.
+    pub dialog: bool,
     /// Earlier versions' modes, moved into `destination` and `tidy` on load.
     #[serde(skip_serializing)]
     mode: Option<OldMode>,
@@ -181,6 +185,7 @@ impl Default for Settings {
             keep_mic_open: false,
             destination: Destination::App,
             tidy: true,
+            dialog: false,
             mode: None,
             bear_pad: false,
             auto_gain: true,
@@ -270,7 +275,8 @@ impl Settings {
                 Punctuation::Inside => PunctuationPlacement::Inside,
                 Punctuation::Logical => PunctuationPlacement::Logical,
             },
-            dialog_paragraphs: self.paragraph_on_speaker,
+            dialog: self.dialog,
+            dialog_paragraphs: self.dialog && self.paragraph_on_speaker,
             topic_paragraphs: self.paragraph_on_topic,
             close_continued_speech: self.close_continued_speech,
         }
@@ -452,7 +458,8 @@ const SETTINGS_HEADER: &str = "\
 #   in dB (0 to 30) when auto_gain is false.
 # destination: \"app\" (typed into the app you're in) or \"pad\" (collected in the Bear Pad;
 #   \"bear, send it\" types it).
-# tidy: true to clean up with the cleanup model: words are typed as you say them, and each
+# dialog: with tidy, true to put speech in quote marks (fiction); false keeps only dictated quotes.
+# tidy: true to post-process with the model: words are typed as you say them, and each
 #   sentence (in the pad, the paragraph) is tidied in place when you pause; false leaves them be.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
@@ -481,7 +488,9 @@ mod tests {
         let style = s.style();
         assert_eq!(style.quotes, QuoteStyle::CurlySingle);
         assert_eq!(style.punctuation, PunctuationPlacement::Logical);
-        assert!(style.topic_paragraphs && style.dialog_paragraphs);
+        assert!(style.topic_paragraphs && !style.dialog && !style.dialog_paragraphs, "dialog is off by default");
+        let fiction = Settings { dialog: true, ..s.clone() }.style();
+        assert!(fiction.dialog && fiction.dialog_paragraphs);
         assert_ne!(s.live(), Settings::default().live());
         assert_eq!(s.models(), Settings::default().models());
     }

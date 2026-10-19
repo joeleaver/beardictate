@@ -126,7 +126,7 @@ impl<U: Ui> Worker<U> {
         match loaded {
             Ok(l) => {
                 tracing::info!(cleanup = %l.cleanup, "models loaded");
-                self.cleanup_name = format!("Cleanup: {}", l.cleanup);
+                self.cleanup_name = format!("Post-processing: {}", l.cleanup);
                 // Settings changed while loading reach it now.
                 l.pipeline.reconfigure(pipeline_config(&self.settings, self.starting_gain()));
                 self.pipeline = Some(l.pipeline);

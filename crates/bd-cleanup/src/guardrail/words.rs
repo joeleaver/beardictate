@@ -62,7 +62,7 @@ const QUOTES: &[char] = &[
     '\u{00BB}', '\u{2039}', '\u{203A}',
 ];
 
-fn is_quote(c: char) -> bool {
+pub(crate) fn is_quote(c: char) -> bool {
     QUOTES.contains(&c)
 }
 

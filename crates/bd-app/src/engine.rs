@@ -277,7 +277,7 @@ impl<U: Ui> Worker<U> {
         } else if self.listening_since.is_some() {
             let detail = match (self.reload_when_idle, load::cleanup_label(&self.settings)) {
                 (true, Some(next)) => format!("{} · {next} loads when you stop dictating", self.cleanup_name),
-                (true, None) => format!("{} · cleanup turns off when you stop dictating", self.cleanup_name),
+                (true, None) => format!("{} · post-processing turns off when you stop dictating", self.cleanup_name),
                 _ => self.cleanup_name.clone(),
             };
             (State::Listening, detail)

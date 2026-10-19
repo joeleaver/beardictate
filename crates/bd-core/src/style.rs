@@ -50,6 +50,9 @@ pub enum PunctuationPlacement {
 pub struct Style {
     pub quotes: QuoteStyle,
     pub punctuation: PunctuationPlacement,
+    /// Let the cleanup model put speech it hears in the prose in quote
+    /// marks (fiction). Off, only dictated quote marks stay.
+    pub dialog: bool,
     /// Let the cleanup model start a new paragraph when a different
     /// character speaks. Off, the only breaks are the dictated ones ("new
     /// paragraph", "new line") and any the pipeline adds at long pauses.
@@ -76,6 +79,7 @@ impl Default for Style {
         Self {
             quotes: QuoteStyle::default(),
             punctuation: PunctuationPlacement::default(),
+            dialog: true,
             dialog_paragraphs: true,
             topic_paragraphs: false,
             close_continued_speech: false,
