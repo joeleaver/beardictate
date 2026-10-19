@@ -85,6 +85,14 @@ pub(super) fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Inject
 
 impl<U: Ui> Worker<U> {
     pub(super) fn on_injected(&mut self, report: Injected) {
+        // Text that didn't reach the page: what was typed before it can't be
+        // found by counting back from the cursor any more, so nothing typed
+        // earlier is tidied in place or scratched across it.
+        if matches!(report, Injected::LeftOnClipboard(_) | Injected::NotErased(_) | Injected::Failed(_))
+            && let Some(p) = &self.pipeline
+        {
+            p.new_passage();
+        }
         match report {
             Injected::Ready(backend) => {
                 tracing::info!(backend, "typing ready");

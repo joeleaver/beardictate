@@ -267,13 +267,31 @@ streaming → app; pad-streaming → pad; pad-author and the older
 
 | `destination` | `tidy = true` | `tidy = false` |
 |---|---|---|
-| `app` (default) | each sentence typed once, cleaned, when you pause | typed as you speak |
+| `app` (default) | typed as you speak, each sentence tidied in place when you pause | typed as you speak |
 | `pad` | shown as you speak, the paragraph cleaned in place | shown as you speak |
 
 The General page has the two as a radio group and a "Tidy up" switch; the
 tray menu has them as radio items and a checkbox. There's no "type when
-finished" choice of its own: typing once is what tidying in your app does,
-and tidying text typed as you speak, in place, is the next step.
+finished" choice: the pipeline can still type each sentence once, cleaned
+(`PipelineConfig::live_typing = false`, `bd --stream --type-once`), for
+apps where editing in place would misbehave, but the app doesn't use it.
+
+**Tidying in place** (`stages/tidy.rs`, 2026-10-19). Words are typed as
+spoken; each finished sentence (the utterances up to one that ends a
+sentence, or an unfinished one after 1.5 s, 6 s while the next is being
+spoken) goes to the cleanup model on its own thread (`stages/cleaner.rs`,
+shared with the pad), with the recent context before it, while typing goes
+on. When it comes back, the page is taken back to where the old and new
+text first differ and typed again from there, the words typed since
+included. We can't read the page, only remember what we typed, so it's
+swapped only while that is sure to be what's there: every piece still
+delivered in this passage (not scratched; no stop, sleep or new passage
+since: a stop or sleep first waits for the tidies in progress, a new
+passage drops them), typed in the last 15 s, the same app still in front
+where the platform can tell (not on Wayland), and at most 400 characters to
+take back. Text that didn't reach the page (left on the clipboard, typing
+failed, an erase refused) starts a new passage, so nothing earlier is
+rewritten.
 
 - **Nemotron** is fed live from the VAD in every case: a stream starts at
   speech onset with the audio from just before it and ends with the segment
@@ -292,8 +310,10 @@ and tidying text typed as you speak, in place, is the next step.
   (Nemotron often leaves it off).
 - Measured 2026-10-19, `bd file --stream --realtime` on NICO-TOP, tidy on:
   cleanup 0.3–0.5 s a sentence on its Radeon iGPU, about 2 s on its CPU
-  alone with Nemotron running, never behind, so text lands about 1.2 s (GPU)
-  or 3 s (CPU) after you stop speaking, the 0.6 s VAD wait included.
+  alone with Nemotron running, never behind, so the tidied sentence lands
+  about 1.2 s (GPU) or 3 s (CPU) after you stop speaking, the 0.6 s VAD wait
+  included (typed once, that was the first text you saw; tidied in place,
+  the words are there while you speak).
 
 ## Bear Pad
 

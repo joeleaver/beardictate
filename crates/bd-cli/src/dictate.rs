@@ -64,13 +64,17 @@ pub struct DictateArgs {
     /// "bear, send it", and for `bd file` at the end of each file.
     #[arg(long)]
     pub pad: bool,
-    /// Stream, as the app does: Nemotron transcribes as you speak. With a
-    /// cleanup model, each sentence is cleaned and typed once; with
-    /// `--cleanup off` the words are typed as they come (with --pad, shown
-    /// in the pad, cleaned there). Live-typed text is printed on stderr at
-    /// the end, since stdout can't take text back.
+    /// Stream, as the app does: Nemotron transcribes as you speak and the
+    /// words are typed as they come (with --pad, shown in the pad); with a
+    /// cleanup model each sentence is then tidied in place. The text as
+    /// typed is printed on stderr at the end, since stdout can't take text
+    /// back.
     #[arg(long)]
     pub stream: bool,
+    /// With --stream and a cleanup model: type each sentence once, cleaned,
+    /// instead of as spoken and then tidied in place.
+    #[arg(long)]
+    pub type_once: bool,
 }
 
 #[derive(Debug, Args)]
@@ -122,7 +126,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         bd_pipeline::Recognizer::Segments(Box::new(setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?))
     };
     let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
-    let live_typing = cleanup.is_none();
+    let live_typing = !(args.type_once && cleanup.is_some());
     match &cleanup {
         Some(c) => eprintln!("cleanup: {}", c.description),
         None => eprintln!("cleanup: off (ASR text with spoken commands applied)"),
@@ -210,8 +214,9 @@ impl Reporter {
                 return Some(Output::Type(*take_back, text.clone()));
             }
             Event::Erase { id, text } => {
-                // Stdout can't take text back; say what went.
-                eprintln!("\n[{id}] scratched after typing: {text:?}");
+                // Stdout can't take text back; say what went (scratched, or
+                // to be typed again: live text that changed, a tidied sentence).
+                eprintln!("\n[{id}] taken back: {text:?}");
                 return Some(Output::Erase(text.clone()));
             }
             Event::Scratched { id } => eprintln!("[{id}] scratched"),

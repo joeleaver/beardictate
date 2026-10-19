@@ -7,10 +7,11 @@ use std::time::{Duration, Instant};
 use bd_commands::{CommandOutput, CommandPass};
 use bd_core::{AudioSegment, BoxError, Cleanup, CleanupRequest, Style};
 use bd_vocab::Vocabulary;
-use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
+use crossbeam_channel::{Receiver, Sender, unbounded};
 
 use crate::compose::{Composer, join, single_return_paragraphs};
 use crate::gain::InputGain;
+mod cleaner;
 mod gate;
 mod live_type;
 mod notes;
@@ -20,11 +21,12 @@ mod noise;
 mod pace;
 mod pad_mode;
 mod pad_voice;
+mod tidy;
 mod wake;
 
 use gate::{Gate, Step};
 use crate::{Event, FocusProbe, Input, PadAction, Parts, PipelineConfig, Recognizer, Stage};
-use pace::BACKLOG;
+use pace::{BACKLOG, Waited};
 use pad_mode::PadMode;
 
 /// From the segmenter to the ASR.
@@ -133,6 +135,8 @@ struct Typed {
     /// Exactly what was delivered, separator included.
     text: String,
     quote_before: bool,
+    /// When it was delivered.
+    at: Instant,
 }
 
 /// The segment being cleaned: past the queue, not yet delivered.
@@ -195,6 +199,9 @@ struct Finisher {
     live: bool,
     /// Outside the pad, the live utterance being typed as it's spoken.
     typing: Option<live_type::Typing>,
+    /// Text typed as it's spoken, tidied in place (the cleanup model moves
+    /// here, onto its own thread, the first time).
+    tidy: Option<tidy::Tidy>,
 }
 
 impl Finisher {
@@ -228,6 +235,7 @@ impl Finisher {
             pad: None,
             live,
             typing: None,
+            tidy: None,
         };
         finisher.set_pad(pad);
         finisher
@@ -242,20 +250,21 @@ impl Finisher {
                 continue;
             }
             if self.queue.is_empty() {
-                match input.recv() {
-                    Ok(heard) => self.take_in(heard),
-                    Err(_) => return,
+                match self.wait(&input, self.tidy_wait()) {
+                    Waited::Heard(heard) => self.take_in(heard),
+                    Waited::Timeout => {
+                        self.tidy_due();
+                        continue;
+                    }
+                    Waited::Closed => return self.tidy_flush(),
                 }
             }
             self.take_in_ready(&input);
-            if let Some(wait) = self.hold() {
-                match input.recv_timeout(wait) {
-                    Ok(heard) => {
-                        self.take_in(heard);
-                        continue;
-                    }
-                    Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => {}
-                }
+            if let Some(wait) = self.hold()
+                && let Waited::Heard(heard) = self.wait(&input, Some(wait))
+            {
+                self.take_in(heard);
+                continue;
             }
             let Some(item) = self.pop_sentence() else { continue };
             self.handle(item, &input);
@@ -265,16 +274,19 @@ impl Finisher {
     fn handle(&mut self, item: Item, input: &Receiver<Heard>) {
         match item {
             Item::EndSession => {
+                self.tidy_flush();
                 self.typed.clear();
                 self.emit(Event::SessionEnded);
             }
             Item::NewPassage => {
+                self.tidy_drop();
                 self.typed.clear();
                 self.composer.clear();
             }
             Item::Wake => self.emit(Event::Woke),
             Item::Sleep => {
                 // Like a stop: "scratch that" won't reach back past it.
+                self.tidy_flush();
                 self.typed.clear();
                 self.emit(Event::Slept);
             }
@@ -311,9 +323,13 @@ impl Finisher {
 
     fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
+        let ends_sentence = p.ends_sentence();
         let commanded = p.out.text;
         let behind = self.queue.iter().any(|item| matches!(item, Item::Segment(_)));
-        let (text, cleanup) = if behind && self.cleanup.is_some() && p.ready.elapsed() > BACKLOG {
+        let (text, cleanup) = if self.types_live() {
+            // Typed as dictated now; tidied in place once it comes back.
+            (commanded.clone(), None)
+        } else if behind && self.cleanup.is_some() && p.ready.elapsed() > BACKLOG {
             tracing::info!(segment = p.id, waited_ms = p.ready.elapsed().as_millis() as u64, "cleanup is behind; delivered as dictated");
             (commanded.clone(), None)
         } else {
@@ -337,7 +353,8 @@ impl Finisher {
             }
         }
         if self.types_live() {
-            return self.typed_live(p.id, p.quote_before, &base, take_back, text);
+            self.typed_live(p.id, p.quote_before, &base, take_back, text);
+            return self.tidy_typed(p.id, ends_sentence);
         }
         if text.is_empty() {
             tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
@@ -345,7 +362,7 @@ impl Finisher {
             if self.typed.len() == MAX_ERASABLE {
                 self.typed.remove(0);
             }
-            self.typed.push(Typed { id: p.id, text: text.clone(), quote_before: p.quote_before });
+            self.typed.push(Typed { id: p.id, text: text.clone(), quote_before: p.quote_before, at: Instant::now() });
             self.emit(Event::Text { id: p.id, take_back, text, commanded, cleanup });
         }
     }
@@ -392,12 +409,12 @@ impl Finisher {
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
-            Heard::Partial { id, text } if self.types_live() || self.pad.is_some() => {
-                return self.queue.push_back(Item::Partial(id, text));
-            }
             Heard::Partial { id, text } => {
-                // Typed a sentence at a time: only whether someone's speaking.
                 self.speaking = (!text.is_empty()).then_some(id);
+                // Typed a sentence at a time, it only says someone's speaking.
+                if self.types_live() || self.pad.is_some() {
+                    self.queue.push_back(Item::Partial(id, text));
+                }
                 return;
             }
             Heard::Pad(action) => return self.pad_action(action),
@@ -494,6 +511,9 @@ impl Finisher {
         self.sentence_hold = config.sentence_hold;
         self.sentence_hold_speaking = config.sentence_hold_speaking;
         self.live_typing = config.live_typing;
+        if !(self.live && self.live_typing && !config.pad) {
+            self.tidy_stop();
+        }
         self.context_window = config.context_window;
         self.cleanup_context_chars = config.cleanup_context_chars;
         self.passage_gap = config.passage_gap;

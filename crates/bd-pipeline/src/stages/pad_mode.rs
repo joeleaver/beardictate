@@ -2,12 +2,11 @@
 //! pad, and the cleanup model runs on the pad, on a thread of its own, so a
 //! segment shows in the pad while the one before is being cleaned.
 
-use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use bd_core::{Cleanup, CleanupRequest, Style};
-use crossbeam_channel::{Receiver, Sender, never, select, unbounded};
+use crossbeam_channel::{Receiver, never, select};
 
+use super::cleaner::{Cleaned, Cleaner};
 use super::{Finisher, Heard, pad_voice};
 use crate::compose::single_return_paragraphs;
 use crate::pad::{Batch, Pad};
@@ -51,48 +50,12 @@ impl PadMode {
     }
 }
 
-type Cleaned = (Result<String, String>, Duration, Option<bd_core::CleanupReport>);
-
-/// Context, raw text, style and special words for one clean.
-type Job = (String, String, Style, Vec<String>);
-
-/// The cleanup model on its own thread.
-struct Cleaner {
-    jobs: Sender<Job>,
-    results: Receiver<Cleaned>,
-    thread: JoinHandle<Box<dyn Cleanup>>,
-}
-
-impl Cleaner {
-    fn spawn(mut engine: Box<dyn Cleanup>) -> Option<Cleaner> {
-        let (jobs, job_rx) = unbounded::<Job>();
-        let (result_tx, results) = unbounded();
-        let thread = thread::Builder::new()
-            .name("bd-pad-clean".into())
-            .spawn(move || {
-                for (context, raw, style, names) in job_rx {
-                    let started = Instant::now();
-                    let request = CleanupRequest { context: &context, raw: &raw, style: &style, names: &names };
-                    let result = engine.clean(&request).map_err(|e| e.to_string());
-                    let _ = result_tx.send((result, started.elapsed(), engine.last_report()));
-                }
-                engine
-            })
-            .map_err(|e| tracing::error!("starting the pad's cleanup thread: {e}"))
-            .ok()?;
-        Some(Cleaner { jobs, results, thread })
-    }
-
-    /// Stops the thread (after the job it's on) and hands the model back.
-    fn stop(self) -> Option<Box<dyn Cleanup>> {
-        drop(self.jobs);
-        self.thread.join().map_err(|_| tracing::error!("the pad's cleanup thread panicked")).ok()
-    }
-}
-
 impl Finisher {
     /// Turns Bear Pad mode on or off. Turning it off drops what's in the pad.
     pub(super) fn set_pad(&mut self, on: bool) {
+        if on {
+            self.tidy_stop();
+        }
         match (on, self.pad.take()) {
             (true, None) => {
                 let cleaner = self.cleanup.take().and_then(Cleaner::spawn);

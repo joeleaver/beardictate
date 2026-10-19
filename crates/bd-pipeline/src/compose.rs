@@ -45,13 +45,38 @@ impl Composer {
         self.recent_at(Instant::now(), window, max_chars)
     }
 
+    /// [`Composer::recent`] for the text before byte `end` of the context:
+    /// the context of a piece already delivered, when it's cleaned later.
+    pub(crate) fn recent_before(&self, end: usize, window: Duration, max_chars: usize) -> &str {
+        self.recent_until(Instant::now(), end, window, max_chars)
+    }
+
     fn recent_at(&self, now: Instant, window: Duration, max_chars: usize) -> &str {
+        self.recent_until(now, self.tail.len(), window, max_chars)
+    }
+
+    fn recent_until(&self, now: Instant, end: usize, window: Duration, max_chars: usize) -> &str {
         let start = self
             .stamps
             .iter()
+            .filter(|&&(_, at)| at < end)
             .find(|(t, _)| now.saturating_duration_since(*t) <= window)
-            .map_or(self.tail.len(), |&(_, at)| at);
-        bd_cleanup::prompt::trim_context(&self.tail[start..], max_chars)
+            .map_or(end, |&(_, at)| at);
+        bd_cleanup::prompt::trim_context(&self.tail[start..end], max_chars)
+    }
+
+    /// Replaces the delivered text from byte `from` on with `text`, as one
+    /// piece from when the first piece it replaces was delivered: a
+    /// sentence tidied in place, and what was typed after it.
+    pub(crate) fn replace_from(&mut self, from: usize, text: &str) {
+        let at = self.stamps.iter().find(|&&(_, start)| start >= from).map_or_else(Instant::now, |&(t, _)| t);
+        self.tail.truncate(from);
+        self.drop_stamps_after(from);
+        if !text.is_empty() {
+            self.stamps.push_back((at, from));
+        }
+        self.tail.push_str(text);
+        self.trim();
     }
 
     /// Starts a new passage: no context, nothing to join onto.
@@ -220,6 +245,24 @@ mod tests {
         // A break takes the trailing space back, in the context too.
         assert_eq!(c.append("\n\nNew."), (1, "\n\nNew. ".into()));
         assert_eq!(c.context(), "Kept. Back.\n\nNew. ");
+    }
+
+    #[test]
+    fn a_tidied_sentence_replaces_what_was_typed() {
+        let t0 = Instant::now();
+        let at = |secs| t0 + Duration::from_secs(secs);
+        let mut c = Composer::new(4000);
+        c.append_at(at(0), "Before.");
+        c.append_at(at(10), "um so we");
+        c.append_at(at(12), "Next.");
+        let from = "Before. ".len();
+        // Its context is what came before it.
+        assert_eq!(c.recent_until(at(13), from, Duration::from_secs(90), 600), "Before. ");
+        c.replace_from(from, "So we. Next. ");
+        assert_eq!(c.context(), "Before. So we. Next. ");
+        // The replaced text keeps the time of the first piece it replaced.
+        assert_eq!(c.recent_at(at(95), Duration::from_secs(90), 600), "So we. Next. ");
+        assert_eq!(c.recent_at(at(101), Duration::from_secs(90), 600), "");
     }
 
     #[test]

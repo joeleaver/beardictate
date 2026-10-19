@@ -87,10 +87,11 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   or when another app has the focus (`bd_platform::FocusProbe`; not on
   Wayland); "bear, clear" closes a voice-opened quote. `bd file --realtime`
   feeds audio at speaking pace and `-v` shows each text's wait.
-- Next, in order: (3) with tidy on in your app, type as you speak and swap
-  in the cleaned sentence in place (the pipeline already reconciles live
-  text to the cleaned text with `retype`; it needs guards: same app, within
-  the time window, and type-once for paste-only apps); (4) voice edits of
+- Done (3): with tidy on in your app, words are typed as spoken and each
+  sentence is tidied in place on the cleanup thread (DESIGN.md "Tidying in
+  place"); guards: still all there, within 15 s, same app (not on Wayland),
+  at most 400 characters back; text that didn't land starts a new passage.
+- Next, in order: (4) voice edits of
   the last sentence in your app ("bear, change X to Y"); (5) remove
   Parakeet: `ParakeetAsr`, `bd` without `--stream`, the tests and CI on its
   wav (CI also needs our sherpa-onnx build for hotwords), and offer to

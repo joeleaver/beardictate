@@ -3,6 +3,8 @@
 
 use std::time::{Duration, Instant};
 
+use crossbeam_channel::{Receiver, select};
+
 use super::{Finisher, Heard, Item};
 
 /// A sentence that waited this long for cleanup, with more queued behind
@@ -10,7 +12,32 @@ use super::{Finisher, Heard, Item};
 /// text that never appears looks like nothing is working.
 pub(super) const BACKLOG: Duration = Duration::from_secs(4);
 
+/// How long to wait when nothing is due.
+const IDLE: Duration = Duration::from_secs(3600);
+
+/// What [`Finisher::wait`] got.
+pub(super) enum Waited {
+    Heard(Heard),
+    Timeout,
+    Closed,
+}
+
 impl Finisher {
+    /// Waits for the next transcript, up to `timeout`, swapping in tidied
+    /// sentences as they come.
+    pub(super) fn wait(&mut self, input: &Receiver<Heard>, timeout: Option<Duration>) -> Waited {
+        let deadline = timeout.map(|t| Instant::now() + t);
+        loop {
+            let tidied = self.tidy_results();
+            let left = deadline.map_or(IDLE, |d| d.saturating_duration_since(Instant::now()));
+            select! {
+                recv(input) -> heard => return heard.map_or(Waited::Closed, Waited::Heard),
+                recv(tidied) -> cleaned => if let Ok(cleaned) = cleaned { self.tidied(cleaned) },
+                default(left) => if deadline.is_some() { return Waited::Timeout },
+            }
+        }
+    }
+
     /// Whether the words go on the page as they're spoken.
     pub(super) fn types_live(&self) -> bool {
         self.live && self.live_typing && self.pad.is_none()

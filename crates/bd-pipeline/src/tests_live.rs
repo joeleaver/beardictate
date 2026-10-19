@@ -57,7 +57,18 @@ fn live_rig_with(
     cleanup: Option<Arc<Mutex<Vec<String>>>>,
     focus: Option<crate::FocusProbe>,
 ) -> Pipeline {
-    let cleanup = cleanup.map(|contexts| Box::new(FakeCleanup { contexts, gate: None }) as Box<dyn Cleanup>);
+    live_rig_gated(lines, config, cleanup, focus, None)
+}
+
+/// With `gate`, the cleanup model says when it starts and waits to be let go.
+fn live_rig_gated(
+    lines: Vec<Vec<&'static str>>,
+    config: PipelineConfig,
+    cleanup: Option<Arc<Mutex<Vec<String>>>>,
+    focus: Option<crate::FocusProbe>,
+    gate: Option<(Sender<()>, Receiver<()>)>,
+) -> Pipeline {
+    let cleanup = cleanup.map(|contexts| Box::new(FakeCleanup { contexts, gate }) as Box<dyn Cleanup>);
     let parts = Parts {
         segmenter: Box::new(LiveChunks),
         asr: Recognizer::Live(Box::new(Script { lines, line: 0, fed: 0 })),
@@ -211,4 +222,85 @@ fn a_long_silence_starts_a_new_passage() {
     say(&p, 2);
     let _ = p.finish();
     assert_eq!(*contexts.lock().unwrap(), ["", "One.", ""]);
+}
+
+#[test]
+fn typed_as_spoken_then_the_tidied_sentence_is_swapped_in() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let p = live_rig_with(
+        vec![vec!["Um, we", "Um, we go", "Um, we go now", "Um, we go now."]],
+        PipelineConfig::default(),
+        Some(contexts.clone()),
+        None,
+    );
+    say(&p, 0);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "We go now.");
+    // Typed while spoken first, then taken back to where it changed.
+    assert!(matches!(events.iter().find(|e| matches!(e, Event::Text { .. })), Some(Event::Text { text, .. }) if text == "Um,"));
+    assert!(events.iter().any(|e| matches!(e, Event::Erase { .. })));
+    assert_eq!(contexts.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn a_sentence_over_two_utterances_is_tidied_whole_and_later_words_kept() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let (started_tx, started) = unbounded();
+    let (go, go_rx) = bounded(0);
+    let p = live_rig_gated(
+        vec![vec!["Um, we", "Um, we said", "Um, we said,", "Um, we said,"], vec!["go", "go now", "go now.", "go now."], vec!["Next", "Next one", "Next one.", "Next one."]],
+        PipelineConfig::default(),
+        Some(contexts.clone()),
+        None,
+        Some((started_tx, go_rx)),
+    );
+    say(&p, 0);
+    say(&p, 1);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    // The next sentence is typed while the first is being tidied.
+    say(&p, 2);
+    std::thread::sleep(Duration::from_millis(100));
+    go.send(()).unwrap();
+    // Then the next sentence's turn.
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    go.send(()).unwrap();
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "We said, go now. Next one.");
+    // One clean for the first sentence, with no context; one for the next,
+    // with the first one tidied.
+    assert_eq!(contexts.lock().unwrap().len(), 2);
+    assert_eq!(contexts.lock().unwrap()[1], "We said, go now.");
+}
+
+#[test]
+fn a_scratched_sentence_is_not_brought_back_by_its_tidy() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let (started_tx, started) = unbounded();
+    let (go, go_rx) = bounded(0);
+    let p = live_rig_gated(
+        vec![vec!["Um, we", "Um, we go", "Um, we go now", "Um, we go now."], vec!["Scratch", "Scratch that."]],
+        PipelineConfig::default(),
+        Some(contexts),
+        None,
+        Some((started_tx, go_rx)),
+    );
+    say(&p, 0);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    say(&p, 1);
+    std::thread::sleep(Duration::from_millis(100));
+    go.send(()).unwrap();
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "");
+}
+
+#[test]
+fn a_tidy_that_comes_back_in_another_app_is_left_undone() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let apps = Arc::new(Mutex::new(vec!["mail", "chat"].into_iter()));
+    let focus: crate::FocusProbe = Box::new(move || apps.lock().unwrap().next().map(String::from));
+    let p = live_rig_with(vec![vec!["Um, we", "Um, we go", "Um, we go now", "Um, we go now."]], PipelineConfig::default(), Some(contexts.clone()), Some(focus));
+    say(&p, 0);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "Um, we go now.");
+    assert_eq!(contexts.lock().unwrap().len(), 1, "it was tidied, just not swapped in");
 }

@@ -25,13 +25,13 @@ pub fn modes(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
 
 fn description(destination: Destination) -> &'static str {
     match destination {
-        Destination::App => "Typed where your cursor is, in whatever app you're using.",
+        Destination::App => "Typed where your cursor is as you say them, in whatever app you're using.",
         Destination::Pad => "Your words appear in a floating pad as you say them. Edit by voice (\u{201C}bear, change Smith to Smythe\u{201D}, \u{201C}bear, undo\u{201D}) and say \u{201C}bear, send it\u{201D} to type it all where your cursor is.",
     }
 }
 
 /// What "Tidy up" does, wherever the words go.
-const TIDY: &str = "Fillers out, sentences mended, dialog quoted. In your app, each sentence is typed once, tidied, when you pause; off, your words are typed as you say them, and spoken commands still work. In the pad, the paragraph you're on is tidied in place.";
+const TIDY: &str = "Fillers out, sentences mended, dialog quoted. Your words still appear as you say them; when you pause, the sentence (in the pad, the paragraph) is tidied in place, unless you've moved on to another app. Spoken commands work either way.";
 
 fn choice(__scope: &mut RenderScope, s: &Shared, destination: Destination) -> NodeHandle {
     let (a, b) = (s.clone(), s.clone());

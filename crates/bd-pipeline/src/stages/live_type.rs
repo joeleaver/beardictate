@@ -24,9 +24,9 @@ pub(super) struct Typing {
     id: u64,
     /// Characters of the text before it taken back (a trailing space before
     /// a break or a closing mark).
-    take_back: usize,
+    pub take_back: usize,
     /// What has been typed of it.
-    typed: String,
+    pub typed: String,
 }
 
 impl Finisher {
@@ -56,7 +56,7 @@ impl Finisher {
             if self.typed.len() == MAX_ERASABLE {
                 self.typed.remove(0);
             }
-            self.typed.push(Typed { id, text, quote_before });
+            self.typed.push(Typed { id, text, quote_before, at: std::time::Instant::now() });
         }
     }
 

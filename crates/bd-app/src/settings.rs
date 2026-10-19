@@ -126,9 +126,9 @@ pub struct Settings {
     /// Where the words go.
     pub destination: Destination,
     /// Clean up what's dictated with the cleanup model: fillers out,
-    /// sentences mended, dialog quoted. In your app each sentence is then
-    /// typed once, cleaned, when you pause; off, words are typed as you say
-    /// them. In the pad, the paragraph you're on is cleaned in place.
+    /// sentences mended, dialog quoted. In your app the words are typed as
+    /// you say them either way, and each sentence is tidied in place when
+    /// you pause; in the pad, the paragraph you're on.
     pub tidy: bool,
     /// Earlier versions' modes, moved into `destination` and `tidy` on load.
     #[serde(skip_serializing)]
@@ -214,8 +214,6 @@ pub struct LiveSettings {
     pub auto_gain: bool,
     pub mic_gain_db: f32,
     pub pad: bool,
-    /// Outside the pad: words typed as spoken, uncleaned.
-    pub live_typing: bool,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -302,7 +300,6 @@ impl Settings {
             auto_gain: self.auto_gain,
             mic_gain_db: self.mic_gain_db,
             pad: self.pad(),
-            live_typing: !self.tidy,
         }
     }
 
@@ -450,8 +447,8 @@ const SETTINGS_HEADER: &str = "\
 #   in dB (0 to 30) when auto_gain is false.
 # destination: \"app\" (typed into the app you're in) or \"pad\" (collected in the Bear Pad;
 #   \"bear, send it\" types it).
-# tidy: true to clean up with the cleanup model (in your app each sentence is typed once,
-#   cleaned; in the pad the paragraph is cleaned in place); false to type words as you say them.
+# tidy: true to clean up with the cleanup model: words are typed as you say them, and each
+#   sentence (in the pad, the paragraph) is tidied in place when you pause; false leaves them be.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";
