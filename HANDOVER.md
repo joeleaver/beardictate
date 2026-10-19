@@ -110,6 +110,12 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   words decide (DESIGN.md "Pauses", `stages/listen.rs`). Checked with
   `bd file --realtime` on Piper TTS with paused sentences; not yet by
   voice in the app.
+- Done (7): spoken punctuation in the app ("comma", "period", "question
+  mark", "exclamation point"…; Writing › Punctuation, on by default). It was
+  only a `bd` flag, so testers' marks were typed as words. A mark said alone
+  after a pause joins the utterance before it (`stages/listen.rs`), so the
+  sentence is tidied once with it; `compose::join` lets a mark replace the
+  one the recognizer put there. Checked with `bd file` on Piper TTS.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.

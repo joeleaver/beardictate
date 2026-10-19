@@ -74,6 +74,16 @@ pub(crate) fn may_start_command(words: &[&str], literal_punctuation: bool) -> bo
             .any(|ph| ph.words.len() >= words.len() && ph.words[..words.len()] == *words)
 }
 
+/// Whether `words` (lowercase, no marks) are a spoken punctuation mark,
+/// or its start.
+pub(crate) fn may_be_mark(words: &[&str]) -> bool {
+    !words.is_empty()
+        && PHRASES
+            .iter()
+            .filter(|ph| matches!(ph.cmd, Cmd::Punct { .. }))
+            .any(|ph| ph.words.len() >= words.len() && ph.words[..words.len()] == *words)
+}
+
 /// Words that, directly before `open quote` / `end quote`, make it a noun
 /// phrase ("the open quote", "an end quote") rather than a command. Kept
 /// short on purpose: "told her open quote …" is a command.

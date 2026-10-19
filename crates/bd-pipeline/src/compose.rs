@@ -14,6 +14,10 @@ const ATTACHED: &[char] = &[
     '\u{201D}', '\u{2019}', '\u{00BB}', ')', ']', ',', '.', ';', ':', '!', '?', '\u{2026}',
 ];
 
+/// The marks a spoken punctuation command makes, or the recognizer puts
+/// at a word's end.
+const MARKS: &[char] = &[',', '.', ';', ':', '!', '?', '\u{2026}'];
+
 /// Our own output for the current passage: what has been delivered, kept to
 /// a bounded tail for the cleanup model's context. Never read back from the
 /// target application.
@@ -176,6 +180,17 @@ pub fn join(before: &str, segment: &str) -> (usize, String) {
         return (0, String::new());
     }
     let first = segment.chars().next().unwrap_or(' ');
+    // A mark said on its own ("…so necessary" and then "exclamation
+    // point"): it takes the place of the one the recognizer put there.
+    if MARKS.contains(&first) {
+        let ending = before.trim_end_matches(' ');
+        if ending.ends_with(MARKS) {
+            let gone = before.len() - ending.trim_end_matches(MARKS).len();
+            let take_back = before[before.len() - gone..].chars().count();
+            let (_, text) = join(&before[..before.len() - gone], segment);
+            return (take_back, text);
+        }
+    }
     let attaches = first == '\n' || ATTACHED.contains(&first);
     let (take_back, lead) = match before.chars().last() {
         None => (0, ""),
@@ -199,6 +214,16 @@ mod tests {
         assert_eq!(join("", "We stayed in."), (0, "We stayed in. ".into()));
         // A context that lost its trailing space gets one in front instead.
         assert_eq!(join("It rained.", "We stayed in."), (0, " We stayed in. ".into()));
+    }
+
+    #[test]
+    fn a_mark_said_alone_replaces_the_one_before_it() {
+        assert_eq!(join("So necessary. ", "!"), (2, "! ".into()));
+        assert_eq!(join("Is it working. ", "?"), (2, "? ".into()));
+        assert_eq!(join("Wait, ", "\u{2026}"), (2, "\u{2026} ".into()));
+        assert_eq!(join("So necessary ", ","), (1, ", ".into()));
+        // Inside a closed quote, the mark stays outside it.
+        assert_eq!(join("\u{201C}Go.\u{201D} ", "!"), (1, "! ".into()));
     }
 
     #[test]

@@ -122,3 +122,23 @@ fn typed_once_the_halves_are_cleaned_as_one_sentence() {
     assert_eq!(page(&events), "I'm going to say a sentence with a pause in the middle.");
     assert_eq!(contexts.lock().unwrap().len(), 1);
 }
+
+#[test]
+fn a_mark_said_after_a_pause_takes_the_place_of_the_full_stop() {
+    let mut config = PipelineConfig::default();
+    config.commands.literal_punctuation = true;
+    let p = rig(
+        vec![
+            vec!["So", "So necessary", "So necessary", "So necessary"],
+            vec!["So necessary. Exclamation", "So necessary. Exclamation point", "So necessary. Exclamation point"],
+            vec!["So necessary. Exclamation point. Then", "So necessary. Exclamation point. Then we left"],
+        ],
+        config,
+        None,
+    );
+    say(&p, 0);
+    say(&p, 1);
+    say(&p, 2);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "So necessary! Then we left.");
+}

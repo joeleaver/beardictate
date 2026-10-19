@@ -2,7 +2,7 @@
 
 use bd_core::{QuoteStyle, Style};
 
-use crate::{ActionKind, CommandConfig, CommandPass, command_tail};
+use crate::{ActionKind, CommandConfig, CommandPass, command_tail, is_spoken_mark};
 
 fn pass() -> CommandPass {
     CommandPass::default()
@@ -238,4 +238,15 @@ fn the_tail_that_may_still_be_a_command_is_held() {
     assert_eq!(tail("a period"), 0, "literal punctuation is off by default");
     let lit = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
     assert_eq!(command_tail(&["a", "period"], &lit), 1);
+}
+
+#[test]
+fn a_spoken_mark_on_its_own() {
+    let lit = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
+    assert!(is_spoken_mark(&["Exclamation", "point."], &lit));
+    assert!(is_spoken_mark(&["Exclamation"], &lit));
+    assert!(is_spoken_mark(&["Comma,"], &lit));
+    assert!(!is_spoken_mark(&["Exclamation", "point", "then"], &lit));
+    assert!(!is_spoken_mark(&["New", "paragraph."], &lit));
+    assert!(!is_spoken_mark(&["Comma"], &CommandConfig::default()));
 }

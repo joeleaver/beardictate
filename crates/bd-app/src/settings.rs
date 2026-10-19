@@ -93,6 +93,9 @@ pub struct Settings {
     /// New paragraph when you say "new paragraph" (and a line break for
     /// "new line"). Off, those words are typed.
     pub paragraph_on_command: bool,
+    /// Spoken marks: "comma", "period", "question mark", "exclamation
+    /// point"… become the mark. Off, those words are typed.
+    pub spoken_punctuation: bool,
     /// New paragraph when a different character starts speaking.
     pub paragraph_on_speaker: bool,
     /// New paragraph after a pause of `pause_paragraph_secs`.
@@ -161,6 +164,7 @@ impl Default for Settings {
             hotkey: "Ctrl+Backquote".into(),
             cleanup: "auto".into(),
             paragraph_on_command: true,
+            spoken_punctuation: true,
             paragraph_on_speaker: true,
             paragraph_on_pause: false,
             paragraph_on_topic: false,
@@ -273,7 +277,7 @@ impl Settings {
     }
 
     pub fn commands(&self) -> CommandConfig {
-        CommandConfig { break_commands: self.paragraph_on_command, ..CommandConfig::default() }
+        CommandConfig { break_commands: self.paragraph_on_command, literal_punctuation: self.spoken_punctuation }
     }
 
     pub fn pause_paragraph(&self) -> Option<Duration> {
@@ -441,6 +445,7 @@ const SETTINGS_HEADER: &str = "\
 # blank_line_paragraphs: true for a blank line between paragraphs, false for one return.
 # close_continued_speech: true to close a quote at the end of each paragraph when
 #   the same speaker carries on into the next; false (book style) leaves it open.
+# spoken_punctuation: true to make \"comma\", \"period\", \"question mark\" and so on into marks.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.
 # auto_gain: learn the microphone gain from your speech; mic_gain_db: the gain

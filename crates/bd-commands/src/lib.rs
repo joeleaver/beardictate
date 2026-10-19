@@ -72,6 +72,17 @@ pub fn command_tail(words: &[&str], config: &CommandConfig) -> usize {
         .unwrap_or(0)
 }
 
+/// Whether `words` (as the ASR wrote them) are only a spoken punctuation
+/// mark ("exclamation point"), or the start of one, with those enabled.
+pub fn is_spoken_mark(words: &[&str], config: &CommandConfig) -> bool {
+    let plain: Vec<String> = words
+        .iter()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .collect();
+    let plain: Vec<&str> = plain.iter().map(String::as_str).collect();
+    config.literal_punctuation && rules::may_be_mark(&plain)
+}
+
 /// The result of running the pass over one segment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandOutput {

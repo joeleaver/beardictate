@@ -236,6 +236,7 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let t2 = toggle(__scope, s, "When a different character speaks", "The cleanup model follows the dialog.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The cleanup model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
+    let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);
     let r1 = run_on(__scope, s, "Leave it open, and open the next paragraph: \u{201C}…the river.  \u{201C}And then…", false);
     let r2 = run_on(__scope, s, "Close it, and open the next paragraph: \u{201C}…the river.\u{201D}  \u{201C}And then…", true);
     let b1 = breaks(__scope, s, "A blank line (two returns)", true);
@@ -255,6 +256,10 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Commas and full stops at the end of a quote" }
                 {p1} {p2}
+            }
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "Punctuation" }
+                {t5}
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Start a new paragraph" }

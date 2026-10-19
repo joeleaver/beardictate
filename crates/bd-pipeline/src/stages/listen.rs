@@ -12,6 +12,7 @@
 
 use std::time::{Duration, Instant};
 
+use bd_commands::{CommandConfig, is_spoken_mark};
 use bd_core::{AudioSegment, BoxError, LiveAudio, SAMPLE_RATE, StreamingAsr};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
@@ -63,11 +64,20 @@ struct Listener {
     stopped: Option<Stopped>,
     /// When the stream was last held.
     held_at: Option<Instant>,
+    /// For spoken marks: one said after a pause joins the utterance before.
+    commands: CommandConfig,
 }
 
-pub(super) fn live(asr: Box<dyn StreamingAsr>, input: Receiver<Cut>, out: Sender<Heard>, events: Sender<Event>, gain: InputGain) {
+pub(super) fn live(
+    asr: Box<dyn StreamingAsr>,
+    input: Receiver<Cut>,
+    out: Sender<Heard>,
+    events: Sender<Event>,
+    gain: InputGain,
+    commands: CommandConfig,
+) {
     let report = Report { events, gain, previous_end: None };
-    let mut l = Listener { asr, out, report, open: false, text: String::new(), done: 0, fed: 0, speaking: None, stopped: None, held_at: None };
+    let mut l = Listener { asr, out, report, open: false, text: String::new(), done: 0, fed: 0, speaking: None, stopped: None, held_at: None, commands };
     loop {
         let cut = match l.deadline() {
             Some(at) => match input.recv_deadline(at) {
@@ -105,6 +115,9 @@ impl Listener {
 
     fn take(&mut self, cut: Cut) {
         let Cut::Live(id, audio, used) = cut else {
+            if let Cut::Reconfigure(config) = &cut {
+                self.commands = config.commands.clone();
+            }
             if self.speaking.is_none() {
                 self.close(None);
             }
@@ -162,6 +175,9 @@ impl Listener {
     fn went_on(&mut self, id: u64) {
         let n = self.text.split_whitespace().count();
         if self.stopped.as_ref().is_some_and(|s| n > s.end) {
+            if self.only_a_mark(n) {
+                return;
+            }
             self.report_stopped(None);
         }
         if self.stopped.is_some() {
@@ -197,6 +213,16 @@ impl Listener {
         self.text = text;
         self.held_at = Some(Instant::now());
         let n = self.text.split_whitespace().count();
+        if self.stopped.as_ref().is_some_and(|s| n > s.end) && self.only_a_mark(n) {
+            // A mark said on its own ("…so well" and then "exclamation
+            // point"): it ends the utterance before, which waits on.
+            tracing::info!(segment = id, "a spoken mark joins the utterance before");
+            let s = self.stopped.as_mut().expect("checked");
+            (s.end, s.at) = (n, Instant::now());
+            let (sid, text) = (s.id, words(&self.text, self.done, n));
+            let _ = self.out.send(Heard::Partial { id: sid, text, settled: true });
+            return;
+        }
         if self.stopped.as_ref().is_some_and(|s| n > s.end) {
             self.report_stopped(None);
         }
@@ -208,6 +234,14 @@ impl Listener {
         let text = words(&self.text, self.done, n);
         self.stopped = Some(Stopped { id, seg, used, started, end: n, at: Instant::now() });
         let _ = self.out.send(Heard::Partial { id, text, settled: true });
+    }
+
+    /// Whether the stream's words after the stopped utterance, up to `n`,
+    /// are only a spoken mark or the start of one.
+    fn only_a_mark(&self, n: usize) -> bool {
+        let Some(s) = &self.stopped else { return false };
+        let new: Vec<&str> = self.text.split_whitespace().skip(s.end).take(n - s.end).collect();
+        is_spoken_mark(&new, &self.commands)
     }
 
     /// Reports the stopped utterance: up to `close`'s end of the stream
