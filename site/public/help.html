@@ -48,7 +48,7 @@
     <article>
       <section>
         <h2 id="first-run">First run</h2>
-        <p>The first time you start beardictate, it downloads the models it needs: a speech model of about 640 MB, then a cleanup model of 0.6 to 2.5 GB. It picks the cleanup model by trying it on your computer, so a fast machine gets a bigger model and a laptop gets one that keeps up. Every file is checked against a known checksum, and an interrupted download resumes where it stopped.</p>
+        <p>The first time you start beardictate, it downloads the models it needs: a speech model of about 460 MB, then a cleanup model of 0.6 to 2.5 GB. It picks the cleanup model by trying it on your computer, so a fast machine gets a bigger model and a laptop gets one that keeps up. Every file is checked against a known checksum, and an interrupted download resumes where it stopped.</p>
         <p>You can start dictating as soon as the speech model is in. Until the cleanup model arrives, you get your words with punctuation but without the tidying.</p>
         <p>beardictate lives in your system tray as a small bear. Its colour shows what it’s doing: loading, listening, cleaning up, or asleep. On Windows, new tray icons hide in the overflow menu, so drag the bear onto the taskbar where you can see it.</p>
       </section>
@@ -73,6 +73,9 @@
             <tr><td>new line</td><td>Starts a new line.</td></tr>
             <tr><td>open quote … close quote</td><td>Puts what’s between them in quotation marks. Also <q>quote … end quote</q>, <q>unquote</q>.</td></tr>
             <tr><td>scratch that</td><td>Removes the last sentence. If it’s already been typed, it’s erased. Say it again to go back further.</td></tr>
+            <tr><td>bear, change Smith to Smythe</td><td>Changes the last <q>Smith</q> you dictated in the past minute. Spell a name if you like: <q>bear, change Kaitlyn to K A T E L I N</q>.</td></tr>
+            <tr><td>bear, delete very</td><td>Takes the last <q>very</q> out.</td></tr>
+            <tr><td>bear, undo</td><td>Takes back the last change, or with none to take back, the last sentence.</td></tr>
             <tr><td>bear, wake up</td><td>Starts typing what you say.</td></tr>
             <tr><td>bear, go to sleep</td><td>Stops typing. What you said before it is still typed.</td></tr>
           </tbody>
@@ -106,7 +109,7 @@
             <tr><td>macOS</td><td>Planned after Windows.</td></tr>
             <tr><td>Memory</td><td>8 GB is enough. With 16 GB or more it can use a larger cleanup model.</td></tr>
             <tr><td>Graphics</td><td>Not needed. A graphics card (NVIDIA, AMD or Intel, through Vulkan) makes cleanup faster.</td></tr>
-            <tr><td>Disk</td><td>About 640 MB for the speech model, plus 0.6 to 2.5 GB for the cleanup model.</td></tr>
+            <tr><td>Disk</td><td>About 630 MB for the speech model, plus 0.6 to 2.5 GB for the cleanup model.</td></tr>
             <tr><td>Microphone</td><td>Any. A headset mic gives the cleanest results in a noisy room.</td></tr>
           </tbody>
         </table>
@@ -131,7 +134,7 @@
           <dd>Early builds may not be code-signed yet. Check the file’s SHA-256 against the one on the <a href="/download.html#verify">download page</a>, then choose <em>More info</em> and <em>Run anyway</em>.</dd>
 
           <dt>Does it work in languages other than English?</dt>
-          <dd>The speech model understands 25 European languages, but the cleanup and voice commands are built for English fiction for now.</dd>
+          <dd>Not yet: the speech model, the cleanup and the voice commands are all English for now.</dd>
 
           <dt>Is it really free?</dt>
           <dd>Yes. It’s open source under the MIT license, and the models it uses are openly licensed.</dd>
