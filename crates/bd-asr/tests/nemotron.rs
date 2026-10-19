@@ -1,22 +1,16 @@
 //! Nemotron fed live from the segmenter, against the real models. Skips
-//! unless `BD_MODELS_DIR` is set and holds the Nemotron model.
+//! unless `BD_MODELS_DIR` is set.
 
 mod common;
 
-use bd_asr::{NemotronAsr, NemotronConfig, Segmenter, SegmenterConfig};
+use bd_asr::{NemotronAsr, Segmenter, SegmenterConfig};
 use bd_core::{LiveAudio, StreamingAsr};
 use common::*;
-
-const NEMOTRON: &str = "asr-nemotron-speech-streaming-en-0.6b-1120ms-int8";
 
 #[test]
 fn words_arrive_while_speaking_and_each_utterance_ends_whole() {
     let Some(models) = models_dir() else { return };
-    let dir = models.join(NEMOTRON);
-    if !dir.is_dir() {
-        return;
-    }
-    let en = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let en = read_wav_16k(&test_wav(&models));
     let mut audio = silence(0.5);
     audio.extend(&en);
     audio.extend(silence(1.5));
@@ -24,7 +18,7 @@ fn words_arrive_while_speaking_and_each_utterance_ends_whole() {
     audio.extend(silence(1.0));
 
     let mut seg = Segmenter::new(&vad_model(&models), SegmenterConfig::default()).unwrap();
-    let mut asr = NemotronAsr::new(&dir, &NemotronConfig::default()).unwrap();
+    let mut asr = nemotron(&models);
     let (mut partials, mut finals) = (Vec::new(), Vec::new());
     let mut handle = |ev: LiveAudio, asr: &mut NemotronAsr| match ev {
         LiveAudio::Start(a) => {

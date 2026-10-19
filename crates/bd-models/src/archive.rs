@@ -109,6 +109,7 @@ mod tests {
             required: false,
             available: true,
             recommended: false,
+            retired: false,
             sources: vec!["https://example.invalid/".into()],
             files,
             archive: Some(archive.clone()),

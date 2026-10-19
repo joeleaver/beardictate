@@ -28,9 +28,9 @@
 # 50918f5e313e1cf846cf77dfd5b4489c9c7f0b76 as the API's `oid`.
 # Replaced Parakeet TDT v3 int8 (2026-10-15): on 40 real microphone
 # segments it recovered 255 of 256 words where v3 int8 got 205 with beam
-# search, turning six whole sentences into "Yeah.". Not required since
-# 2026-10-19: the app runs Nemotron Speech Streaming 1120 ms for everything
-# (below); `bd` still uses this one without --stream.
+# search, turning six whole sentences into "Yeah.". Retired 2026-10-19
+# (0.1.5-0.1.9's recognizer): the app runs Nemotron Speech Streaming 1120 ms
+# (below) and offers to delete this one.
 [[model]]
 id = "asr-parakeet-unified-en-0.6b-int8"
 kind = "asr"
@@ -38,7 +38,7 @@ name = "Parakeet Unified 0.6B English (int8)"
 license = "LicenseRef-NVIDIA-Open-Model-License"
 attribution = "parakeet-unified-en-0.6b by NVIDIA. Licensed by NVIDIA Corporation under the NVIDIA Open Model License (https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/). ONNX export by k2-fsa/sherpa-onnx."
 homepage = "https://huggingface.co/nvidia/parakeet-unified-en-0.6b"
-required = false
+retired = true
 sources = [
     "https://huggingface.co/csukuangfj2/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming/resolve/8c3a10fb13408c7a7054f6898958bf1c64a8d6c7/",
 ]
@@ -50,8 +50,7 @@ files = [
 ]
 
 # k2-fsa's sherpa-onnx int8 export of nvidia/parakeet-tdt-0.6b-v3: the ASR
-# model up to 0.1.4, kept so `bd models download` can still fetch it for
-# comparison. Not required, so the app neither downloads nor loads it.
+# model up to 0.1.4. Retired: the app offers to delete it.
 # Pinned commit 2bda32ec70b097a55adaa07d9a7173915b43cc78 (2025-08-16).
 # Hashes: the three .onnx files from the HF tree API `lfs.oid` (sha256);
 # tokens.txt is not in LFS, so it was fetched at the pinned commit and hashed
@@ -64,7 +63,7 @@ name = "Parakeet TDT 0.6B v3 (int8)"
 license = "CC-BY-4.0"
 attribution = "Parakeet TDT 0.6B v3 by NVIDIA, CC-BY-4.0; ONNX export by k2-fsa/sherpa-onnx."
 homepage = "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3"
-required = false
+retired = true
 sources = [
     "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/",
 ]
@@ -130,7 +129,7 @@ strip = "sherpa-onnx-nemotron-speech-streaming-en-0.6b-1120ms-int8-2026-04-25/"
 
 # NVIDIA Nemotron Speech Streaming 0.6B English, 560 ms chunks, k2-fsa's
 # sherpa-onnx int8 export: the streaming recognizer in 0.1.8-0.1.9, replaced
-# by the 1120 ms one above (not required; kept so those downloads stay known). Only
+# by the 1120 ms one above. Retired: the app offers to delete it. Only
 # published as an archive in sherpa-onnx's `asr-models` GitHub release
 # (2026-04-25); the archive hash is GitHub's asset digest, the file hashes
 # from the extracted files. On 40 real microphone segments: 39 complete,
@@ -143,6 +142,7 @@ name = "Nemotron Speech Streaming 0.6B English, 560 ms (int8)"
 license = "LicenseRef-NVIDIA-Open-Model-License"
 attribution = "nemotron-speech-streaming-en-0.6b by NVIDIA. Licensed by NVIDIA Corporation under the NVIDIA Open Model License (https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/). ONNX export by k2-fsa/sherpa-onnx."
 homepage = "https://huggingface.co/nvidia/nemotron-speech-streaming-en-0.6b"
+retired = true
 sources = [
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/",
 ]

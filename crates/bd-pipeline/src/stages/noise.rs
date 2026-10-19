@@ -1,5 +1,5 @@
 //! A breath, a click or room noise that the VAD let through comes back from
-//! the ASR as a lone filler word: Parakeet turns half a second of noise into
+//! the ASR as a lone filler word: Parakeet turned half a second of noise into
 //! "Yeah." or "Uh". Such a segment is dropped as noise. A real one-word
 //! reply survives when it's longer than a burst, and dialog almost always
 //! comes with more words ("Yeah," he said.) in the same segment.

@@ -1,15 +1,17 @@
 //! Shared helpers for the model-backed integration tests.
 //!
-//! Tests need real models: set `BD_MODELS_DIR` to a directory containing
-//! `asr-parakeet-unified-en-0.6b-int8/` with `test_wavs/en.wav` added (that
-//! wav ships in sherpa-onnx's Parakeet v3 release; CI fetches it) and
-//! `vad-silero/silero_vad.onnx`. Without it they skip.
+//! Tests need real models: set `BD_MODELS_DIR` to a models directory with
+//! `asr-nemotron-speech-streaming-en-0.6b-1120ms-int8/`,
+//! `vad-silero/silero_vad.onnx`, and `test_wavs/en.wav` (a JFK line that
+//! ships in sherpa-onnx's Parakeet v3 release; CI fetches it). Without it
+//! they skip.
 
 #![allow(dead_code)]
 
 use std::path::{Path, PathBuf};
 
-use bd_core::SAMPLE_RATE;
+use bd_asr::{NemotronAsr, NemotronConfig};
+use bd_core::{SAMPLE_RATE, StreamingAsr};
 
 /// The models directory, or `None` (after saying why) to skip the test.
 pub fn models_dir() -> Option<PathBuf> {
@@ -22,8 +24,23 @@ pub fn models_dir() -> Option<PathBuf> {
     }
 }
 
-pub fn parakeet_dir(models: &Path) -> PathBuf {
-    models.join("asr-parakeet-unified-en-0.6b-int8")
+pub fn nemotron_dir(models: &Path) -> PathBuf {
+    models.join("asr-nemotron-speech-streaming-en-0.6b-1120ms-int8")
+}
+
+pub fn test_wav(models: &Path) -> PathBuf {
+    models.join("test_wavs").join("en.wav")
+}
+
+pub fn nemotron(models: &Path) -> NemotronAsr {
+    NemotronAsr::new(&nemotron_dir(models), &NemotronConfig::default()).unwrap()
+}
+
+/// One utterance, start to finish.
+pub fn transcribe(asr: &mut NemotronAsr, samples: &[f32]) -> String {
+    asr.start().unwrap();
+    asr.feed(samples).unwrap();
+    asr.finish().unwrap()
 }
 
 pub fn vad_model(models: &Path) -> PathBuf {

@@ -13,7 +13,7 @@
 //! | `scratch that` | drops what came before it (see [`ActionKind`]) |
 //! | `comma`, `period`, `question mark`, … | literal marks, only with [`CommandConfig::literal_punctuation`] |
 //!
-//! Parakeet punctuates and capitalizes what it hears, so a command often
+//! The recognizer punctuates and capitalizes what it hears, so a command often
 //! arrives as `Open quote.` or `, new paragraph,`. The pass strips the marks
 //! the ASR attached to command words. The one exception is a sentence end the
 //! ASR put on `close quote` or `new paragraph`, which moves onto the preceding

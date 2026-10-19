@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use bd_asr::{NemotronAsr, NemotronConfig, ParakeetAsr, ParakeetConfig, Segmenter, SegmenterConfig};
+use bd_asr::{NemotronAsr, NemotronConfig, Segmenter, SegmenterConfig};
 use bd_cleanup::prompt::DEFAULT_TEMPLATE;
 use bd_cleanup::{
     CleanupError, CleanupOutcome, GpuLayers, HttpChat, HttpCleanup, HttpConfig, LlamaChat, LlamaCleanup, LlamaConfig,
@@ -12,8 +12,7 @@ use bd_cleanup::{
 use bd_core::{BoxError, Cleanup, CleanupRequest};
 use bd_models::{Manifest, ModelEntry, ModelKind, ModelStatus, Store};
 
-pub const ASR_MODEL: &str = "asr-parakeet-unified-en-0.6b-int8";
-/// The streaming recognizer: the app's only one; `bd --stream`'s.
+/// The speech recognizer.
 pub const STREAMING_ASR_MODEL: &str = "asr-nemotron-speech-streaming-en-0.6b-1120ms-int8";
 pub const VAD_MODEL: &str = "vad-silero";
 
@@ -212,23 +211,10 @@ fn required(store: &Store, id: &str) -> Result<&'static ModelEntry> {
     Ok(entry)
 }
 
-/// Loads Parakeet, listening for `hotwords` at `boost` when both are given.
-/// The hotword boost to use when the user hasn't picked one. On 22 invented
-/// names it doubled the hits without changing ordinary words; see
-/// [`ParakeetConfig::hotword_boost`].
+/// The hotword boost to use when the user hasn't picked one: a score per
+/// matching token. On 22 invented names it doubled Parakeet's hits without
+/// changing ordinary words, and took Nemotron from 8 to 13.
 pub const DEFAULT_HOTWORD_BOOST: f32 = 2.0;
-
-pub fn load_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<ParakeetAsr> {
-    required(store, ASR_MODEL)?;
-    let dir = store.model_dir(ASR_MODEL);
-    // Always beam search with hotwords on, even with none yet or a boost of
-    // 0, so words and boost can change later without reloading.
-    let config = ParakeetConfig { hotword_boost: Some(DEFAULT_HOTWORD_BOOST), ..ParakeetConfig::default() };
-    let asr = ParakeetAsr::new(&dir, &config).with_context(|| format!("loading ASR from {}", dir.display()))?;
-    asr.set_hotwords(hotwords)?;
-    asr.set_hotword_boost(boost)?;
-    Ok(asr)
-}
 
 /// The streaming recognizer, listening for `hotwords` where the build can.
 pub fn load_streaming_asr(store: &Store, hotwords: &[String], boost: f32) -> Result<NemotronAsr> {

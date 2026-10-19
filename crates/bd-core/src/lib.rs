@@ -1,7 +1,7 @@
 //! Shared types and the seams between pipeline stages.
 //!
 //! Every stage is a trait so the pipeline can be driven headless (CLI, tests)
-//! and each backend can be swapped: Parakeet vs Whisper for [`Asr`], a local
+//! and each backend can be swapped: Nemotron or another for [`StreamingAsr`], a local
 //! GGUF vs an OpenAI-compatible server for [`Cleanup`], SendInput vs libei vs
 //! clipboard for [`Injector`]. Nothing here depends on audio, models, UI, or
 //! an OS.

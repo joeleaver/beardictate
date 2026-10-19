@@ -110,6 +110,10 @@ pub struct ModelEntry {
     /// the app suggests downloading. At most one per kind.
     #[serde(default)]
     pub recommended: bool,
+    /// From an earlier version and no longer used: never downloaded, kept
+    /// here so the app can find its files and offer to delete them.
+    #[serde(default)]
+    pub retired: bool,
     /// Base URLs ending in '/', tried in order.
     #[serde(default)]
     pub sources: Vec<String>,
@@ -209,6 +213,9 @@ impl Manifest {
             }
             if model.recommended && (!model.available || !recommended.insert(model.kind)) {
                 return Err(invalid("recommended: only one available model per kind".into()));
+            }
+            if model.retired && (model.required || model.recommended) {
+                return Err(invalid("a retired model can't be required or recommended".into()));
             }
             validate_payload(model).map_err(invalid)?;
             validate_cleanup(model).map_err(invalid)?;
@@ -365,6 +372,9 @@ mod tests {
         assert!(asr.file("tokens.txt").is_some());
         // The one speech recognizer: nothing else is downloaded at first run.
         assert_eq!(m.of_kind(ModelKind::Asr).filter(|e| e.required).count(), 1);
+        // What earlier versions downloaded is known, to offer deleting.
+        let retired: Vec<&str> = m.models.iter().filter(|e| e.retired).map(|e| e.id.as_str()).collect();
+        assert_eq!(retired, ["asr-parakeet-unified-en-0.6b-int8", "asr-parakeet-tdt-0.6b-v3-int8", "asr-nemotron-speech-streaming-en-0.6b-560ms-int8"]);
     }
 
     const GOOD: &str = r#"

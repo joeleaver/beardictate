@@ -1,4 +1,4 @@
-//! Commands as Parakeet is likely to render them.
+//! Commands as the recognizer (Parakeet, then Nemotron) is likely to render them.
 
 use bd_core::{QuoteStyle, Style};
 
@@ -19,7 +19,7 @@ const STRUCTURAL: &[(&str, &str)] = &[
         "open quote get down close quote Tom hissed new paragraph she dropped to her knees",
         "“get down” Tom hissed\n\nShe dropped to her knees",
     ),
-    // Parakeet punctuating the pauses around commands.
+    // The recognizer punctuating the pauses around commands.
     ("Open quote. Get down. Close quote. Tom hissed.", "“Get down.” Tom hissed."),
     ("Open quote, get down, close quote, Tom hissed.", "“get down,” Tom hissed."),
     ("He said, open quote, I'm leaving, close quote.", "He said, “I'm leaving.”"),

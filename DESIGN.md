@@ -29,9 +29,9 @@ Status: sketch (2026-10-14). Nothing here is built yet.
 
 ```
  hotkey ─▶ capture ─▶ VAD/segment ─▶ ASR ─▶ command pass ─▶ cleanup LLM ─▶ injector
- (toggle)  (cpal,     (silero VAD,    (Parakeet  (deterministic:  (small local   (SendInput /
-            16k mono)  sentence-ish    TDT 0.6B   "open quote",    model, gets    libei / CGEvent,
-                       chunks)         v3 int8)   "new paragraph") prior context)  or paste)
+ (toggle)  (cpal,     (silero VAD,    (Nemotron  (deterministic:  (small local   (SendInput /
+            16k mono)  utterances,     streaming  "open quote",    model, gets    libei / CGEvent,
+                       fed live)       1120 ms)   "new paragraph") prior context)  or paste)
                        tray icon: idle → listening → cleaning → idle (or needs-you)
 ```
 
@@ -68,15 +68,15 @@ makes a 1–3 s cleanup tolerable during narration.
   Joe, 2026-10-19; see "Where words go"). Live with beam search and
   hotwords on 8 CPU threads: 0.20 of real time on NICO-TOP's Ryzen 7 6800H,
   done 0.2 s after the speech, 12–13 of 22 special words (the 560 ms export
-  of 0.1.8–0.1.9: 0.33 and 11; Parakeet Unified offline: 16). Parakeet below
-  is what `bd` uses without `--stream`, until it is removed.
-- **Parakeet Unified 0.6B English** (int8 ONNX, an RNNT) via **sherpa-onnx**.
-  Native punctuation + capitalization, no silence hallucination (transducer,
-  not autoregressive like Whisper), well under real time on CPU. English only.
-  It replaced Parakeet TDT 0.6B v3 int8 (25 languages) in 0.1.5: that int8
-  export lost whole sentences on real microphone audio.
-- Pluggable `Asr` trait so Whisper large-v3-turbo (whisper.cpp) can be offered
-  for languages Parakeet doesn't cover.
+  of 0.1.8–0.1.9: 0.33 and 11; Parakeet Unified offline: 16). Native
+  punctuation and capitalization, no silence hallucination (a transducer,
+  not autoregressive like Whisper). English only.
+- History: **Parakeet Unified 0.6B English** (offline, a segment at a time)
+  was the recognizer in 0.1.5–0.1.9; it replaced Parakeet TDT 0.6B v3 int8
+  (0.1.0–0.1.4), whose int8 export lost whole sentences on real microphone
+  audio. Both are `retired` in the manifest, and their code is gone.
+- Pluggable `Asr`/`StreamingAsr` traits, so another recognizer (Whisper for
+  other languages) can be added.
 
 ### 4. Command pass (deterministic, before the LLM)
 Spoken commands are matched by rules, not left to the model, so they are
@@ -212,9 +212,8 @@ Only the chosen model downloads at first run. A small built-in benchmark
 model isn't needed, because step 3 runs after the shortlisted model downloads,
 and the app is already usable in ASR-only mode while that happens.
 
-ASR gets the same treatment, with a smaller menu: Parakeet Unified (default),
-Moonshine base (very weak hardware), Whisper large-v3-turbo (languages
-Parakeet lacks).
+ASR may get the same treatment later, with a smaller menu (Whisper for
+other languages); today Nemotron is the only one.
 
 ### 6. Injector
 Per-platform `Injector` trait, two strategies each: **type** and **paste**.
@@ -599,7 +598,7 @@ script). Until then, releases say how to get past SmartScreen and publish
 SHA-256 sums.
 
 **First run (cross-platform, implemented).** The installer ships no
-weights. When the speech models (Parakeet + Silero VAD, ~670 MB) are
+weights. When the speech models (Nemotron + Silero VAD, ~630 MB) are
 missing, the settings window opens by itself (instead of starting hidden in
 the tray) with a card above every page, "One more step: the speech models",
 and the engine reports "the speech models aren't downloaded yet" without a
@@ -673,7 +672,7 @@ beardictate/
   crates/
     bd-core/                 pipeline, Asr/Cleanup/Injector/Hotkey traits, config
     bd-audio/                cpal capture, resample, VAD
-    bd-asr/                  sherpa-onnx Parakeet (+ whisper.cpp later)
+    bd-asr/                  sherpa-onnx Nemotron, Silero VAD
     bd-cleanup/              llama.cpp runner, prompt, word-diff guardrail
     bd-commands/             spoken command rules
     bd-platform/             text injector per OS (hotkeys come from rinch)

@@ -14,6 +14,7 @@ fn entry(files: &[(&str, &[u8])]) -> ModelEntry {
         required: false,
         available: true,
         recommended: false,
+        retired: false,
         sources: vec!["https://example.invalid/".into()],
         files: files
             .iter()

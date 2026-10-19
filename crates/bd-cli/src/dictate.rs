@@ -64,15 +64,15 @@ pub struct DictateArgs {
     /// "bear, send it", and for `bd file` at the end of each file.
     #[arg(long)]
     pub pad: bool,
-    /// Stream, as the app does: Nemotron transcribes as you speak and the
-    /// words are typed as they come (with --pad, shown in the pad); with a
-    /// cleanup model each sentence is then tidied in place. The text as
-    /// typed is printed on stderr at the end, since stdout can't take text
-    /// back.
-    #[arg(long)]
+    /// Accepted for old command lines: dictation always streams now
+    /// (Nemotron transcribes as you speak and the words are typed as they
+    /// come; with --pad, shown in the pad; with a cleanup model each
+    /// sentence is then tidied in place). The text as typed is printed on
+    /// stderr at the end, since stdout can't take text back.
+    #[arg(long, hide = true)]
     pub stream: bool,
-    /// With --stream and a cleanup model: type each sentence once, cleaned,
-    /// instead of as spoken and then tidied in place.
+    /// With a cleanup model: type each sentence once, cleaned, instead of as
+    /// spoken and then tidied in place.
     #[arg(long)]
     pub type_once: bool,
 }
@@ -119,12 +119,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
     };
     let store = bd_models::Store::from_env()?;
     let segmenter = setup::load_segmenter(&store)?;
-    let asr = if args.stream {
-        let asr = setup::load_streaming_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?;
-        bd_pipeline::Recognizer::Live(Box::new(asr))
-    } else {
-        bd_pipeline::Recognizer::Segments(Box::new(setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?))
-    };
+    let asr = bd_pipeline::Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?));
     let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
     let live_typing = !(args.type_once && cleanup.is_some());
     match &cleanup {
@@ -252,7 +247,7 @@ pub fn file(args: &FileArgs) -> Result<()> {
         verbose: args.dictate.verbose,
         pending: Default::default(),
         page: Default::default(),
-        show_page: args.dictate.stream && !args.dictate.pad,
+        show_page: !args.dictate.pad,
         heard_at: Default::default(),
     };
     let mut injector = if args.inject {

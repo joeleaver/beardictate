@@ -1,12 +1,12 @@
 //! Silero VAD segmentation against the real model, checked end to end with
-//! Parakeet. Skips unless `BD_MODELS_DIR` is set.
+//! Nemotron. Skips unless `BD_MODELS_DIR` is set.
 
 mod common;
 
 use std::path::Path;
 use std::time::Duration;
 
-use bd_asr::{AsrError, ParakeetAsr, ParakeetConfig, Segmenter, SegmenterConfig};
+use bd_asr::{AsrError, Segmenter, SegmenterConfig};
 use bd_core::{AudioSegment, SAMPLE_RATE};
 use common::*;
 
@@ -30,7 +30,7 @@ fn secs(n: usize) -> f32 {
 #[test]
 fn gap_splits_two_sentences() {
     let Some(models) = models_dir() else { return };
-    let en = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let en = read_wav_16k(&test_wav(&models));
     let mut audio = silence(0.5);
     audio.extend(&en);
     audio.extend(silence(1.5));
@@ -55,9 +55,9 @@ fn gap_splits_two_sentences() {
     );
     assert_eq!((all[0].seq, all[1].seq), (0, 1));
 
-    let asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
+    let mut asr = nemotron(&models);
     for s in all {
-        let text = asr.transcribe_samples(&s.samples).unwrap();
+        let text = transcribe(&mut asr, &s.samples);
         assert_eq!(wer(EN_TEXT, &text), 0.0, "segment {}: {text:?}", s.seq);
     }
 }
@@ -65,7 +65,7 @@ fn gap_splits_two_sentences() {
 #[test]
 fn short_pause_does_not_split() {
     let Some(models) = models_dir() else { return };
-    let en = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let en = read_wav_16k(&test_wav(&models));
     let mut audio = en.clone();
     audio.extend(silence(0.3));
     audio.extend(&en);
@@ -78,7 +78,7 @@ fn short_pause_does_not_split() {
 #[test]
 fn flush_returns_speech_in_progress_and_restarts_numbering() {
     let Some(models) = models_dir() else { return };
-    let en = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let en = read_wav_16k(&test_wav(&models));
     let mut seg = Segmenter::new(&vad_model(&models), SegmenterConfig::default()).unwrap();
     // The user hits stop mid-sentence: no trailing silence at all.
     let cut = en.len() * 3 / 4;
@@ -113,7 +113,7 @@ fn silence_yields_nothing() {
 #[test]
 fn long_run_on_is_cut_without_losing_audio() {
     let Some(models) = models_dir() else { return };
-    let en = read_wav_16k(&parakeet_dir(&models).join("test_wavs/en.wav"));
+    let en = read_wav_16k(&test_wav(&models));
     // ~12 s of speech with pauses too short to close an utterance.
     let mut audio = silence(0.5);
     let speech_start = audio.len();
@@ -178,11 +178,8 @@ fn long_run_on_is_cut_without_losing_audio() {
     assert!(spans[spans.len() - 1].1 >= speech_end - SAMPLE_RATE as usize / 4);
 
     // Cutting at the quietest point keeps words intact.
-    let asr = ParakeetAsr::new(&parakeet_dir(&models), &ParakeetConfig::default()).unwrap();
-    let text: Vec<String> = all
-        .iter()
-        .map(|s| asr.transcribe_samples(&s.samples).unwrap())
-        .collect();
+    let mut asr = nemotron(&models);
+    let text: Vec<String> = all.iter().map(|s| transcribe(&mut asr, &s.samples)).collect();
     let reference = [EN_TEXT; 3].join(" ");
     let w = wer(&reference, &text.join(" "));
     eprintln!("cuts at {lens:?} -> {text:?} (WER {w:.3})");

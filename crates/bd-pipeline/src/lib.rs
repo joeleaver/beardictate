@@ -90,7 +90,7 @@ impl Segmenting for bd_asr::Segmenter {
 
 /// The speech recognizer a pipeline runs.
 pub enum Recognizer {
-    /// A finished segment at a time (Parakeet): text arrives when the
+    /// A finished segment at a time (an [`Asr`]; the app streams): text arrives when the
     /// speaker pauses.
     Segments(Box<dyn Asr>),
     /// As the speaker talks (Nemotron): with [`PipelineConfig::pad`] on, the

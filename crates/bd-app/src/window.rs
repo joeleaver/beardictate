@@ -15,12 +15,14 @@ use crate::ui::{self, Section, Shared, change, check_hotkey};
 mod cleanup;
 mod mic_page;
 mod modes;
+mod old_models;
 mod setup;
 mod updates;
 mod words;
 use cleanup::cleanup_page;
 use mic_page::microphone;
 use modes::modes;
+use old_models::old_models;
 use setup::setup_card;
 use updates::updates;
 use words::words;
@@ -139,6 +141,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s5 = s.clone();
     let (s6, s7, s8, s9, s10) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
     let modes = modes(__scope, s);
+    let old_models = old_models(__scope, s);
     let paths = s.paths.clone();
     let login = Signal::new(paths.starts_at_login());
     rsx! {
@@ -166,6 +169,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 onchange: move || change(&s8, |st| st.voice_wake = !st.voice_wake),
             }
             {modes}
+            {old_models}
             Switch {
                 label: "Start beardictate when I sign in",
                 checked_fn: move || login.get(),

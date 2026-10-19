@@ -8,8 +8,7 @@ file is *where things stand*.
 
 - Pipeline: hotkey → cpal capture → Silero VAD → **Nemotron Speech Streaming
   0.6B English, 1120 ms** (int8, sherpa-onnx, fed live; the only recognizer
-  in the app since 2026-10-19, replacing Parakeet Unified, which `bd` still
-  uses without `--stream`) → deterministic spoken-command pass → **cleanup LLM** with a
+  since 2026-10-19, replacing Parakeet Unified, whose code is gone) → deterministic spoken-command pass → **cleanup LLM** with a
   word-diff **guardrail** → text injection (type, else paste).
 - **No floating overlay.** Tray icon is the only live status display (Joe,
   2026-10-14). Hotkey is a **toggle** by default; hold-to-talk is optional.
@@ -37,7 +36,7 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | `bd-core` | **Committed.** Traits `Asr`, `Cleanup`, `Injector`; `AudioSegment`, `CleanupRequest`, `InjectOutcome`, `Style`. |
 | `bd-models` | **Committed.** Manifest (`manifest.toml`, pinned HF commit SHAs + sha256), store (`BD_MODELS_DIR` override), resumable verified downloader, folder import. 44 tests. Catalog Qwen3 entries use prompt template `generic-v1` (the earlier `qwen3-cleanup-v1` never existed in bd-cleanup). |
 | `bd-audio` | **Committed.** cpal capture via `rtrb` lock-free ring, rubato resampling, 300 ms pre-roll, device fallback, RMS level. Recommend enabling its `pipewire` feature on Linux. |
-| `bd-asr` | **Committed.** `ParakeetAsr` + `Segmenter` (Silero). WER 0 on the test wav; CPU RTF ≈0.15–0.24 on a loaded box. sherpa-onnx links **shared** (see below). |
+| `bd-asr` | **Committed.** `NemotronAsr` + `Segmenter` (Silero). WER 0 on the test wav; CPU RTF ≈0.15–0.24 on a loaded box. sherpa-onnx links **shared** (see below). |
 | `bd-commands` | **Committed.** Spoken-command rules + prose false-positive tests. |
 | `bd-cleanup` | **Committed.** Prompts, guardrail, `LlamaCleanup` (llama-cpp-2, `vulkan` feature), `HttpCleanup`, `examples/bench_cleanup`. Output tidying also unwraps an answer echoed in `"…"` and turns straight quotes into the style's marks (`quotes.rs`). |
 | `bd-platform` | **Committed.** Windows SendInput/paste/UIPI (cross-checked with `cargo xwin clippy`, **never run on real Windows** — see `crates/bd-platform/WINDOWS_TESTING.md`); Linux XTest + RemoteDesktop portal/libei (live-tested only in a nested KWin). `prepare()` triggers the Wayland permission dialog; `INJECTED_MARKER` in `dwExtraInfo` lets rinch's keyboard hook ignore our own keystrokes. |
@@ -95,10 +94,17 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   was typed in the last 60 s (DESIGN.md "Voice edits in your app").
   Checked with tests and `bd file --stream` on Piper TTS spelled "Bear.";
   not yet by voice in the app.
-- Next: (5) remove
-  Parakeet: `ParakeetAsr`, `bd` without `--stream`, the tests and CI on its
-  wav (CI also needs our sherpa-onnx build for hotwords), and offer to
-  delete old model files (Parakeet, Nemotron 560 ms) on upgrade.
+- Done (5): Parakeet removed (`ParakeetAsr`, `setup::load_asr`, `bd`'s
+  non-streaming path; `--stream` is still accepted, hidden). The tests read
+  `test_wavs/en.wav` at the root of `BD_MODELS_DIR` and transcribe with
+  Nemotron. The manifest marks Parakeet Unified, Parakeet v3 int8 and
+  Nemotron 560 ms `retired`: never downloaded, and the General page offers
+  "Delete them" while any is on disk (careful on Joe's machine: the dev
+  models folder still holds them for the eval scripts). CI: the Windows job
+  builds with Ninja and the MSVC environment (the Visual Studio generator
+  never built llama.cpp's Vulkan shader tool, so CI had never passed) and
+  runs Nemotron greedily on the stock library; a new Linux job builds our
+  sherpa-onnx (cached) and runs clippy, the tests and `bd` with hotwords.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.
@@ -190,7 +196,7 @@ $B eval --cases eval/cases.jsonl --out /tmp/x && python eval/score.py eval/cases
   - Drop all of this when a sherpa-onnx release includes #3895 and the
     crate is updated to it. Check that release's C API structs against the
     crate first.
-- `--words FILE` turns on hotwords (`ParakeetConfig::hotword_boost`, beam
+- `--words FILE` turns on hotwords (`NemotronConfig::hotword_boost`, beam
   search, per-stream word list) and the fix-up list. Not yet in the cleanup
   prompt: the guardrail already stops the model changing those words.
 - Qwen3 1.7B mostly echoes its input (keeps fillers). 4B cleans fine.
@@ -308,8 +314,9 @@ timings and joins, but never the words.
 ## Where things live (outside the repo)
 
 - Models (dev): `/mnt/data/beardictate-dev/models/` —
-  `asr-parakeet-unified-en-0.6b-int8/` (+ `test_wavs/en.wav`, copied from the v3
-  release, which the tests read), `vad-silero/silero_vad.onnx`. The ASR
+  `asr-nemotron-speech-streaming-en-0.6b-1120ms-int8/` (hard links to the
+  bake-off's copy), `test_wavs/en.wav` (which the tests read; copied from the
+  Parakeet v3 release), `vad-silero/silero_vad.onnx`. The ASR
   comparison of 2026-10-15 also left v3 int8/fp32, v2 int8/fp16 and Nemotron
   streaming exports under `asr-*`.
 - Corpus / training data: `/mnt/data/beardictate-dev/corpus/` etc.

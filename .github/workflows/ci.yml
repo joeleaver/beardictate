@@ -1,9 +1,12 @@
-# Windows CI: build, clippy, tests (with the real speech models, cached), and
+# CI. Windows: build, clippy, tests (with the real speech models, cached), and
 # the portable zip + installer as artifacts, built in the release
 # configuration (scripts/package-windows.ps1; DESIGN.md "Windows install and
 # first run"): GPU cleanup through Vulkan loaded at run time (vulkan-dl), the
-# DLL C runtime, the VC++ runtime shipped next to the exes. Linux is built and tested on
-# Joe's machine for now (see HANDOVER.md); add a job here when that changes.
+# DLL C runtime, the VC++ runtime shipped next to the exes. Natively it links
+# the stock sherpa-onnx 1.13.8, so Nemotron decodes greedily (releases are
+# cross-built with ours). Linux: our own sherpa-onnx (scripts/build-sherpa-onnx.sh,
+# cached by the script and patch), then clippy and the tests with Nemotron's
+# hotwords, and bd on the test wav. Releases are built on Joe's machine.
 name: CI
 
 on:
@@ -27,8 +30,14 @@ jobs:
     timeout-minutes: 120
     env:
       CARGO_TERM_COLOR: always
-      # Where the ASR tests find Parakeet + Silero (they skip without it).
+      # Where the ASR tests find Nemotron, Silero and the test wav (they
+      # skip without it).
       BD_MODELS_DIR: ${{ github.workspace }}\ci-models
+      # llama.cpp's Vulkan shader generator fails to build under the Visual
+      # Studio generator (its ExternalProject's cmake_install.cmake is never
+      # written); Ninja, with the compiler from the MSVC environment below,
+      # is what the cross build uses.
+      CMAKE_GENERATOR: Ninja
       # The release configuration. llama.cpp's DLLs share C runtime objects,
       # so everything uses the DLL runtime, overriding .cargo/config.toml's
       # static one (which natively mixed /MT and /MD objects anyway).
@@ -47,6 +56,12 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: MSVC environment (cl, link) for Ninja
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Ninja
+        run: choco install ninja --no-progress -y
 
       - name: Vulkan SDK (cached by version)
         id: vulkan-sdk
@@ -70,7 +85,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ci-models
-          key: models-v2-${{ hashFiles('crates/bd-models/manifest.toml') }}
+          key: models-v3-${{ hashFiles('crates/bd-models/manifest.toml') }}
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked --features ${{ env.FEATURES }} -- -D warnings
@@ -81,9 +96,9 @@ jobs:
       - name: Download the models (and the test wav the ASR tests read)
         shell: pwsh
         run: |
-          target\release\bd.exe models download asr-parakeet-unified-en-0.6b-int8 vad-silero cleanup-gemma-4-e2b-q4_0
+          target\release\bd.exe models download asr-nemotron-speech-streaming-en-0.6b-1120ms-int8 vad-silero cleanup-gemma-4-e2b-q4_0
           if ($LASTEXITCODE) { exit 1 }
-          $wavs = "$env:BD_MODELS_DIR\asr-parakeet-unified-en-0.6b-int8\test_wavs"
+          $wavs = "$env:BD_MODELS_DIR\test_wavs"
           New-Item -ItemType Directory -Force $wavs | Out-Null
           if (-not (Test-Path "$wavs\en.wav")) {
             Invoke-WebRequest -OutFile "$wavs\en.wav" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/test_wavs/en.wav"
@@ -93,7 +108,7 @@ jobs:
         run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
 
       - name: Transcribe the test wav with bd
-        run: target\release\bd.exe file "%BD_MODELS_DIR%\asr-parakeet-unified-en-0.6b-int8\test_wavs\en.wav" --cleanup off
+        run: target\release\bd.exe file "%BD_MODELS_DIR%\test_wavs\en.wav" --cleanup off
         shell: cmd
 
       - name: Install Inno Setup
@@ -109,7 +124,7 @@ jobs:
         shell: pwsh
         run: |
           $env:BD_LOG = "warn,bd_cleanup=info"
-          $log = & packaging\windows\stage\bd.exe file "$env:BD_MODELS_DIR\asr-parakeet-unified-en-0.6b-int8\test_wavs\en.wav" --cleanup cleanup-gemma-4-e2b-q4_0 2>&1 | ForEach-Object { "$_" }
+          $log = & packaging\windows\stage\bd.exe file "$env:BD_MODELS_DIR\test_wavs\en.wav" --cleanup cleanup-gemma-4-e2b-q4_0 2>&1 | ForEach-Object { "$_" }
           $log
           if ($LASTEXITCODE) { exit 1 }
           if (-not ($log -match "layers on GPU")) { throw "the cleanup model didn't load" }
@@ -119,3 +134,66 @@ jobs:
           name: beardictate-windows-x64
           path: dist/*
           if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+      BD_MODELS_DIR: ${{ github.workspace }}/ci-models
+      # CPU cleanup here (Windows builds the Vulkan backend); PipeWire capture
+      # and Nemotron's hotwords, as the release does.
+      FEATURES: bd-app/pipewire,bd-app/nemotron-hotwords,bd-cli/nemotron-hotwords
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev libxdo-dev libasound2-dev libpipewire-0.3-dev libclang-dev cmake ninja-build pkg-config
+
+      # Builds in upstream's release container (docker), a few minutes cold.
+      - name: Our sherpa-onnx (cached by the script and the patch)
+        uses: actions/cache@v4
+        with:
+          path: target/sherpa-onnx/v1.13.8-bd1-linux-x64
+          key: sherpa-onnx-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-onnx-3895.patch') }}
+
+      - name: Build sherpa-onnx
+        run: echo "SHERPA_ONNX_LIB_DIR=$(scripts/build-sherpa-onnx.sh linux)" >> "$GITHUB_ENV"
+
+      - name: Speech models (cached by manifest)
+        uses: actions/cache@v4
+        with:
+          path: ci-models
+          key: linux-models-v1-${{ hashFiles('crates/bd-models/manifest.toml') }}
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked --features ${{ env.FEATURES }} -- -D warnings
+
+      - name: Build
+        run: cargo build --workspace --release --locked --features ${{ env.FEATURES }}
+
+      - name: Download the models (and the test wav the ASR tests read)
+        run: |
+          target/release/bd models download asr-nemotron-speech-streaming-en-0.6b-1120ms-int8 vad-silero
+          mkdir -p "$BD_MODELS_DIR/test_wavs"
+          [ -f "$BD_MODELS_DIR/test_wavs/en.wav" ] || curl -sSfL -o "$BD_MODELS_DIR/test_wavs/en.wav" \
+            "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/test_wavs/en.wav"
+
+      - name: Test
+        run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
+
+      # Beam search with hotwords: the stock library would exit here.
+      - name: Transcribe the test wav with bd and a hotword
+        run: |
+          printf 'Kennedy\n' > words.txt
+          out="$(target/release/bd file "$BD_MODELS_DIR/test_wavs/en.wav" --cleanup off --words words.txt)"
+          echo "$out"
+          grep -qi "ask not what your country can do for you" <<<"$out"

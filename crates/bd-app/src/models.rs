@@ -41,9 +41,16 @@ pub fn speech() -> Vec<&'static ModelEntry> {
     Manifest::builtin().models.iter().filter(|m| m.required && m.available).collect()
 }
 
-/// Every model the manager tracks: the speech models, then the catalog.
+/// Models earlier versions downloaded that nothing uses now (see
+/// `retired` in the manifest).
+pub fn retired() -> Vec<&'static ModelEntry> {
+    Manifest::builtin().models.iter().filter(|m| m.retired).collect()
+}
+
+/// Every model the manager tracks: the speech models, the catalog, and the
+/// retired ones, to offer deleting.
 fn tracked() -> impl Iterator<Item = &'static ModelEntry> {
-    speech().into_iter().chain(catalog())
+    speech().into_iter().chain(catalog()).chain(retired())
 }
 
 /// The speech models not yet downloaded and verified.

@@ -1,9 +1,9 @@
 //! Speech recognition for beardictate, via sherpa-onnx.
 //!
-//! - [`ParakeetAsr`]: NVIDIA Parakeet Unified 0.6B English (int8 ONNX) behind
-//!   [`bd_core::Asr`]. Transcribes one finished segment at a time, with the
-//!   model's own casing and punctuation, optionally listening harder for a
-//!   list of names and invented words (hotwords).
+//! - [`NemotronAsr`]: NVIDIA Nemotron Speech Streaming 0.6B English (int8
+//!   ONNX) behind [`bd_core::StreamingAsr`]. Transcribes as the speaker
+//!   talks, with the model's own casing and punctuation, optionally
+//!   listening harder for a list of names and invented words (hotwords).
 //! - [`Segmenter`]: Silero VAD that cuts a stream of 16 kHz chunks into
 //!   utterance-sized [`bd_core::AudioSegment`]s.
 //!
@@ -12,11 +12,9 @@
 
 mod hotwords;
 mod nemotron;
-mod parakeet;
 mod segmenter;
 
 pub use nemotron::{NemotronAsr, NemotronConfig};
-pub use parakeet::{ParakeetAsr, ParakeetConfig};
 pub use segmenter::{Segmenter, SegmenterConfig};
 
 use std::path::{Path, PathBuf};
