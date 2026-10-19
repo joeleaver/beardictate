@@ -38,6 +38,10 @@ jobs:
       # written); Ninja, with the compiler from the MSVC environment below,
       # is what the cross build uses.
       CMAKE_GENERATOR: Ninja
+      # A short target folder: llama.cpp's shader tool configures itself in
+      # a folder deep inside the build tree, and under target\release its
+      # compiler paths passed Windows' 260-character limit (C1083).
+      CARGO_TARGET_DIR: C:\t
       # The release configuration. llama.cpp's DLLs share C runtime objects,
       # so everything uses the DLL runtime, overriding .cargo/config.toml's
       # static one (which natively mixed /MT and /MD objects anyway).
@@ -56,6 +60,8 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ". -> C:\\t"
 
       - name: MSVC environment (cl, link) for Ninja
         uses: ilammy/msvc-dev-cmd@v1
@@ -96,7 +102,7 @@ jobs:
       - name: Download the models (and the test wav the ASR tests read)
         shell: pwsh
         run: |
-          target\release\bd.exe models download asr-nemotron-speech-streaming-en-0.6b-1120ms-int8 vad-silero cleanup-gemma-4-e2b-q4_0
+          C:\t\release\bd.exe models download asr-nemotron-speech-streaming-en-0.6b-1120ms-int8 vad-silero cleanup-gemma-4-e2b-q4_0
           if ($LASTEXITCODE) { exit 1 }
           $wavs = "$env:BD_MODELS_DIR\test_wavs"
           New-Item -ItemType Directory -Force $wavs | Out-Null
@@ -108,7 +114,7 @@ jobs:
         run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
 
       - name: Transcribe the test wav with bd
-        run: target\release\bd.exe file "%BD_MODELS_DIR%\test_wavs\en.wav" --cleanup off
+        run: C:\t\release\bd.exe file "%BD_MODELS_DIR%\test_wavs\en.wav" --cleanup off
         shell: cmd
 
       - name: Install Inno Setup
