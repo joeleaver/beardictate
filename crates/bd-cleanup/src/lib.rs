@@ -49,7 +49,7 @@ pub enum CleanupError {
     Llama(String),
     #[error("prompt of {prompt} tokens plus {budget} to generate does not fit the {n_ctx}-token context")]
     ContextOverflow { prompt: usize, budget: usize, n_ctx: usize },
-    #[error("the cleanup model's worker thread has stopped")]
+    #[error("the post-processing model's worker thread has stopped")]
     WorkerGone,
     #[error("request to {url} failed: {message}")]
     Http { url: String, message: String },

@@ -169,7 +169,7 @@ fn resolve_local(source: &CleanupSource, store: &Store) -> Result<Option<(PathBu
             let entry = manifest
                 .get(id)
                 .filter(|m| m.kind == ModelKind::Cleanup)
-                .ok_or_else(|| anyhow!("{id:?} is not a cleanup model in the catalog"))?;
+                .ok_or_else(|| anyhow!("{id:?} is not a post-processing model in the catalog"))?;
             if !installed(store, entry) {
                 bail!("{id} is not installed; run `bd models download {id}`");
             }

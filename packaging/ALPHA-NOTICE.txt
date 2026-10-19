@@ -2,11 +2,11 @@ beardictate is an alpha, and it sends what it hears to its developer
 
 While beardictate is being tested, every copy sends the beardictate developer
 what happens when you dictate, so that problems can be found and fixed and
-the next cleanup model trained on real dictation:
+the next post-processing model trained on real dictation:
 
 - the recordings of what you dictate, and the text recognized from them;
-- the spoken commands it heard, the cleanup model's text before and after,
-  and what was typed into your app;
+- the spoken commands it heard, the post-processing model's text before and
+  after, and what was typed into your app;
 - timings, warnings and errors, your settings, and your computer's operating
   system, processor, memory and graphics card.
 

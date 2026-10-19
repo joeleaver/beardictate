@@ -469,7 +469,7 @@ const SETTINGS_HEADER: &str = "\
 # reloads it when you save it here.
 #
 # hotkey: at least two keys, e.g. \"Ctrl+Backquote\" (Ctrl+`), \"Ctrl+Alt+Space\".
-# cleanup: \"auto\" (the recommended model, else the largest you have), \"off\", a model id from
+# cleanup: the post-processing model: \"auto\" (the recommended one, else the largest you have), a model id from
 #   `bd models list`, or the path to a .gguf file.
 # quote_marks: \"double\" or \"single\"; curly_quotes: true or false.
 # blank_line_paragraphs: true for a blank line between paragraphs, false for one return.
