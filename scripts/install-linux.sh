@@ -23,11 +23,16 @@ done
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 target="${CARGO_TARGET_DIR:-$repo/target}"
 features="${BD_FEATURES:-vulkan,pipewire}"
+# Every build is an alpha build for now (Joe, 2026-10-19): telemetry on,
+# with the shared key (docs/telemetry.md), which isn't in the repo.
+BD_TELEMETRY_KEY="${BD_TELEMETRY_KEY:-$(cat "$HOME/.config/beardictate-release/telemetry-key" 2>/dev/null || true)}"
+[ -n "$BD_TELEMETRY_KEY" ] || { echo "no telemetry key: set BD_TELEMETRY_KEY or create ~/.config/beardictate-release/telemetry-key" >&2; exit 1; }
+export BD_TELEMETRY_KEY
 # Our sherpa-onnx build (v1.13.8 plus Nemotron beam search and hotwords).
 SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" linux)"
 export SHERPA_ONNX_LIB_DIR
 if $build; then
-    (cd "$repo" && cargo build --release -p bd-app --features "$features,nemotron-hotwords")
+    (cd "$repo" && cargo build --release -p bd-app --features "$features,nemotron-hotwords,alpha")
 fi
 
 lib="$HOME/.local/lib/beardictate"

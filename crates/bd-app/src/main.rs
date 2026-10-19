@@ -109,6 +109,12 @@ fn main() {
     let updates = update::Updates::spawn(paths.updates.clone(), settings.auto_update, note);
     let shared = Shared::new(paths, settings, updates);
     let first_run = shared.models.states.with(|s| !models::missing_speech(s).is_empty());
+    // An alpha's first start (an update arrives silently, past the
+    // installer's notice): the window opens on About, which says what's sent.
+    let alpha_notice = telemetry::first_start(&shared.paths);
+    if alpha_notice && !first_run {
+        shared.section.set(ui::Section::About);
+    }
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
     let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false };
@@ -138,7 +144,7 @@ fn main() {
         width: 780,
         height: 600,
         // On first run the window opens to download the speech models.
-        visible: !has_tray || first_run,
+        visible: !has_tray || first_run || alpha_notice,
         // With a tray, closing hides the window; without one it quits.
         on_close_requested: has_tray.then(|| {
             std::sync::Arc::new(|| {

@@ -11,7 +11,8 @@
 #       it, and record it in releases.json (replacing that platform's placeholders and
 #       any entry with the same file name). <platform> is an id from releases.json:
 #       windows, linux, macos. --kind defaults from the extension (Installer, Portable
-#       zip, …). --channel alpha: only alpha builds update to it, and the page hides it.
+#       zip, …). --channel NAME: only builds made with BD_UPDATE_CHANNEL=NAME update to
+#       it, and the page hides it.
 #       The app installs updates only from signed builds: the Ed25519 key is
 #       ~/.config/beardictate-release/update-signing.pem (BD_SIGNING_KEY to change it);
 #       its public half is in crates/bd-app/src/update/verify.rs. Back it up: without

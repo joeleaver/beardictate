@@ -66,7 +66,7 @@ pub fn start(paths: &Paths) {
     let writer = Writer { dir, session, file: None, opened: Instant::now(), uploader };
     thread::Builder::new().name("bd-telemetry".into()).spawn(move || writer.run(rx)).expect("spawning the telemetry thread");
     bd_pipeline::dump::audio_to(Box::new(|id, samples| {
-        if let Some(r) = recorder() {
+        if let Some(r) = recorder().filter(|_| super::dictating()) {
             let _ = r.tx.send(Msg::Audio(id, samples.to_vec()));
         }
     }));

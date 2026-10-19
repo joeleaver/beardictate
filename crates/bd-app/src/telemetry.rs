@@ -6,6 +6,7 @@
 //! `telemetry` folder an alpha build left behind is deleted at start.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde_json::Value;
 
@@ -37,6 +38,19 @@ pub fn start(paths: &Paths) {
     remove(&dir(paths));
 }
 
+/// True the first time an alpha build starts on this computer (once).
+pub fn first_start(paths: &Paths) -> bool {
+    if !cfg!(feature = "alpha") {
+        return false;
+    }
+    let Some(marker) = paths.log.parent().map(|d| d.join("alpha-notice-shown")) else { return false };
+    if marker.exists() {
+        return false;
+    }
+    let _ = std::fs::write(&marker, "");
+    true
+}
+
 /// Records one event. `data` is only built when telemetry is on.
 pub fn record(kind: &'static str, segment: Option<u64>, data: impl FnOnce() -> Value) {
     #[cfg(feature = "alpha")]
@@ -58,6 +72,20 @@ fn remove(dir: &Path) {
     {
         tracing::warn!("removing {}: {e}", dir.display());
     }
+}
+
+static DICTATING: AtomicBool = AtomicBool::new(false);
+
+/// Whether the user is dictating (listening, or finishing the last
+/// sentences). Only then are what's heard and its audio recorded: always
+/// listening hears everything said near the microphone while asleep, and
+/// that never leaves the computer.
+pub fn set_dictating(on: bool) {
+    DICTATING.store(on, Ordering::Relaxed);
+}
+
+pub fn dictating() -> bool {
+    DICTATING.load(Ordering::Relaxed)
 }
 
 /// Milliseconds of a duration, for event data.

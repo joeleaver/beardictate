@@ -290,6 +290,7 @@ impl<U: Ui> Worker<U> {
         } else {
             (State::Idle, self.cleanup_name.clone())
         };
+        crate::telemetry::set_dictating(matches!(state, State::Listening | State::Cleaning));
         self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
         self.sync_pad();
     }

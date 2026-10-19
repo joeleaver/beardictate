@@ -2,9 +2,18 @@
 
 Alpha builds (cargo feature `alpha`) record what happens in each dictation and
 send it to the telemetry server on jkbase, for debugging testers' problems and
-for training the next cleanup model. Release builds send nothing. Joe,
-2026-10-18: everything on for alpha (stated at install), audio included, an
-anonymous id per install.
+for training the next cleanup model. Builds without the feature send nothing.
+Joe, 2026-10-18: everything on for alpha (stated at install), audio included,
+an anonymous id per install. Joe, 2026-10-19: every build is an alpha build
+for now, the site's included; the release scripts build with `alpha` and the
+key in `~/.config/beardictate-release/telemetry-key`. What users are told:
+`packaging/ALPHA-NOTICE.txt` (the installer's first page, the tarball, the
+download page).
+
+Only what's said while dictating (listening, or finishing the last
+sentences) is recorded: `transcribed`, `partial`, `commanded` and the audio
+are dropped while always listening is asleep, so nothing said near the
+microphone then leaves the computer (`telemetry::set_dictating`).
 
 This file is the contract between the app (`crates/bd-app/src/telemetry/`)
 and the server (`telemetry/`). Change both together; bump `v` when an event's

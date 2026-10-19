@@ -1,0 +1,22 @@
+beardictate is an alpha, and it sends what it hears to its developer
+
+While beardictate is being tested, every copy sends the beardictate developer
+what happens when you dictate, so that problems can be found and fixed and
+the next cleanup model trained on real dictation:
+
+- the recordings of what you dictate, and the text recognized from them;
+- the spoken commands it heard, the cleanup model's text before and after,
+  and what was typed into your app;
+- timings, warnings and errors, your settings, and your computer's operating
+  system, processor, memory and graphics card.
+
+Only what you say while dictating is sent. With "Always listening" on,
+nothing said while beardictate is asleep leaves your computer. Nothing you
+type yourself is sent.
+
+It is tied to a random install number, not your name or any account. It
+waits in a folder on your computer (at most 220 MB), is deleted there as soon
+as it has been sent, and is removed when you uninstall.
+
+Please don't dictate anything you wouldn't want the developer to read or hear.
+If that doesn't suit you, wait for a release that isn't an alpha.

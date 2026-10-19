@@ -21,6 +21,11 @@ if [ -z "${VULKAN_SDK:-}" ]; then
     "$repo/scripts/windows-vulkan-sdk.sh" "$VULKAN_SDK"
 fi
 
+# Every build is an alpha build for now (Joe, 2026-10-19): telemetry on,
+# with the shared key (docs/telemetry.md), which isn't in the repo.
+BD_TELEMETRY_KEY="${BD_TELEMETRY_KEY:-$(cat "$HOME/.config/beardictate-release/telemetry-key" 2>/dev/null || true)}"
+[ -n "$BD_TELEMETRY_KEY" ] || { echo "no telemetry key: set BD_TELEMETRY_KEY or create ~/.config/beardictate-release/telemetry-key" >&2; exit 1; }
+export BD_TELEMETRY_KEY
 # Our sherpa-onnx build (v1.13.8 plus Nemotron beam search and hotwords;
 # static C runtime, like upstream's shared-MT build).
 SHERPA_ONNX_LIB_DIR="$("$repo/scripts/build-sherpa-onnx.sh" windows)"
@@ -42,7 +47,7 @@ done
 export LINK
 cd "$repo"
 cargo xwin build --release --locked --target "$triple" -p bd-cli -p bd-app \
-    --features bd-cli/vulkan-dl,bd-app/vulkan-dl,bd-cli/nemotron-hotwords,bd-app/nemotron-hotwords
+    --features bd-cli/vulkan-dl,bd-app/vulkan-dl,bd-cli/nemotron-hotwords,bd-app/nemotron-hotwords,bd-app/alpha
 release="$target/$triple/release"
 # llama-cpp-sys hard-links its DLLs next to the exes only when none is there
 # yet, so take them from its newest vulkan-dl build folder instead (other

@@ -79,6 +79,7 @@ if ($Stage) {
 & "$out\bd.exe" --version; if ($LASTEXITCODE) { throw "the staged bd.exe doesn't start" }
 Copy-Item "$repo\LICENSE" "$out\LICENSE.txt"
 Copy-Item "$repo\packaging\THIRD-PARTY.txt" $out
+Copy-Item "$repo\packaging\ALPHA-NOTICE.txt" $out
 
 if ($env:BD_SIGN_CMD) {
     foreach ($f in Get-ChildItem "$out\*.exe", "$out\*.dll") {

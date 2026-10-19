@@ -7,6 +7,10 @@ use crate::telemetry::{ms, record};
 
 /// Records what `event` says, before the engine acts on it.
 pub(super) fn note(event: &Event, streaming: bool) {
+    let heard = matches!(event, Event::Transcribed { .. } | Event::Partial { .. } | Event::Commanded { .. });
+    if heard && !crate::telemetry::dictating() {
+        return;
+    }
     match event {
         Event::Transcribed { id, text, audio, level, gain, pause, elapsed } => record("transcribed", Some(*id), || {
             json!({

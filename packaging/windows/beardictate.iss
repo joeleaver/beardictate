@@ -41,6 +41,8 @@ SetupIconFile=beardictate.ico
 UninstallDisplayIcon={app}\beardictate.ico
 UninstallDisplayName=beardictate
 LicenseFile=..\..\LICENSE
+; Shown before installing: what this alpha sends (docs/telemetry.md).
+InfoBeforeFile={#Stage}\ALPHA-NOTICE.txt
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -69,6 +71,7 @@ Source: "{#Stage}\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "beardictate.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Stage}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Stage}\THIRD-PARTY.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#Stage}\ALPHA-NOTICE.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\beardictate"; Filename: "{app}\beardictate.exe"; IconFilename: "{app}\beardictate.ico"; Comment: "Dictation for fiction writers"

@@ -203,6 +203,9 @@ p { margin: 0 0 1rem; }
 .page-head { background: var(--navy); color: var(--ice); padding: clamp(2.25rem, 6vw, 4rem) 0 clamp(2rem, 5vw, 3rem); }
 .page-head h1 { font-family: var(--serif); font-weight: 400; color: #fff; font-size: clamp(2.1rem, 5vw, 3.2rem); line-height: 1.1; margin: 0 0 0.75rem; letter-spacing: -0.015em; }
 .page-head p { margin: 0; max-width: 40rem; opacity: 0.92; }
+.page-head #alpha { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.25); max-width: 40rem; scroll-margin-top: 1.5rem; }
+.page-head #alpha h2 { color: #fff; font-size: 1.25rem; margin: 0 0 0.5rem; }
+.page-head #alpha p + p { margin-top: 0.75rem; }
 
 .platforms { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
 .platform { padding: 2rem 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr); gap: 1rem 2.5rem; }

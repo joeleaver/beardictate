@@ -21,7 +21,8 @@ pub struct Build {
     /// Ed25519 over the file, hex (`site/publish.sh` signs what it adds).
     #[serde(default)]
     pub signature: Option<String>,
-    /// `stable` when absent; alpha builds update only to alpha builds.
+    /// `stable` when absent; a build updates only to builds of its channel
+    /// ([`channel`]).
     #[serde(default)]
     pub channel: Option<String>,
     #[serde(default)]
@@ -47,12 +48,11 @@ pub fn installable_kind() -> &'static str {
     }
 }
 
+/// The builds this one updates to: `BD_UPDATE_CHANNEL` at build time, else
+/// `stable`. (Every build sends telemetry for now, so `alpha` isn't a
+/// channel of its own.)
 pub fn channel() -> &'static str {
-    if cfg!(feature = "alpha") {
-        "alpha"
-    } else {
-        "stable"
-    }
+    option_env!("BD_UPDATE_CHANNEL").unwrap_or("stable")
 }
 
 /// The newest build for this platform and channel that installs, if it's

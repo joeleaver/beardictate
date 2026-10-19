@@ -51,3 +51,8 @@ if ! "$lib/beardictate" --help >/dev/null 2>&1; then
     exit 1
 fi
 echo "Installed. Start beardictate from your app menu, or run: $lib/beardictate"
+if [ -f "$here/ALPHA-NOTICE.txt" ]; then
+    echo
+    echo "This is an alpha: it sends what you dictate (recordings and text) to its developer."
+    echo "What it sends, and what it never does: $here/ALPHA-NOTICE.txt"
+fi

@@ -377,6 +377,14 @@ fn about(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             Title { order: 3, "About beardictate" }
             Text { {format!("Version {}", env!("CARGO_PKG_VERSION"))} }
             {updates}
+            if cfg!(feature = "alpha") {
+                Text { size: "sm",
+                    "This is an alpha: what you dictate (the recordings and the text), with timings and your computer's details, is sent to the developer to fix problems and train better cleanup. Nothing said while beardictate is asleep is sent."
+                }
+                Group {
+                    Button { variant: "light", size: "xs", onclick: move || ui::open_url("https://beardictate.jkbase.app/download.html#alpha"), "What it sends" }
+                }
+            }
             Text { {move || ui::status_line(&s1)} }
             for line in lines.clone() {
                 Text { size: "sm", color: "dimmed", {line} }
