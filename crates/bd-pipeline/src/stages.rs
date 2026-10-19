@@ -15,6 +15,7 @@ mod cleaner;
 mod edit;
 mod gate;
 mod listen;
+mod list;
 mod live_type;
 mod notes;
 mod segment;
@@ -97,6 +98,8 @@ struct Pending {
     /// When it was ready to clean: when it, or the last part joined onto
     /// it, arrived.
     ready: Instant,
+    /// A list item: typed as it is, not tidied.
+    list: bool,
 }
 
 enum Item {
@@ -213,6 +216,10 @@ struct Finisher {
     tidy: Option<tidy::Tidy>,
     /// Spoken edits in this session, for "bear, undo".
     edits: Vec<edit::Edit>,
+    /// See [`PipelineConfig::list_mode`].
+    list_mode: bool,
+    /// A list just ended: what comes next starts on a line of its own.
+    after_list: bool,
 }
 
 impl Finisher {
@@ -248,6 +255,8 @@ impl Finisher {
             typing: None,
             tidy: None,
             edits: Vec::new(),
+            list_mode: config.list_mode,
+            after_list: false,
         };
         finisher.set_pad(pad);
         finisher
@@ -340,9 +349,10 @@ impl Finisher {
     fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let ends_sentence = p.ends_sentence();
+        let list = p.list;
         let commanded = p.out.text;
         let behind = self.queue.iter().any(|item| matches!(item, Item::Segment(_)));
-        let (text, cleanup) = if self.types_live() {
+        let (text, cleanup) = if self.types_live() || list {
             // Typed as dictated now; tidied in place once it comes back.
             (commanded.clone(), None)
         } else if behind && self.cleanup.is_some() && p.ready.elapsed() > BACKLOG {
@@ -370,6 +380,9 @@ impl Finisher {
         }
         if self.types_live() {
             self.typed_live(p.id, p.quote_before, &base, take_back, text);
+            if list {
+                return;
+            }
             return self.tidy_typed(p.id, ends_sentence);
         }
         if text.is_empty() {
@@ -495,7 +508,13 @@ impl Finisher {
         let quote_before = self.quote_open;
         self.quote_open = out.quote_open;
         self.note_commanded(id, &heard, &text, &out, pad_action.as_ref());
-        let long_pause = matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
+        let list = self.list_mode && out.has_words();
+        if list {
+            out.text = list::item(&out.text, &out.actions, self.passage_has_text, &self.vocabulary.spellings());
+        } else if std::mem::take(&mut self.after_list) && out.has_words() && !out.text.starts_with('\n') {
+            out.text.insert(0, '\n');
+        }
+        let long_pause = !list && matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
         if long_pause && self.passage_has_text && !out.text.starts_with('\n') && out.has_words() {
             out.text.insert_str(0, "\n\n");
         }
@@ -509,10 +528,11 @@ impl Finisher {
             if self.pad.is_some() {
                 self.pad_push(id, out.text, quote_before);
             } else {
-                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now() }));
+                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now(), list }));
             }
         }
         match pad_action {
+            Some(PadAction::List(on)) => self.set_list(on),
             Some(action) if self.pad.is_some() => self.pad_action(action),
             // In order, after what was said before it.
             Some(action) => self.queue.push_back(Item::Edit(action)),
@@ -529,6 +549,7 @@ impl Finisher {
         self.sentence_hold = config.sentence_hold;
         self.sentence_hold_speaking = config.sentence_hold_speaking;
         self.live_typing = config.live_typing;
+        self.list_mode = config.list_mode;
         if !(self.live && self.live_typing && !config.pad) {
             self.tidy_stop();
         }

@@ -103,7 +103,7 @@ impl Finisher {
     pub(super) fn pad_command(&self, text: String) -> (String, Option<PadAction>) {
         let in_pad = self.pad.is_some();
         let heard = pad_voice::heard(&text)
-            .filter(|h| in_pad || matches!(h.action, PadAction::Change { .. } | PadAction::Delete(_) | PadAction::Undo));
+            .filter(|h| in_pad || matches!(h.action, PadAction::Change { .. } | PadAction::Delete(_) | PadAction::Undo | PadAction::List(_)));
         match heard {
             Some(h) => (h.before, Some(h.action)),
             None => (text, None),
@@ -133,6 +133,9 @@ impl Finisher {
     }
 
     pub(super) fn pad_action(&mut self, action: PadAction) {
+        if let PadAction::List(on) = action {
+            return self.set_list(on);
+        }
         let Some(mode) = self.pad.as_mut() else { return };
         tracing::info!(?action, "pad");
         match action {
@@ -156,6 +159,7 @@ impl Finisher {
                     self.emit(Event::PadNotFound { words });
                 }
             }
+            PadAction::List(_) => unreachable!("handled above"),
         }
         self.pad_emit();
     }

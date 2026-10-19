@@ -92,7 +92,10 @@ impl Finisher {
             matches!(a.kind, ActionKind::ScratchPreviousSegment | ActionKind::ScratchWithinSegment { .. })
         });
         // A "scratch that" takes effect when the utterance ends.
-        let body = out.text.trim_end_matches([' ', '\t']).to_string();
+        let mut body = out.text.trim_end_matches([' ', '\t']).to_string();
+        if self.list_mode && out.has_words() {
+            body = super::list::item(&body, &out.actions, self.passage_has_text, &self.vocabulary.spellings());
+        }
         (!scratches && (body.chars().any(char::is_alphanumeric) || body.contains('\n'))).then_some(body)
     }
 

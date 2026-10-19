@@ -37,7 +37,11 @@ pub(super) fn heard(text: &str) -> Option<Heard> {
         let rest = &w[i + 2..];
         let only_filler = rest.iter().all(|x| FILLER.contains(&x.2.as_str()));
         let span = |from: usize, to: usize| text[w[from].0..w[to].1].to_string();
+        let says_list = rest.iter().any(|x| matches!(x.2.as_str(), "list" | "lists"));
         let action = match verb {
+            "start" | "begin" | "make" | "new" if says_list => PadAction::List(true),
+            "list" if rest.iter().all(|x| matches!(x.2.as_str(), "mode" | "on" | "please")) => PadAction::List(true),
+            "end" | "stop" | "finish" | "close" | "exit" | "leave" if says_list => PadAction::List(false),
             "send" | "type" | "insert" if only_filler => PadAction::Send,
             "clear" | "empty" if only_filler => PadAction::Clear,
             "start" if rest.first().is_some_and(|x| x.2 == "over") && only_filler => PadAction::Clear,
@@ -90,6 +94,15 @@ mod tests {
         assert_eq!(h("Bear, replace the old man with Harold."), Some(("".into(), change("the old man", "Harold"))));
         assert_eq!(h("Bear, delete very."), Some(("".into(), PadAction::Delete("very".into()))));
         assert_eq!(h("Bear, change it."), None);
+    }
+
+    #[test]
+    fn list_mode_on_and_off() {
+        assert_eq!(h("Bear, start a list."), Some((String::new(), PadAction::List(true))));
+        assert_eq!(h("Bear, list mode."), Some((String::new(), PadAction::List(true))));
+        assert_eq!(h("Milk. Bear, end the list."), Some(("Milk.".into(), PadAction::List(false))));
+        assert_eq!(h("Bear, stop the list."), Some((String::new(), PadAction::List(false))));
+        assert_eq!(h("Bear, list the dates."), None, "a list of what, not list mode");
     }
 
     #[test]

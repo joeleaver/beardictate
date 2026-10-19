@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use bd_commands::CommandConfig;
+use bd_commands::{CommandConfig, NumberStyle};
 use bd_core::{PunctuationPlacement, QuoteStyle, Style};
 use serde::{Deserialize, Serialize};
 
@@ -96,6 +96,9 @@ pub struct Settings {
     /// Spoken marks: "comma", "period", "question mark", "exclamation
     /// point"… become the mark. Off, those words are typed.
     pub spoken_punctuation: bool,
+    /// How numbers said as words are written: as said, or as a style guide
+    /// has them. "numeral …" gives digits either way.
+    pub numbers: NumberStyle,
     /// New paragraph when a different character starts speaking.
     pub paragraph_on_speaker: bool,
     /// New paragraph after a pause of `pause_paragraph_secs`.
@@ -140,6 +143,10 @@ pub struct Settings {
     /// The bear on screen: a small floating window showing the state, with
     /// the tray's menu on a right-click.
     pub show_bear: bool,
+    /// List mode ([`bd_pipeline::PipelineConfig::list_mode`]): for this run
+    /// only, never saved.
+    #[serde(skip)]
+    pub list_mode: bool,
     /// Earlier versions' modes, moved into `destination` and `tidy` on load.
     #[serde(skip_serializing)]
     mode: Option<OldMode>,
@@ -172,6 +179,7 @@ impl Default for Settings {
             cleanup: "auto".into(),
             paragraph_on_command: true,
             spoken_punctuation: true,
+            numbers: NumberStyle::AsSaid,
             paragraph_on_speaker: true,
             paragraph_on_pause: false,
             paragraph_on_topic: false,
@@ -190,6 +198,7 @@ impl Default for Settings {
             tidy: true,
             dialog: false,
             show_bear: true,
+            list_mode: false,
             mode: None,
             bear_pad: false,
             auto_gain: true,
@@ -227,6 +236,7 @@ pub struct LiveSettings {
     pub auto_gain: bool,
     pub mic_gain_db: f32,
     pub pad: bool,
+    pub list_mode: bool,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -293,7 +303,7 @@ impl Settings {
     }
 
     pub fn commands(&self) -> CommandConfig {
-        CommandConfig { break_commands: self.paragraph_on_command, literal_punctuation: self.spoken_punctuation }
+        CommandConfig { break_commands: self.paragraph_on_command, literal_punctuation: self.spoken_punctuation, numbers: self.numbers }
     }
 
     pub fn pause_paragraph(&self) -> Option<Duration> {
@@ -320,6 +330,7 @@ impl Settings {
             auto_gain: self.auto_gain,
             mic_gain_db: self.mic_gain_db,
             pad: self.pad(),
+            list_mode: self.list_mode,
         }
     }
 
@@ -464,6 +475,8 @@ const SETTINGS_HEADER: &str = "\
 # blank_line_paragraphs: true for a blank line between paragraphs, false for one return.
 # close_continued_speech: true to close a quote at the end of each paragraph when
 #   the same speaker carries on into the next; false (book style) leaves it open.
+# numbers: \"as-said\" (words, unless you say \"numeral\" first) or \"style-guide\" (words up to
+#   one hundred, digits above; $300, 12 percent, 4:30 p.m., May 21).
 # spoken_punctuation: true to make \"comma\", \"period\", \"question mark\" and so on into marks.
 # punctuation: \"inside\" or \"logical\".  tray_theme: \"auto\", \"light\", \"dark\".
 # models_dir: where the models are; empty for the default location.

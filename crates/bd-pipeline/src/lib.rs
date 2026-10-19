@@ -173,6 +173,10 @@ pub struct PipelineConfig {
     /// speaker pauses, and are delivered only when the user sends it
     /// ([`Event::PadSend`]). Off, each segment is cleaned and delivered.
     pub pad: bool,
+    /// List mode: each segment an item on a line of its own, without a
+    /// capital or the recognizer's full stop, and not tidied. "bear, start
+    /// a list" and "bear, end the list" switch it too ([`Event::ListMode`]).
+    pub list_mode: bool,
 }
 
 impl Default for PipelineConfig {
@@ -195,6 +199,7 @@ impl Default for PipelineConfig {
             input_gain: 1.0,
             auto_gain: true,
             pad: false,
+            list_mode: false,
         }
     }
 }
@@ -253,6 +258,8 @@ pub enum Event {
     /// With [`PipelineConfig::pad`]: what the pad holds now, after each
     /// change.
     Pad(PadView),
+    /// List mode switched by voice ([`PipelineConfig::list_mode`]).
+    ListMode(bool),
     /// With [`PipelineConfig::pad`]: "bear, send it" (or
     /// [`Feeder::pad`]`(Send)`): deliver this, the whole pad, cleaned. The
     /// pad is empty now.

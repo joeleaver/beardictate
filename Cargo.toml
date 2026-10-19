@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.12"
+version = "0.1.13"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/joeleaver/beardictate"
@@ -50,8 +50,10 @@ windows-sys = "0.61"
 # wake the window (rinch#1542), scrolling fixed (rinch#1543) and windows
 # that keep their size and place across hide/show, which the app can read
 # and set (rinch#1546), and window levels shown on every workspace
-# (rinch#1549), and overlays as Wayland layer-shell surfaces (rinch#1523).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "f087fd52", default-features = false }
+# (rinch#1549), and overlays as Wayland layer-shell surfaces (rinch#1523),
+# with their drag kept steady and transparent windows composited with alpha
+# (rinch#1597, not yet merged: its branch's commit).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "820b811a", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]

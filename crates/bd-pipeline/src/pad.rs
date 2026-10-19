@@ -34,6 +34,9 @@ pub enum PadAction {
     Change { from: String, to: String },
     /// Take the last `word` (or words) out of the pad.
     Delete(String),
+    /// List mode on ("bear, start a list") or off ("bear, end the list"),
+    /// in the pad or your app.
+    List(bool),
 }
 
 /// What the pad shows: its text in order, each part clean or still raw.

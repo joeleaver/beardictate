@@ -62,7 +62,7 @@ One JSON object per line:
 | `settings` | start, and each change | the settings file, as saved (word lists included); since 8cff5bb `destination` (`app`/`pad`) and `tidy` (bool) instead of `mode` |
 | `load` | models loaded or failed | `destination`, `tidy`, `asr`, `cleanup` (name or null), `template`, `gpu_layers`, `n_layer`, `n_ctx`, `threads`, `load_ms`, `error` |
 | `log` | a warning or error, and llama.cpp's and the cleanup loader's messages while a model loads | `level`, `target`, `message` (at most 200 a session) |
-| `state` | dictation starts, stops, wakes, sleeps | `state` (`listening`, `idle`, `asleep`, `cleaning`…) |
+| `state` | dictation starts, stops, wakes, sleeps; list mode switched by voice | `state` (`listening`, `idle`, `asleep`, `cleaning`…), or `list_mode` (bool, from 0.1.13) |
 | `mic` | microphone opened, lost, or warned about | `device`, `event`, `detail` |
 | `partial` | the streaming recognizer's text so far | `text`, `since_speech_ms` |
 | `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms` (from the utterance's start; from 0.1.11 it includes the wait to hear whether the sentence went on), `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent) |

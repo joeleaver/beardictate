@@ -24,7 +24,7 @@ pub fn menu_height(entries: &[Entry]) -> f64 {
 
 /// The glow's colour for a state, if it has one (the tray's dot colours).
 fn glow(state: &str) -> Option<&'static str> {
-    Some(match state {
+    Some(match state.split(' ').next().unwrap_or("") {
         "listening" => "#D1452F",
         "cleaning" => "#1FA38A",
         "loading" => "#8B6CD9",
@@ -36,7 +36,7 @@ fn glow(state: &str) -> Option<&'static str> {
 
 /// The snout, which turns cobalt while the bear is at work (as in the tray).
 fn snout(state: &str) -> &'static str {
-    match state {
+    match state.split(' ').next().unwrap_or("") {
         "listening" | "cleaning" => "#2F6FDB",
         "mic-off" | "loading" => "#B9AFA3",
         _ => "#E9E4DC",
@@ -76,12 +76,19 @@ pub fn glyph(__scope: &mut RenderScope, state: Signal<String>, at: f64, disc: f6
         "position: absolute; left: {at}px; top: {at}px; width: {disc}px; height: {disc}px; border-radius: 50%; background: #F4F7FD; border: 1px solid rgba(14, 26, 48, 0.15); box-sizing: border-box;"
     );
 
+    let mark = (disc * 0.36).max(9.0);
+    let list_style = format!(
+        "position: absolute; left: {:.1}px; top: {:.1}px; width: {mark:.1}px; height: {mark:.1}px; border-radius: 50%; background: #2F6FDB; color: white; font: bold {:.1}px/{mark:.1}px sans-serif; text-align: center;",
+        at + disc - mark * 0.8,
+        at + disc - mark * 0.8,
+        mark * 0.8
+    );
     // The bear spans 44/60 of the disc, centred.
     let (px, o) = (disc * 44.0 / 60.0, at + disc * 8.0 / 60.0);
     rsx! {
         div { style: "position: absolute; inset: 0;",
             div {
-                class: {move || if state.get() == "listening" { "bear-glow pulse" } else { "bear-glow" }},
+                class: {move || if state.get().starts_with("listening") { "bear-glow pulse" } else { "bear-glow" }},
                 style: {move || match glow(&state.get()) {
                     Some(c) => format!("left: {at}px; top: {at}px; width: {disc}px; height: {disc}px; box-shadow: 0 0 {blur}px {:.0}px {c}; background: {c};", blur / 2.4),
                     None => format!("left: {at}px; top: {at}px; width: {disc}px; height: {disc}px; box-shadow: 0 1px {:.0}px 1px rgba(14, 26, 48, 0.35);", blur / 2.0),
@@ -93,18 +100,31 @@ pub fn glyph(__scope: &mut RenderScope, state: Signal<String>, at: f64, disc: f6
             div { style: {part(o, o, px, (16.0, 18.0, 12.0, 12.0), INK)} }
             div { style: {move || part(o, o, px, (16.0, 22.0, 6.2, 4.8), snout(&state.get()))} }
             div { style: {part(o, o, px, (16.0, 19.4, 2.7, 1.8), INK)} }
+            // List mode: a small list mark at the disc's lower right.
+            div { style: {move || if state.get().ends_with(" list") { list_style.clone() } else { "display: none;".to_string() }},
+                "\u{2261}"
+            }
         }
     }
 }
 
-/// The menu: `pick` gets the chosen act, `leave` the pointer going away.
-pub fn menu(__scope: &mut RenderScope, entries: Signal<Vec<Entry>>, pick: impl Fn(Act) + Copy + 'static, leave: impl Fn() + 'static) -> NodeHandle {
+/// The menu: `pick` gets the chosen act, `enter` and `leave` the pointer
+/// coming over the menu or one of its rows, and leaving one (rinch says
+/// "leave" moving from the menu onto its own row, too).
+pub fn menu(
+    __scope: &mut RenderScope,
+    entries: Signal<Vec<Entry>>,
+    pick: impl Fn(Act) + Copy + 'static,
+    enter: impl Fn() + Copy + 'static,
+    leave: impl Fn() + Copy + 'static,
+) -> NodeHandle {
     rsx! {
         div {
             style: "position: absolute; inset: 0; padding: 6px; box-sizing: border-box; overflow-y: auto; background: #FBFCFE; color: #0E1A30; border: 1px solid rgba(14, 26, 48, 0.18); border-radius: 10px; font-family: sans-serif;",
+            onmouseenter: enter,
             onmouseleave: leave,
             for (i, entry) in entries.get().into_iter().enumerate() {
-                div { key: i,
+                div { key: i, onmouseenter: enter, onmouseleave: leave,
                     match entry.clone() {
                         Entry::Separator => div { style: "height: 1px; margin: 4px 6px; background: rgba(14, 26, 48, 0.12);" },
                         Entry::Item { label, act: None } => div { class: "bear-row off", span { style: "width: 14px;" } {label} },

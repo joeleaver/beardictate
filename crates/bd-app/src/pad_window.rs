@@ -73,7 +73,8 @@ fn load_bear() -> (f64, f64) {
         let mut f = text.split_whitespace().map(|v| v.parse::<f64>().ok());
         Some((f.next()??, f.next()??))
     };
-    saved().unwrap_or((24.0, 96.0))
+    // A position no screen has (a runaway drag saved one) starts afresh.
+    saved().filter(|&(x, y)| (-1000.0..20000.0).contains(&x) && (-1000.0..20000.0).contains(&y)).unwrap_or((24.0, 96.0))
 }
 
 fn save_bear(at: Option<(f64, f64)>) {
@@ -130,6 +131,9 @@ struct Window {
     /// Where the bear rests: a release elsewhere was a drag.
     rest: Option<(f64, f64)>,
 }
+
+/// When the menu last opened.
+static OPENED: Mutex<Option<std::time::Instant>> = Mutex::new(None);
 
 static WINDOW: Mutex<Window> = Mutex::new(Window { shape: Shape::Hidden, pad: false, bear: false, home: None, rest: None });
 
@@ -250,6 +254,8 @@ fn pad() -> NodeHandle {
     let entries = Signal::new(Vec::<Entry>::new());
     let shape = Signal::new(Shape::Hidden);
     let menu_open = Signal::new(false);
+    // The pointer has been over the open menu: leaving it closes it then.
+    let menu_entered = Signal::new(false);
     let layer = Signal::new(false);
     // Pressed on the bear (not a layer surface), and moved since: a drag.
     let pressed = Signal::new(false);
@@ -307,6 +313,18 @@ fn pad() -> NodeHandle {
             }
         }
     };
+    // A leave closes the menu unless the pointer is over it again soon
+    // (rinch says "leave" moving onto the menu's own rows too).
+    let over = Signal::new(0u32);
+    // And six seconds with no move over it, should no leave come.
+    let idle_close = move || {
+        let seen = over.get();
+        set_timeout(6000, move || {
+            if over.get() == seen {
+                close_menu();
+            }
+        });
+    };
     let open_menu = move || {
         if shape.get() == Shape::Bear {
             let (w, h) = (MENU_WIDTH, entries.with(|e| bear_view::menu_height(e)));
@@ -318,14 +336,44 @@ fn pad() -> NodeHandle {
             }
             set_current_window_size(w, h);
         }
+        menu_entered.set(false);
+        over.update(|n| *n += 1);
+        idle_close();
+        *OPENED.lock().unwrap_or_else(|p| p.into_inner()) = Some(std::time::Instant::now());
         menu_open.set(true);
     };
     let pick = move |act: Act| {
+        // The release of the right-click that opened it, landing on a row.
+        if OPENED.lock().unwrap_or_else(|p| p.into_inner()).is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(400)) {
+            return;
+        }
         say(&format!("act {}", serde_json::to_string(&act).unwrap_or_default()));
         close_menu();
     };
-    // A release on the bear: where the window didn't move, a click.
+    let enter = move || {
+        menu_entered.set(true);
+        over.update(|n| *n += 1);
+        idle_close();
+    };
+    let leave = move || {
+        if !menu_entered.get() {
+            return;
+        }
+        over.update(|n| *n += 1);
+        let seen = over.get();
+        set_timeout(250, move || {
+            if over.get() == seen {
+                close_menu();
+            }
+        });
+    };
+    // A release on the bear: where the window didn't move, a click. Not
+    // the release of the right-click that opened the menu, which has
+    // moved the window to make room.
     let released = move || {
+        if menu_open.get() {
+            return;
+        }
         let now = current_window_position();
         let mut w = window();
         if now.is_none() || now == w.rest {
@@ -345,7 +393,7 @@ fn pad() -> NodeHandle {
             style { {CSS} }
             style { {bear_view::CSS} }
             if menu_open.get() {
-                {bear_view::menu(__scope, entries, pick, close_menu)}
+                {bear_view::menu(__scope, entries, pick, enter, leave)}
             } else if shape.get() == Shape::Bear {
                 // The bear on its own. On a Wayland overlay the press drags
                 // it (as the pad's title does) and a release where it

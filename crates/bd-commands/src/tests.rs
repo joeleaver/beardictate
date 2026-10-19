@@ -2,7 +2,7 @@
 
 use bd_core::{QuoteStyle, Style};
 
-use crate::{ActionKind, CommandConfig, CommandPass, command_tail, is_spoken_mark};
+use crate::{ActionKind, CommandConfig, CommandPass, NumberStyle, command_tail, is_spoken_mark};
 
 fn pass() -> CommandPass {
     CommandPass::default()
@@ -249,4 +249,33 @@ fn a_spoken_mark_on_its_own() {
     assert!(!is_spoken_mark(&["Exclamation", "point", "then"], &lit));
     assert!(!is_spoken_mark(&["New", "paragraph."], &lit));
     assert!(!is_spoken_mark(&["Comma"], &CommandConfig::default()));
+}
+
+#[test]
+fn numeral_writes_the_number_in_digits() {
+    let pass = CommandPass::default();
+    let out = |s: &str| pass.apply(s, false).text;
+    assert_eq!(out("We had numeral twenty five people."), "We had 25 people.");
+    assert_eq!(out("It's the numeral twenty first."), "It's the 21st.");
+    assert_eq!(out("Meet at numeral four thirty p.m. sharp."), "Meet at 4:30 p.m. sharp.");
+    assert_eq!(out("Numeral three point five percent."), "3.5 percent.");
+    assert_eq!(out("A numeral is a symbol."), "A numeral is a symbol.", "no number after it");
+    assert_eq!(out("We had twenty five people."), "We had twenty five people.", "as said by default");
+}
+
+#[test]
+fn the_style_guide_writes_numbers_as_books_do() {
+    let config = CommandConfig { numbers: NumberStyle::StyleGuide, ..CommandConfig::default() };
+    let pass = CommandPass::new(config, Style::default());
+    let out = |s: &str| pass.apply(s, false).text;
+    assert_eq!(out("We had twenty five people."), "We had twenty-five people.");
+    assert_eq!(out("Twenty five people came."), "Twenty-five people came.");
+    assert_eq!(out("It cost three hundred dollars."), "It cost $300.");
+    assert_eq!(out("About two hundred and thirty four of them."), "About 234 of them.");
+    assert_eq!(out("Three hundred people."), "Three hundred people.");
+    assert_eq!(out("Meet at four o'clock."), "Meet at four o'clock.");
+    assert_eq!(out("Meet at four thirty p.m."), "Meet at 4:30 p.m.");
+    assert_eq!(out("It's due May twenty first."), "It's due May 21.");
+    assert_eq!(out("One of them, two of them."), "One of them, two of them.");
+    assert_eq!(out("A twelve percent rise."), "A 12 percent rise.");
 }

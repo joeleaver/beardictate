@@ -65,6 +65,7 @@ pub(super) fn note(event: &Event, live_typing: bool) {
         Event::Error { stage, message } => record("error", None, || json!({"stage": format!("{stage:?}"), "message": message})),
         Event::Woke => record("state", None, || json!({"state": "awake"})),
         Event::Slept => record("state", None, || json!({"state": "asleep"})),
+        Event::ListMode(on) => record("state", None, || json!({"list_mode": on})),
         Event::SessionEnded => record("state", None, || json!({"state": "session_ended"})),
         // The pad's view changes on every word; the pad events above say what matters.
         Event::Pad(_) => {}

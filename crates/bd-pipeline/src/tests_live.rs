@@ -376,5 +376,31 @@ fn an_edit_while_the_sentence_is_being_tidied_wins() {
     assert_eq!(page(&events), "Um, we met Smythe.");
 }
 
+#[test]
+fn a_spoken_list_is_items_on_lines_of_their_own() {
+    let mut config = PipelineConfig::default();
+    config.commands.literal_punctuation = true;
+    let p = live_rig(
+        vec![
+            vec!["Here is the shopping.", "Here is the shopping."],
+            vec!["Bear, start", "Bear, start a list."],
+            vec!["Eggs", "Eggs."],
+            vec!["Milk and", "Milk and bread."],
+            vec!["Numeral twelve", "Numeral twelve oranges."],
+            vec!["Call the vet", "Call the vet, question mark."],
+            vec!["Bear, end", "Bear, end the list."],
+            vec!["That is", "That is all."],
+        ],
+        config,
+    );
+    for line in 0..8 {
+        say(&p, line);
+    }
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "Here is the shopping.\neggs\nmilk and bread\n12 oranges\ncall the vet?\nThat is all.");
+    assert!(events.iter().any(|e| matches!(e, Event::ListMode(true))));
+    assert!(events.iter().any(|e| matches!(e, Event::ListMode(false))));
+}
+
 #[path = "tests_hold.rs"]
 mod hold;

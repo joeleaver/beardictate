@@ -81,13 +81,15 @@ impl PadHost {
 
     /// Brings the window up to date: the bear and its menu, the pad shown or
     /// hidden, its status and text.
-    fn sync(&mut self, bear: bool, look: &str, menu: &[Entry], visible: bool, status: String, view: &PadView) {
+    #[allow(clippy::too_many_arguments)]
+    fn sync(&mut self, bear: bool, look: &str, list: bool, menu: &[Entry], visible: bool, status: String, view: &PadView) {
         if !bear && !visible && self.child.is_none() {
             return;
         }
+        let look = if list { format!("{look} list") } else { look.to_string() };
         if self.look != look {
-            self.tell(&ToPad::Look { state: look.to_string() });
-            self.look = look.to_string();
+            self.tell(&ToPad::Look { state: look.clone() });
+            self.look = look;
         }
         if self.menu.as_deref() != Some(menu) {
             self.tell(&ToPad::Menu { entries: menu.to_vec() });
@@ -189,6 +191,7 @@ impl<U: Ui> Worker<U> {
         }
         let listening = self.listening_since.is_some();
         let visible = self.settings.pad() && !self.pad.dismissed && (listening || !self.pad.view.is_empty());
+        let list = if self.settings.list_mode { "List · " } else { "" };
         let status = if self.loading.is_some() {
             "Loading…".to_string()
         } else if listening {
@@ -198,7 +201,8 @@ impl<U: Ui> Worker<U> {
         } else {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
-        host.sync(bear, look_name(self.pad.look.get()), &self.pad.menu, visible, status, &self.pad.view);
+        let status = format!("{list}{status}");
+        host.sync(bear, look_name(self.pad.look.get()), self.settings.list_mode, &self.pad.menu, visible, status, &self.pad.view);
     }
 }
 

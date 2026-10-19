@@ -476,7 +476,12 @@ impl<U: Ui> Worker<U> {
         let now = mtime(&self.paths.settings);
         if now != self.settings_mtime {
             self.settings_mtime = now;
-            match self.paths.load() {
+            // List mode isn't in the file: it carries over.
+            let loaded = self.paths.load().map(|mut s| {
+                s.list_mode = self.settings.list_mode;
+                s
+            });
+            match loaded {
                 Ok(s) if s != self.settings => {
                     tracing::info!("settings file changed");
                     self.ui.settings_changed(s.clone());

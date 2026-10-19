@@ -86,6 +86,11 @@ impl<U: Ui> Worker<U> {
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
             Event::Pad(view) => self.on_pad_view(view),
+            Event::ListMode(on) => {
+                self.settings.list_mode = on;
+                self.ui.settings_changed(self.settings.clone());
+                self.sync_pad();
+            }
             // For alpha telemetry (not wired yet).
             Event::Partial { .. } | Event::Commanded { .. } | Event::Cleaned { .. } => {}
             Event::PadSend { text } if self.testing => {

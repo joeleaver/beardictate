@@ -64,7 +64,8 @@ pub fn page() -> String {
     format!("{}/download.html", site())
 }
 
-fn site() -> String {
+/// The site: beardictate.jkbase.app, or `BD_UPDATE_URL` (testing).
+pub fn site() -> String {
     std::env::var("BD_UPDATE_URL")
         .map(|u| u.trim_end_matches('/').to_string())
         .unwrap_or_else(|_| SITE.into())

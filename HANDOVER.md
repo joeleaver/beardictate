@@ -133,6 +133,18 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   in its title, close back to the bear, menu, click); dragging the bear by
   hand not yet re-tried after it went haywire with its own drag start, and
   not yet on Windows or X11.
+- Done (10): numbers and lists (Joe, 2026-10-19; testers asked). Numbers
+  stay as said; "numeral …" gives digits (25, 21st, 4:30 p.m., 3.5); a
+  Writing setting writes them as a style guide does (`bd-commands`
+  `numbers.rs`). List mode ("bear, start a list" / "bear, end the list", or
+  the bear's menu): items on lines of their own, no capital, no
+  recognizer's full stop, not tidied (`stages/list.rs`); never saved. The
+  site's help page has a "What you can say" guide, linked from Writing.
+  Piper can't say "bear" well enough for Nemotron to hear it, so the list
+  commands are proved by a pipeline test, not by audio.
+- rinch: the bear's drag and its see-through background are rinch#1597
+  (layer-shell drag waits for the frame; GPU alpha mode). beardictate pins
+  its branch commit 820b811a until it's merged; then pin the merge.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.

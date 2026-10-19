@@ -10,6 +10,7 @@ use rinch::hotkey::{CaptureStep, HotkeyCapture};
 use rinch::prelude::*;
 
 use crate::settings::{Punctuation, QuoteMarks, Settings, TrayTheme};
+use bd_commands::NumberStyle;
 use crate::ui::{self, Section, Shared, change, check_hotkey};
 
 mod cleanup;
@@ -248,6 +249,8 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The post-processing model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
     let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);
+    let n1 = numbers(__scope, s, "As you say them", "\u{201C}twenty-five people\u{201D}. Say \u{201C}numeral\u{201D} first for digits: \u{201C}numeral twenty five\u{201D} is 25, \u{201C}numeral first\u{201D} is 1st, \u{201C}numeral four thirty\u{201D} is 4:30.", NumberStyle::AsSaid);
+    let n2 = numbers(__scope, s, "As a style guide writes them", "Words up to one hundred, digits above (234), and digits for money ($300), percentages (12 percent), times (4:30 p.m.) and dates (May 21). \u{201C}Numeral\u{201D} still gives digits.", NumberStyle::StyleGuide);
     let r1 = run_on(__scope, s, "Leave it open, and open the next paragraph: \u{201C}…the river.  \u{201C}And then…", false);
     let r2 = run_on(__scope, s, "Close it, and open the next paragraph: \u{201C}…the river.\u{201D}  \u{201C}And then…", true);
     let b1 = breaks(__scope, s, "A blank line (two returns)", true);
@@ -256,6 +259,10 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Writing" }
+            div { style: "display: flex; align-items: center; gap: 10px;",
+                Text { size: "sm", color: "dimmed", "Punctuation, numbers, lists and commands you can say:" }
+                Button { variant: "light", size: "xs", onclick: || crate::ui::open_url(&format!("{}/help.html#commands", crate::update::site())), "What you can say" }
+            }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Quotation marks" }
                 {m1} {m2}
@@ -271,6 +278,10 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Punctuation" }
                 {t5}
+            }
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "Numbers" }
+                {n1} {n2}
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Start a new paragraph" }
@@ -356,6 +367,19 @@ fn marks(__scope: &mut RenderScope, s: &Shared, label: &'static str, value: Quot
             label: label,
             checked_fn: move || a.settings.with(|st| st.quote_marks == value),
             onchange: move || change(&b, |st| st.quote_marks = value),
+        }
+    }
+}
+
+fn numbers(__scope: &mut RenderScope, s: &Shared, label: &'static str, description: &'static str, value: NumberStyle) -> NodeHandle {
+    let (a, b) = (s.clone(), s.clone());
+    rsx! {
+        Radio {
+            name: "numbers",
+            label: label,
+            description: description,
+            checked_fn: move || a.settings.with(|st| st.numbers == value),
+            onchange: move || change(&b, |st| st.numbers = value),
         }
     }
 }

@@ -23,6 +23,8 @@ pub enum Act {
     Dialog { on: bool },
     /// The bear on screen.
     Bear { on: bool },
+    /// List mode: items on lines of their own, bare.
+    List { on: bool },
     RestartToUpdate,
     Settings,
     Quit,
@@ -72,6 +74,7 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
     }
     out.push(Entry::Check { label: "Tidy up".into(), on: settings.tidy, act: Act::Tidy { on: !settings.tidy } });
     out.push(Entry::Check { label: "Dialog".into(), on: settings.dialog, act: Act::Dialog { on: !settings.dialog } });
+    out.push(Entry::Check { label: "List mode".into(), on: settings.list_mode, act: Act::List { on: !settings.list_mode } });
     out.push(Entry::Check { label: "Bear on screen".into(), on: settings.show_bear, act: Act::Bear { on: !settings.show_bear } });
     if let crate::update::Phase::Ready { version } = shared.updates.phase.get() {
         out.push(Entry::Separator);
@@ -90,6 +93,7 @@ pub fn perform(shared: &Shared, act: Act) {
         Act::Tidy { on } => change(shared, |st| st.tidy = on),
         Act::Dialog { on } => change(shared, |st| st.dialog = on),
         Act::Bear { on } => change(shared, |st| st.show_bear = on),
+        Act::List { on } => change(shared, |st| st.list_mode = on),
         Act::RestartToUpdate => crate::update::restart_to_update(),
         Act::Settings => {
             shared.section.set(Section::General);

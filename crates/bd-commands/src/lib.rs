@@ -24,6 +24,7 @@
 //! checks: no article or possessive just before it, no noun continuation
 //! after it, and, for `scratch that`, a clause of its own.
 
+mod numbers;
 mod render;
 mod rules;
 mod token;
@@ -35,6 +36,7 @@ mod tests_prose;
 
 use bd_core::Style;
 
+pub use numbers::NumberStyle;
 pub use render::{Action, ActionKind};
 
 /// Which optional commands are recognized.
@@ -49,11 +51,14 @@ pub struct CommandConfig {
     /// default: the ASR already punctuates, and these words are common in
     /// prose ("a period of calm", "a question mark hung over it").
     pub literal_punctuation: bool,
+    /// How numbers said as words are written ("numeral …" always gives
+    /// digits).
+    pub numbers: NumberStyle,
 }
 
 impl Default for CommandConfig {
     fn default() -> Self {
-        Self { break_commands: true, literal_punctuation: false }
+        Self { break_commands: true, literal_punctuation: false, numbers: NumberStyle::AsSaid }
     }
 }
 
@@ -66,6 +71,10 @@ pub fn command_tail(words: &[&str], config: &CommandConfig) -> usize {
         .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
         .collect();
     let plain: Vec<&str> = plain.iter().map(String::as_str).collect();
+    // "numeral" waits for its number.
+    if plain.last() == Some(&"numeral") {
+        return 1;
+    }
     (1..=plain.len().min(3))
         .rev()
         .find(|&n| rules::may_start_command(&plain[plain.len() - n..], config.literal_punctuation))
@@ -153,6 +162,11 @@ impl CommandPass {
                 i += m.len;
                 continue;
             }
+            if let Some((word, used)) = self.number_at(&toks, i) {
+                items.push(render::Item::Word(word));
+                i += used;
+                continue;
+            }
             items.push(render::Item::Word(toks[i].clone()));
             i += 1;
         }
@@ -168,6 +182,57 @@ impl CommandPass {
         }
         leading.append(&mut actions);
         CommandOutput { text, actions: leading, quote_open: open }
+    }
+
+    /// A number at token `i` to write another way: after "numeral", in
+    /// digits; with [`NumberStyle::StyleGuide`], as the style guide has it.
+    /// The new word and how many tokens it replaces.
+    fn number_at(&self, toks: &[token::Token], i: usize) -> Option<(token::Token, usize)> {
+        let numeral = toks[i].lower == "numeral" && toks[i].trail.is_empty();
+        let from = if numeral { i + 1 } else { i };
+        if !numeral && self.config.numbers != NumberStyle::StyleGuide {
+            return None;
+        }
+        let rest = toks.get(from..)?;
+        let words: Vec<&str> = rest.iter().map(|t| t.lower.as_str()).collect();
+        // A mark between two words ends the number there.
+        let stops: Vec<bool> = rest
+            .iter()
+            .enumerate()
+            .map(|(k, t)| !t.trail.is_empty() || rest.get(k + 1).is_some_and(|n| !n.lead.is_empty()))
+            .collect();
+        let spoken = numbers::read(&words, &stops)?;
+        let (text, took) = if numeral {
+            (numbers::digits(&spoken.value), false)
+        } else {
+            let before = (i > 0 && token::joined(&toks[i - 1], &toks[i])).then(|| toks[i - 1].lower.as_str());
+            let last = &rest[spoken.len - 1];
+            let after = rest.get(spoken.len).filter(|n| token::joined(last, n)).map(|n| n.lower.as_str());
+            let (text, took) = numbers::styled(&spoken.value, before, after)?;
+            let said: Vec<&str> = words[..spoken.len].to_vec();
+            if !took && text == said.join(" ") {
+                return None;
+            }
+            (text, took)
+        };
+        let end = from + spoken.len + usize::from(took);
+        let (first, last) = (&toks[i], &toks[end - 1]);
+        // A number that began with a capital keeps it ("Twenty-five people").
+        let starts_upper = toks[from].core.chars().next().is_some_and(char::is_uppercase) && !numeral;
+        let core = if starts_upper { render::capitalize_first(&text) } else { text };
+        // "p.m." ends a sentence by itself: no second full stop.
+        let trail = match last.trail.strip_prefix('.') {
+            Some(rest) if core.ends_with('.') => rest.to_string(),
+            _ => last.trail.clone(),
+        };
+        let word = token::Token {
+            lead: first.lead.clone(),
+            lower: core.to_lowercase(),
+            core,
+            trail,
+            span: first.span.start..last.span.end,
+        };
+        Some((word, end - i))
     }
 
     /// Handles one `scratch that`: drops this segment's words so far, or,

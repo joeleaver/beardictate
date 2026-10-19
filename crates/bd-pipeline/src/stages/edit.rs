@@ -30,7 +30,7 @@ impl Finisher {
             PadAction::Delete(words) => self.change_typed(&words, ""),
             PadAction::Undo => self.undo_edit(),
             // Not taken from the text outside the pad.
-            PadAction::Send | PadAction::Clear => {}
+            PadAction::Send | PadAction::Clear | PadAction::List(_) => {}
         }
     }
 

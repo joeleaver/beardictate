@@ -168,7 +168,7 @@ fn trim_trailing_spaces(out: &mut String) {
 }
 
 /// Uppercases the first letter, skipping leading punctuation such as `“`.
-fn capitalize_first(word: &str) -> String {
+pub(crate) fn capitalize_first(word: &str) -> String {
     let mut out = String::with_capacity(word.len());
     let mut done = false;
     for c in word.chars() {

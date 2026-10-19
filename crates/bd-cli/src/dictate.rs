@@ -233,6 +233,7 @@ impl Reporter {
                 eprintln!("[pad{}] {text:?}", if view.cleaning { ", cleaning" } else { "" });
             }
             Event::Pad(_) => {}
+            Event::ListMode(on) => eprintln!("[list mode {}]", if *on { "on" } else { "off" }),
             Event::PadSend { text } => {
                 println!("{text}");
                 return Some(Output::Type(0, text.clone()));
