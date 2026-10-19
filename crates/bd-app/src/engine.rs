@@ -51,6 +51,10 @@ pub enum Command {
     Pad(bd_pipeline::PadAction),
     /// Bear Pad: the user closed the pad window.
     PadClosed,
+    /// The bear's menu, for the bear on screen.
+    BearMenu(Vec<crate::menu::Entry>),
+    /// A choice from the bear's menu on screen, for the UI to carry out.
+    Act(crate::menu::Act),
     Shutdown,
 }
 
@@ -91,6 +95,8 @@ pub trait Ui: Send + 'static {
     fn gain(&self, _gain: f32) {}
     /// During a microphone test: what was heard, and how loud it came in.
     fn heard(&self, _text: String, _level: f32) {}
+    /// A choice from the bear's menu on screen.
+    fn act(&self, _act: crate::menu::Act) {}
 }
 
 pub struct Engine {
@@ -250,6 +256,11 @@ impl<U: Ui> Worker<U> {
                     }
                     Ok(Command::Pad(action)) => self.on_pad_command(action),
                     Ok(Command::PadClosed) => self.on_pad_closed(),
+                    Ok(Command::BearMenu(entries)) => {
+                        self.pad.menu = entries;
+                        self.sync_pad();
+                    }
+                    Ok(Command::Act(act)) => self.ui.act(act),
                     Ok(Command::Shutdown) | Err(_) => break,
                 },
                 recv(audio) -> ev => if let Ok(ev) = ev { self.on_audio(ev) },
@@ -292,6 +303,7 @@ impl<U: Ui> Worker<U> {
         };
         crate::telemetry::set_dictating(matches!(state, State::Listening | State::Cleaning));
         self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
+        self.pad.look.set(state);
         self.sync_pad();
     }
 

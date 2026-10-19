@@ -244,7 +244,7 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let p1 = punct(__scope, s, "Always inside: “To the river,” he said.", Punctuation::Inside);
     let p2 = punct(__scope, s, "Inside only when they belong to the speech: she called it ‘the end’.", Punctuation::Logical);
     let t1 = toggle(__scope, s, "When I say “new paragraph”", "And a line break for “new line”. Off, those words are typed.", |st| st.paragraph_on_command, |st| st.paragraph_on_command = !st.paragraph_on_command);
-    let t2 = toggle(__scope, s, "When a different character speaks", "Needs Dialog on (General page). The post-processing model follows who's speaking.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
+    let t2 = toggle(__scope, s, "When a different character speaks", "Needs Dialog on (Post-processing page). The post-processing model follows who's speaking.", |st| st.paragraph_on_speaker, |st| st.paragraph_on_speaker = !st.paragraph_on_speaker);
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The post-processing model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
     let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);

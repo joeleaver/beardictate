@@ -1,5 +1,5 @@
-//! The General page's choice of where dictated words go, and whether
-//! they're tidied up, with or without fiction's dialog.
+//! Where dictated words go (the General page), and the Post-processing
+//! page's switches: whether they're tidied up, and with fiction's dialog.
 
 use rinch::prelude::*;
 
@@ -8,12 +8,20 @@ use crate::ui::{Shared, change};
 
 pub fn modes(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let choices: Vec<NodeHandle> = Destination::ALL.into_iter().map(|d| choice(__scope, s, d)).collect();
-    let (b, c, e) = (s.clone(), s.clone(), s.clone());
-    let settings = s.settings;
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 8px;",
             Text { style: "font-weight: 600;", "Where your words go" }
             {choices}
+        }
+    }
+}
+
+/// Tidy up and Dialog, on the Post-processing page.
+pub fn switches(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
+    let (b, c, e) = (s.clone(), s.clone(), s.clone());
+    let settings = s.settings;
+    rsx! {
+        div { style: "display: flex; flex-direction: column; gap: 8px;",
             Switch {
                 label: "Tidy up",
                 description: TIDY,

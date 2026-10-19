@@ -127,9 +127,12 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   click to dictate, drag, right-click for the tray's menu. Settings words made
   consistent: dictating, wake up/go to sleep, Tidy up, Dialog,
   Post-processing (the model and its page, whose own Off/On is gone: an old
-  `cleanup = "off"` becomes `tidy = false`), Bear Pad, the bear's menu. Tried
-  in a nested KWin; not yet on Windows or X11 (drag and the menu's growing
-  are untested there).
+  `cleanup = "off"` becomes `tidy = false`), Bear Pad, the bear's menu. The
+  bear and the pad are one window (the pad's process); Tidy up and Dialog are
+  on the Post-processing page. Tried in a nested KWin (bear, pad with the bear
+  in its title, close back to the bear, menu, click); dragging the bear by
+  hand not yet re-tried after it went haywire with its own drag start, and
+  not yet on Windows or X11.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.

@@ -407,9 +407,13 @@ from Right Ctrl+C (rinch's `chorded` flag is always false there).
   green finishing; amber needs you; violet loading; slate asleep), its snout
   cobalt at work. Click: start/stop (wake/sleep). Press and move: drag.
   Right-click: the tray's menu (`menu.rs`, one list for both), drawn in the
-  window, which grows towards the middle of the screen. It is a process of
-  its own (`beardictate --bear`), non-activating like the Bear Pad's, so the
-  focus worry below no longer applies.
+  window, which grows towards the middle of the screen. It shares the Bear
+  Pad's window (`beardictate --pad`, non-activating, so the focus worry
+  below no longer applies): the bear on its own, or, while the pad shows,
+  the pad with the bear in its title bar (Joe: never two places). On a
+  Wayland overlay the press drags it, as the pad's title does, and a
+  release where it started is a click; elsewhere the system move starts
+  once the pointer moves.
 - **No floating overlay** (superseded by the bear on screen, above). Dropped 2026-10-14: it bought little and cost a
   focus-stealing risk on every platform (rinch#1519 is no longer on our
   critical path). Things the overlay would have said go to:

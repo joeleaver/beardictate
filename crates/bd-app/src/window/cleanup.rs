@@ -1,5 +1,5 @@
-//! The Post-processing page: which model tidies your dictation, and the model
-//! manager (download, resume, delete).
+//! The Post-processing page: Tidy up and Dialog, which model does them, and
+//! the model manager (download, resume, delete).
 
 use rinch::prelude::*;
 
@@ -10,14 +10,16 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let custom = Signal::new(s.settings.with(|st| {
         if st.cleanup.ends_with(".gguf") { st.cleanup.clone() } else { String::new() }
     }));
+    let switches = super::modes::switches(__scope, s);
     let rows: Vec<NodeHandle> = catalog().into_iter().map(|m| row(__scope, s, m)).collect();
     let (s1, s2) = (s.clone(), s.clone());
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Post-processing" }
             Text { size: "sm", color: "dimmed",
-                "The model that does Tidy up (the ums out, punctuation fixed, after each sentence) and Dialog (what your characters say, quoted). It runs on your computer. Switch Tidy up and Dialog on and off on the General page or from the bear\u{2019}s menu."
+                "A small model on your computer goes over each sentence after you say it. Both switches are also in the bear\u{2019}s menu."
             }
+            {switches}
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Models" }
                 Text { size: "sm", color: "dimmed", "Bigger models tidy and quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }

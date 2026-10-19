@@ -123,6 +123,14 @@ impl engine::Ui for Bridge {
         self.mic.gain.send(gain);
     }
 
+    fn act(&self, act: crate::menu::Act) {
+        rinch::run_on_main_thread(move || {
+            if let Some(s) = crate::shared() {
+                crate::menu::perform(&s, act);
+            }
+        });
+    }
+
     fn heard(&self, text: String, level: f32) {
         self.mic.heard.update_send(move |h| {
             h.insert(0, (text, level));

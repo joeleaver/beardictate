@@ -13,7 +13,7 @@
 #[cfg(windows)]
 mod autostart;
 mod bear;
-mod bear_window;
+mod bear_view;
 mod control;
 mod engine;
 mod icon;
@@ -70,7 +70,6 @@ fn main() {
         None => {}
         // The Bear Pad window, started by the app (see pad_window.rs).
         Some("--pad") => return pad_window::run(),
-        Some("--bear") => return bear_window::run(),
         Some("--toggle") => match control::send(control::Request::Toggle) {
             Ok(()) => return,
             Err(e) => {
@@ -167,7 +166,6 @@ fn main() {
 
     // Stop dictation and the model threads, then take the tray down.
     ENGINE.with(|e| e.borrow_mut().take());
-    bear::stop();
     telemetry::stop();
     TRAY.with(|t| t.borrow_mut().take());
     // "Restart to update": the installer takes over from here.

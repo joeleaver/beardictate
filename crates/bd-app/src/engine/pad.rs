@@ -1,7 +1,8 @@
-//! Bear Pad on the engine's side: the pad window process, kept in step with
-//! the pipeline's pad and the dictation state.
+//! The bear's window on the engine's side (`beardictate --pad`): the bear
+//! on screen and the Bear Pad, kept in step with the pipeline's pad, the
+//! dictation state and the bear's menu.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command as Process, Stdio};
 use std::thread;
@@ -9,11 +10,12 @@ use std::thread;
 use bd_pipeline::{PadAction, PadView};
 use crossbeam_channel::Sender;
 
-use super::{Command, Ui, Worker};
+use super::{Command, State, Ui, Worker};
+use crate::menu::{Act, Entry};
 use crate::pad_window::ToPad;
 
 /// The `beardictate --pad` process, started when there's first something to
-/// show.
+/// show: the bear, or the pad.
 pub(super) struct PadHost {
     commands: Sender<Command>,
     child: Option<(Child, ChildStdin)>,
@@ -21,11 +23,14 @@ pub(super) struct PadHost {
     shown: bool,
     status: String,
     view: Option<ToPad>,
+    bear: Option<bool>,
+    look: String,
+    menu: Option<Vec<Entry>>,
 }
 
 impl PadHost {
     pub fn new(commands: Sender<Command>) -> Self {
-        Self { commands, child: None, shown: false, status: String::new(), view: None }
+        Self { commands, child: None, shown: false, status: String::new(), view: None, bear: None, look: String::new(), menu: None }
     }
 
     fn start(&mut self) -> Option<&mut ChildStdin> {
@@ -49,7 +54,11 @@ impl PadHost {
                             "clear" => Command::Pad(PadAction::Clear),
                             "undo" => Command::Pad(PadAction::Undo),
                             "closed" => Command::PadClosed,
-                            _ => continue,
+                            "toggle" => Command::Toggle,
+                            other => match other.strip_prefix("act ").map(serde_json::from_str::<Act>) {
+                                Some(Ok(act)) => Command::Act(act),
+                                _ => continue,
+                            },
                         };
                         let _ = commands.send(command);
                     }
@@ -70,10 +79,23 @@ impl PadHost {
         }
     }
 
-    /// Brings the window up to date: shown or hidden, its status and text.
-    fn sync(&mut self, visible: bool, status: String, view: &PadView) {
-        if !visible && self.child.is_none() {
+    /// Brings the window up to date: the bear and its menu, the pad shown or
+    /// hidden, its status and text.
+    fn sync(&mut self, bear: bool, look: &str, menu: &[Entry], visible: bool, status: String, view: &PadView) {
+        if !bear && !visible && self.child.is_none() {
             return;
+        }
+        if self.look != look {
+            self.tell(&ToPad::Look { state: look.to_string() });
+            self.look = look.to_string();
+        }
+        if self.menu.as_deref() != Some(menu) {
+            self.tell(&ToPad::Menu { entries: menu.to_vec() });
+            self.menu = Some(menu.to_vec());
+        }
+        if self.bear != Some(bear) {
+            self.tell(&ToPad::Bear { on: bear });
+            self.bear = Some(bear);
         }
         let view = ToPad::View { parts: view.parts.iter().map(|p| (p.text.clone(), p.clean)).collect(), cleaning: view.cleaning };
         if self.view.as_ref() != Some(&view) {
@@ -90,16 +112,12 @@ impl PadHost {
         }
     }
 
-    /// The user closed the window, which hid it.
-    pub fn hidden(&mut self) {
-        self.shown = false;
-    }
-
     /// Closes the window's stdin, which tells it to save where it is and
     /// quit; kills it if it hasn't within a second.
     pub fn stop(&mut self) {
         // A window started later is told everything afresh.
         (self.shown, self.status, self.view) = (false, String::new(), None);
+        (self.bear, self.look, self.menu) = (None, String::new(), None);
         if let Some((mut child, stdin)) = self.child.take() {
             drop(stdin);
             for _ in 0..20 {
@@ -127,11 +145,14 @@ pub(super) struct PadState {
     /// Closed by the user: hidden until the pad is emptied or dictation
     /// starts again.
     pub dismissed: bool,
+    /// What the bear shows.
+    pub look: Cell<State>,
+    pub menu: Vec<Entry>,
 }
 
 impl PadState {
     pub fn new(commands: Sender<Command>) -> Self {
-        Self { host: RefCell::new(PadHost::new(commands)), view: PadView::default(), dismissed: false }
+        Self { host: RefCell::new(PadHost::new(commands)), view: PadView::default(), dismissed: false, look: Cell::new(State::Loading), menu: Vec::new() }
     }
 }
 
@@ -151,9 +172,10 @@ impl<U: Ui> Worker<U> {
         }
     }
 
+    /// The pad's close button: the pad goes (the bear stays, if it's on).
     pub(super) fn on_pad_closed(&mut self) {
         self.pad.dismissed = true;
-        self.pad.host.borrow_mut().hidden();
+        self.sync_pad();
     }
 
     /// Shows the pad while there's dictation or text in it (unless the user
@@ -161,11 +183,12 @@ impl<U: Ui> Worker<U> {
     /// size and place the user gave it.
     pub(super) fn sync_pad(&self) {
         let mut host = self.pad.host.borrow_mut();
-        if !self.settings.pad() {
+        let bear = self.settings.show_bear;
+        if !self.settings.pad() && !bear {
             return host.stop();
         }
         let listening = self.listening_since.is_some();
-        let visible = !self.pad.dismissed && (listening || !self.pad.view.is_empty());
+        let visible = self.settings.pad() && !self.pad.dismissed && (listening || !self.pad.view.is_empty());
         let status = if self.loading.is_some() {
             "Loading…".to_string()
         } else if listening {
@@ -175,7 +198,19 @@ impl<U: Ui> Worker<U> {
         } else {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
-        host.sync(visible, status, &self.pad.view);
+        host.sync(bear, look_name(self.pad.look.get()), &self.pad.menu, visible, status, &self.pad.view);
+    }
+}
+
+fn look_name(state: State) -> &'static str {
+    match state {
+        State::Loading => "loading",
+        State::Idle => "idle",
+        State::Asleep => "asleep",
+        State::MicOff => "mic-off",
+        State::Listening => "listening",
+        State::Cleaning => "cleaning",
+        State::NeedsYou => "needs-you",
     }
 }
 
