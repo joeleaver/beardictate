@@ -55,6 +55,34 @@ use unsupported::Unsupported as Imp;
 #[cfg(windows)]
 use windows::WindowsBackend as Imp;
 
+/// Which app has the keyboard focus, asked from any thread (the injector
+/// lives on the typing thread): on Windows the foreground window's process,
+/// on X11 the active window's, through a connection of its own. `None` where
+/// that can't be known: on Wayland, and on other systems for now.
+pub struct FocusProbe {
+    #[cfg(target_os = "linux")]
+    linux: linux::LinuxFocus,
+}
+
+impl FocusProbe {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            #[cfg(target_os = "linux")]
+            linux: linux::LinuxFocus::new(),
+        }
+    }
+
+    pub fn current(&mut self) -> Option<ForegroundApp> {
+        #[cfg(target_os = "linux")]
+        return self.linux.current();
+        #[cfg(windows)]
+        return windows::focused_app();
+        #[cfg(not(any(windows, target_os = "linux")))]
+        None
+    }
+}
+
 /// The text injector for the OS this was built for.
 pub struct PlatformInjector {
     config: InjectorConfig,

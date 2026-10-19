@@ -359,10 +359,12 @@ mod tests {
         }
         let cleanup: Vec<_> = m.of_kind(ModelKind::Cleanup).collect();
         assert!(cleanup.iter().any(|e| e.available && e.cleanup.is_some()));
-        let asr = m.get("asr-parakeet-unified-en-0.6b-int8").unwrap();
-        assert!(asr.required);
+        let asr = m.get("asr-nemotron-speech-streaming-en-0.6b-1120ms-int8").unwrap();
+        assert!(asr.required && asr.archive.is_some());
         assert_eq!(asr.files.len(), 4);
         assert!(asr.file("tokens.txt").is_some());
+        // The one speech recognizer: nothing else is downloaded at first run.
+        assert_eq!(m.of_kind(ModelKind::Asr).filter(|e| e.required).count(), 1);
     }
 
     const GOOD: &str = r#"

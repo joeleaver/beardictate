@@ -172,6 +172,8 @@ impl Finisher {
             PadAction::Send => return self.pad_send(),
             PadAction::Clear => {
                 mode.pad.clear();
+                // A quotation opened by voice goes with the text.
+                self.quote_open = false;
             }
             PadAction::Undo => match self.pad_undo() {
                 Some(quote) => self.quote_open = quote,

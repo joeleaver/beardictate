@@ -17,14 +17,6 @@ use crate::settings::{Settings, vocabulary};
 /// download card then, so this needs no notification.
 pub(super) const NOT_DOWNLOADED: &str = "the speech models aren't downloaded yet (open Settings)";
 
-/// Why loading stopped in a streaming mode before Nemotron is downloaded.
-pub(super) const NO_STREAMING: &str = "the streaming speech model isn't downloaded yet (Settings → General)";
-
-/// The streaming recognizer's catalog entry.
-pub(crate) fn streaming_model() -> bd_models::ModelEntry {
-    bd_models::Manifest::builtin().get(setup::STREAMING_ASR_MODEL).expect("in the catalog").clone()
-}
-
 /// Loads every model and starts a pipeline. Runs on its own thread.
 pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     let store = match settings.models_dir.trim() {
@@ -37,16 +29,9 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     let config = pipeline_config(settings, gain);
     let segmenter = setup::load_segmenter(&store)?;
     let hotwords = config.vocabulary.hotwords();
-    let asr = if settings.mode.streams() {
-        if !bd_pipeline::setup::installed(&store, &streaming_model()) {
-            anyhow::bail!(NO_STREAMING);
-        }
-        Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &hotwords, settings.hotword_boost)?))
-    } else {
-        Recognizer::Segments(Box::new(setup::load_asr(&store, &hotwords, settings.hotword_boost)?))
-    };
-    tracing::info!(mode = ?settings.mode, "speech: {}", if settings.mode.streams() { "Nemotron, streaming" } else { "Parakeet, a sentence at a time" });
-    let source = if settings.mode.cleans() { CleanupSource::parse(&settings.cleanup) } else { CleanupSource::Off };
+    let asr = Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &hotwords, settings.hotword_boost)?));
+    tracing::info!(destination = ?settings.destination, tidy = settings.tidy, "speech: Nemotron, streaming");
+    let source = if settings.tidy { CleanupSource::parse(&settings.cleanup) } else { CleanupSource::Off };
     let cleanup = setup::load_cleanup(&source, &CleanupOptions::default(), &store)?;
     let name = cleanup.as_ref().map_or_else(|| "off".to_string(), |c| c.name.clone());
     if let Some(c) = &cleanup {
@@ -56,9 +41,17 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
         segmenter: Box::new(segmenter),
         asr,
         cleanup: cleanup.map(|c| Box::new(c.engine) as _),
+        focus: Some(focus_probe()),
     };
     let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
     Ok(Loaded { pipeline, cleanup: name })
+}
+
+/// Which app has the focus, for the pipeline to start a new passage when
+/// that changes: the executable's name, lowercased.
+fn focus_probe() -> bd_pipeline::FocusProbe {
+    let mut probe = bd_platform::FocusProbe::new();
+    Box::new(move || probe.current().map(|app| app.exe_name.to_lowercase()))
 }
 
 /// The pipeline settings, with `gain` the microphone gain to start from.
@@ -75,6 +68,7 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
         input_gain: gain,
         auto_gain: live.auto_gain,
         pad: live.pad,
+        live_typing: live.live_typing,
         ..PipelineConfig::default()
     }
 }
@@ -82,7 +76,7 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
 /// The cleanup model `settings` will load, by name; `None` for none.
 pub(super) fn cleanup_label(settings: &Settings) -> Option<String> {
     let manifest = bd_models::Manifest::builtin();
-    if !settings.mode.cleans() {
+    if !settings.tidy {
         return None;
     }
     match settings.cleanup.as_str() {
@@ -155,7 +149,7 @@ impl<U: Ui> Worker<U> {
                 }
             }
             Err(e) => {
-                if e != NOT_DOWNLOADED && e != NO_STREAMING {
+                if e != NOT_DOWNLOADED {
                     self.notifier.notify("load", "beardictate can't start", &e);
                 }
                 self.load_error = Some(e);

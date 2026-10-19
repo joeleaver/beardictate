@@ -6,9 +6,10 @@ file is *where things stand*.
 
 ## Decisions already made (don't re-litigate)
 
-- Pipeline: hotkey → cpal capture → Silero VAD → **Parakeet Unified 0.6B English**
-  (int8, sherpa-onnx; replaced Parakeet TDT v3 int8 in 0.1.5, which turned
-  whole sentences into "Yeah." on real microphone audio) → deterministic spoken-command pass → **cleanup LLM** with a
+- Pipeline: hotkey → cpal capture → Silero VAD → **Nemotron Speech Streaming
+  0.6B English, 1120 ms** (int8, sherpa-onnx, fed live; the only recognizer
+  in the app since 2026-10-19, replacing Parakeet Unified, which `bd` still
+  uses without `--stream`) → deterministic spoken-command pass → **cleanup LLM** with a
   word-diff **guardrail** → text injection (type, else paste).
 - **No floating overlay.** Tray icon is the only live status display (Joe,
   2026-10-14). Hotkey is a **toggle** by default; hold-to-talk is optional.
@@ -73,6 +74,30 @@ CARGO_TARGET_DIR under /mnt/data/beardictate-targets/, don't commit, report
 API + tests".
 
 ## Next steps (in order)
+
+**Redesign of how words reach the page** (Joe, 2026-10-19; DESIGN.md
+"Where words go", "5. Cleanup LLM"). Testers said classic mode took so long
+they wondered if it worked, and cleanup quoted lines that weren't dialog.
+- Done: the four modes became `destination` (app/pad) + `tidy`; Nemotron
+  1120 ms for everything (catalog entry, required at first run; the 560 ms
+  and Parakeet entries stay, not required); cleanup warmed up at load; the
+  sentence hold is 1.5 s, longer only while the next utterance is being
+  spoken (6 s cap); raw text when cleanup is 4 s behind; cleanup context
+  only from the last 90 s, 600 chars; a new passage after 60 s of silence
+  or when another app has the focus (`bd_platform::FocusProbe`; not on
+  Wayland); "bear, clear" closes a voice-opened quote. `bd file --realtime`
+  feeds audio at speaking pace and `-v` shows each text's wait.
+- Next, in order: (3) with tidy on in your app, type as you speak and swap
+  in the cleaned sentence in place (the pipeline already reconciles live
+  text to the cleaned text with `retype`; it needs guards: same app, within
+  the time window, and type-once for paste-only apps); (4) voice edits of
+  the last sentence in your app ("bear, change X to Y"); (5) remove
+  Parakeet: `ParakeetAsr`, `bd` without `--stream`, the tests and CI on its
+  wav (CI also needs our sherpa-onnx build for hotwords), and offer to
+  delete old model files (Parakeet, Nemotron 560 ms) on upgrade.
+- Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
+  first-run card at the next start. Not yet tried in the app itself: only
+  the pipeline tests and `bd file --stream` here and on NICO-TOP.
 
 1. ~~Land the four in-flight pieces~~ (done).
 2. ~~**bd-core tweaks**~~ (done) suggested by the ASR agent, worth taking:

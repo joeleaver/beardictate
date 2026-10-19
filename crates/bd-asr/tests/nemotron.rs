@@ -7,7 +7,7 @@ use bd_asr::{NemotronAsr, NemotronConfig, Segmenter, SegmenterConfig};
 use bd_core::{LiveAudio, StreamingAsr};
 use common::*;
 
-const NEMOTRON: &str = "asr-nemotron-speech-streaming-en-0.6b-560ms-int8";
+const NEMOTRON: &str = "asr-nemotron-speech-streaming-en-0.6b-1120ms-int8";
 
 #[test]
 fn words_arrive_while_speaking_and_each_utterance_ends_whole() {

@@ -1,11 +1,12 @@
 //! NVIDIA Nemotron Speech Streaming 0.6B English through sherpa-onnx's
 //! online (streaming) transducer recognizer: text while the speaker talks.
 //!
-//! The 560 ms export: on 40 real microphone segments it got 39 complete and
-//! 0.4% word errors with beam search, decodes at about a quarter of real time
-//! on 8 CPU threads, and finishes 0.1 s after the speech does (eval notes,
-//! 2026-10-18: 1120 ms was slower to show words and no more accurate on
-//! that audio; 160 ms couldn't keep up on the CPU).
+//! The 1120 ms export, beardictate's only recognizer since 2026-10-19. Live,
+//! with beam search and hotwords, on 8 CPU threads: 0.20 of real time on a
+//! Ryzen 7 6800H laptop and done 0.2 s after the speech, with more special
+//! words found than the 560 ms export (12-13 of 22 against 11), which costs
+//! half again as much. On 40 real microphone segments: 39 complete. 160 ms
+//! couldn't keep up on the CPU.
 //!
 //! Hotwords need beam search, which sherpa-onnx's NeMo streaming transducer
 //! gained after 1.13.8 (sherpa-onnx#3895). A library without it exits the
@@ -57,7 +58,7 @@ pub struct NemotronAsr {
 impl NemotronAsr {
     /// Loads the model from `model_dir` (`encoder`, `decoder`, `joiner`
     /// `.int8.onnx` and `tokens.txt`, as in sherpa-onnx's
-    /// `sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8` release).
+    /// `sherpa-onnx-nemotron-speech-streaming-en-0.6b-1120ms-int8` release).
     pub fn new(model_dir: &Path, config: &NemotronConfig) -> Result<Self, AsrError> {
         let mut c = OnlineRecognizerConfig::default();
         c.model_config.transducer = OnlineTransducerModelConfig {

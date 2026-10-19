@@ -1,5 +1,8 @@
 //! Joining cleaned segments into one running text.
 
+use std::collections::VecDeque;
+use std::time::{Duration, Instant};
+
 /// Marks after which the next segment follows without a space. Not the
 /// straight `"`, which opens and closes alike.
 const OPENERS: &[char] = &['\u{201C}', '\u{2018}', '\u{00AB}', '(', '['];
@@ -18,13 +21,16 @@ const ATTACHED: &[char] = &[
 pub struct Composer {
     tail: String,
     max_chars: usize,
+    /// When each delivered piece was appended, and the byte in `tail` it
+    /// starts at, oldest first.
+    stamps: VecDeque<(Instant, usize)>,
 }
 
 impl Composer {
     /// Keeps at most `max_chars` characters of context. The cleanup prompt
     /// trims further; this only bounds memory.
     pub fn new(max_chars: usize) -> Self {
-        Self { tail: String::new(), max_chars }
+        Self { tail: String::new(), max_chars, stamps: VecDeque::new() }
     }
 
     /// The delivered text of this passage, most recent last (bounded).
@@ -32,9 +38,26 @@ impl Composer {
         &self.tail
     }
 
+    /// The cleanup model's context: what was delivered in the last
+    /// `window`, at most `max_chars` of it, starting at a sentence or
+    /// paragraph where it's cut.
+    pub fn recent(&self, window: Duration, max_chars: usize) -> &str {
+        self.recent_at(Instant::now(), window, max_chars)
+    }
+
+    fn recent_at(&self, now: Instant, window: Duration, max_chars: usize) -> &str {
+        let start = self
+            .stamps
+            .iter()
+            .find(|(t, _)| now.saturating_duration_since(*t) <= window)
+            .map_or(self.tail.len(), |&(_, at)| at);
+        bd_cleanup::prompt::trim_context(&self.tail[start..], max_chars)
+    }
+
     /// Starts a new passage: no context, nothing to join onto.
     pub fn clear(&mut self) {
         self.tail.clear();
+        self.stamps.clear();
     }
 
     /// Appends one cleaned segment and returns exactly what to deliver: how
@@ -42,9 +65,17 @@ impl Composer {
     /// or a closing mark), then the segment with the space it needs after it.
     /// Empty when the segment has nothing in it.
     pub fn append(&mut self, segment: &str) -> (usize, String) {
+        self.append_at(Instant::now(), segment)
+    }
+
+    fn append_at(&mut self, now: Instant, segment: &str) -> (usize, String) {
         let (take_back, delta) = join(&self.tail, segment);
         for _ in 0..take_back {
             self.tail.pop();
+        }
+        self.drop_stamps_after(self.tail.len());
+        if !delta.is_empty() {
+            self.stamps.push_back((now, self.tail.len()));
         }
         self.tail.push_str(&delta);
         self.trim();
@@ -57,8 +88,16 @@ impl Composer {
     pub fn retract(&mut self, delivered: &str) {
         if self.tail.ends_with(delivered) {
             self.tail.truncate(self.tail.len() - delivered.len());
+            self.drop_stamps_after(self.tail.len());
         } else {
-            self.tail.clear();
+            self.clear();
+        }
+    }
+
+    /// Forgets the pieces that started at or after byte `len` (taken back).
+    fn drop_stamps_after(&mut self, len: usize) {
+        while self.stamps.back().is_some_and(|&(_, at)| at >= len) {
+            self.stamps.pop_back();
         }
     }
 
@@ -69,6 +108,13 @@ impl Composer {
         }
         let cut = self.tail.char_indices().nth(len - self.max_chars).map_or(0, |(i, _)| i);
         self.tail.drain(..cut);
+        // A piece cut into keeps its time, from the new start.
+        for stamp in &mut self.stamps {
+            stamp.1 = stamp.1.saturating_sub(cut);
+        }
+        while self.stamps.len() > 1 && self.stamps[1].1 == 0 {
+            self.stamps.pop_front();
+        }
     }
 }
 
@@ -174,5 +220,33 @@ mod tests {
         // A break takes the trailing space back, in the context too.
         assert_eq!(c.append("\n\nNew."), (1, "\n\nNew. ".into()));
         assert_eq!(c.context(), "Kept. Back.\n\nNew. ");
+    }
+
+    #[test]
+    fn cleanup_sees_only_recent_text() {
+        let t0 = Instant::now();
+        let at = |secs| t0 + Duration::from_secs(secs);
+        let window = Duration::from_secs(90);
+        let mut c = Composer::new(4000);
+        c.append_at(at(0), "An old line in another app.");
+        c.append_at(at(100), "Now this.");
+        c.append_at(at(110), "And this.");
+        // Joining still sees everything; cleanup only the last 90 s.
+        assert_eq!(c.context(), "An old line in another app. Now this. And this. ");
+        assert_eq!(c.recent_at(at(120), window, 600), "Now this. And this. ");
+        assert_eq!(c.recent_at(at(300), window, 600), "");
+        // ...and only so much of it, from a sentence.
+        assert_eq!(c.recent_at(at(120), window, 12), "And this. ");
+        // Taking a piece back takes its time with it.
+        let (_, d) = c.append_at(at(115), "Gone.");
+        c.retract(&d);
+        assert_eq!(c.recent_at(at(120), window, 600), "Now this. And this. ");
+        // A trimmed tail keeps the time of the piece it now starts in.
+        let mut c = Composer::new(12);
+        c.append_at(at(0), "First part.");
+        c.append_at(at(50), "Second.");
+        assert_eq!(c.context(), "rt. Second. ");
+        assert_eq!(c.recent_at(at(60), Duration::from_secs(30), 600), "Second. ");
+        assert_eq!(c.recent_at(at(60), window, 600), "rt. Second. ");
     }
 }

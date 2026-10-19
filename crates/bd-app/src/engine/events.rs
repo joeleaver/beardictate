@@ -9,7 +9,7 @@ use super::{Ui, Worker};
 
 impl<U: Ui> Worker<U> {
     pub(super) fn on_pipeline(&mut self, event: Event) {
-        super::notes::note(&event, self.settings.mode.streams());
+        super::notes::note(&event, !self.settings.pad() && !self.settings.tidy);
         match event {
             Event::Text { id, text, .. } if self.testing => {
                 tracing::info!(segment = id, chars = text.chars().count(), "microphone test: not typed");

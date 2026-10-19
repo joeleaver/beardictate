@@ -51,13 +51,25 @@ makes a 1–3 s cleanup tolerable during narration.
 - A pause mid-sentence splits a sentence across segments ("…and said," /
   "Oh no, he's coming."), and cleanup can't quote a line it sees apart from
   its tag. So after the command pass, a segment that doesn't end a sentence
-  (no closing `.`, `!`, `?` or `…`, nor a break) waits up to 8 s for the
-  next one and is cleaned joined to it. A dictated paragraph break or a
+  (no closing `.`, `!`, `?` or `…`, nor a break) waits for the next one and
+  is cleaned joined to it: 1.5 s after it came in, or, while the next
+  utterance is already being spoken (Nemotron says so), until that one ends,
+  at most 6 s (`sentence_hold`, `sentence_hold_speaking`; 2026-10-19: the
+  old flat 8 s, restarting with every unfinished segment, could keep text
+  off the page for as long as you talked). A dictated paragraph break or a
   long-pause paragraph is never joined across; the session ending, or the
   wait running out, sends the half sentence on alone. "Scratch that" while
-  it waits drops just that half.
+  it waits drops just that half. With words typed as you speak there is
+  nothing to hold: each utterance is finished alone.
 
 ### 3. ASR
+- **The app runs only Nemotron Speech Streaming 0.6B English, 1120 ms**
+  (int8, `asr-nemotron-speech-streaming-en-0.6b-1120ms-int8`, required;
+  Joe, 2026-10-19; see "Where words go"). Live with beam search and
+  hotwords on 8 CPU threads: 0.20 of real time on NICO-TOP's Ryzen 7 6800H,
+  done 0.2 s after the speech, 12–13 of 22 special words (the 560 ms export
+  of 0.1.8–0.1.9: 0.33 and 11; Parakeet Unified offline: 16). Parakeet below
+  is what `bd` uses without `--stream`, until it is removed.
 - **Parakeet Unified 0.6B English** (int8 ONNX, an RNNT) via **sherpa-onnx**.
   Native punctuation + capitalization, no silence hallucination (transducer,
   not autoregressive like Whisper), well under real time on CPU. English only.
@@ -76,9 +88,27 @@ back. Text from an earlier dictation is left alone; the cursor may have
 moved. Joe, 2026-10-15). The LLM sees commands already applied as literal marks.
 
 ### 5. Cleanup LLM
-Input: the raw segment + the last ~2 paragraphs of *our own* output (kept in
-memory — we don't read the target app) so it knows who's talking and whether
-we're mid-quote. Output: the cleaned segment only.
+Input: the raw segment + *our own* recent output (kept in memory — we don't
+read the target app) so it knows who's talking and whether we're mid-quote.
+Output: the cleaned segment only.
+
+The context is time-windowed (2026-10-19), because a line dictated now in a
+chat app must not be read against a story from an hour ago, and stale
+dialog in the context made the model quote lines that weren't speech:
+- only what was typed in the last 90 s (`context_window`), at most 600
+  characters, cut at a sentence (`cleanup_context_chars`; the Bear models
+  were trained on up to 900);
+- a new passage (no context, no open quotation, "scratch that" can't reach
+  back) starts after 60 s with no speech (`passage_gap`), and when the
+  segment is dictated into another app than the last one (`Parts::focus`,
+  `bd_platform::FocusProbe`: the foreground process on Windows and X11; on
+  Wayland no app may know, so only the time rules apply);
+- in the Bear Pad the context is the pad's own text, two paragraphs.
+
+The model is warmed up at load with one short request: on a CPU the first
+request cost 21 s otherwise. A sentence that has waited more than 4 s for
+cleanup, with more queued behind it, is typed as dictated (`BACKLOG`), so a
+slow machine falls back to raw text instead of falling further behind.
 
 Rules (enforced by prompt now, by training later): remove fillers/stutters/
 false starts/noise tags; fix caps & punctuation; quote dialog with correct
@@ -228,27 +258,31 @@ starts dictating, then stops both.
 once the models load, the microphone comes on and typing is awake. The
 tray shows a violet dot while models load: nothing to do but wait.
 
-## Modes
+## Where words go
 
-Four ways for dictation to reach the page (`mode`; a radio group on the
-General page and in the tray menu; Joe, 2026-10-18):
+Two settings, not modes (Joe, 2026-10-19; the four modes of 0.1.8–0.1.9,
+`mode = …` in settings.toml, are mapped on load: classic → app, tidy;
+streaming → app; pad-streaming → pad; pad-author and the older
+`bear_pad = true` → pad, tidy):
 
-| Mode | Recognizer | Where words go | Cleanup |
-|---|---|---|---|
-| Classic (default) | Parakeet, a finished segment at a time | typed into the app per sentence | yes |
-| Streaming | Nemotron, as you speak | typed into the app as you speak | no |
-| Bear Pad, streaming | Nemotron | the pad, as you speak | no |
-| Bear Pad, author | Nemotron | the pad, as you speak | yes, in the pad |
+| `destination` | `tidy = true` | `tidy = false` |
+|---|---|---|
+| `app` (default) | each sentence typed once, cleaned, when you pause | typed as you speak |
+| `pad` | shown as you speak, the paragraph cleaned in place | shown as you speak |
 
-- **Nemotron** (`asr-nemotron-speech-streaming-en-0.6b-560ms-int8`, not
-  required, downloaded from the General page when a streaming mode is
-  chosen) is fed live from the VAD: a stream starts at speech onset with the
-  audio from just before it and ends with the segment (`Segmenter::accept_live`,
-  `bd_core::StreamingAsr`), so it only runs while you speak. 560 ms chunks:
-  the best accuracy on Joe's microphone and words about every half second;
-  160 ms couldn't keep up on the CPU, Nemotron 3.5 (multilingual) was worse.
-  sherpa-onnx 1.13.8 has no beam search for it, so no hotwords until a build
-  with sherpa-onnx#3895 (feature `nemotron-hotwords`).
+The General page has the two as a radio group and a "Tidy up" switch; the
+tray menu has them as radio items and a checkbox. There's no "type when
+finished" choice of its own: typing once is what tidying in your app does,
+and tidying text typed as you speak, in place, is the next step.
+
+- **Nemotron** is fed live from the VAD in every case: a stream starts at
+  speech onset with the audio from just before it and ends with the segment
+  (`Segmenter::accept_live`, `bd_core::StreamingAsr`), so it only runs while
+  you speak. Typed once, its text so far only says that someone is
+  speaking (for the sentence hold); the final text goes through the command
+  pass and cleanup as a segment. Hotwords need our sherpa-onnx build with
+  sherpa-onnx#3895 (feature `nemotron-hotwords`, which the release scripts
+  turn on).
 - **Typing as you speak** (`stages/live_type.rs`): each update types only
   the words that can't change: not the one still being spoken, not a
   trailing run that may be a command ("new" before "paragraph"), not a
@@ -256,7 +290,10 @@ General page and in the tray menu; Joe, 2026-10-18):
   earlier ones read, the page is taken back to where they differ and typed
   again. At a pause an utterance ending on a letter gets a full stop
   (Nemotron often leaves it off).
-- Older settings with `bear_pad = true` become Bear Pad, author.
+- Measured 2026-10-19, `bd file --stream --realtime` on NICO-TOP, tidy on:
+  cleanup 0.3–0.5 s a sentence on its Radeon iGPU, about 2 s on its CPU
+  alone with Nemotron running, never behind, so text lands about 1.2 s (GPU)
+  or 3 s (CPU) after you stop speaking, the 0.6 s VAD wait included.
 
 ## Bear Pad
 

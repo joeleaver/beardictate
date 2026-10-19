@@ -59,6 +59,12 @@ impl WindowsBackend {
     }
 }
 
+/// [`crate::FocusProbe`] on Windows.
+pub(crate) fn focused_app() -> Option<ForegroundApp> {
+    let fg = process::foreground()?;
+    Some(ForegroundApp { exe_name: fg.exe_name?, pid: fg.pid })
+}
+
 impl Backend for WindowsBackend {
     type Snapshot = clipboard::Snapshot;
 

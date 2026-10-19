@@ -105,6 +105,29 @@ impl LinuxBackend {
     }
 }
 
+/// [`crate::FocusProbe`] on Linux: its own X11 connection, or nothing on
+/// Wayland, where no client may know which app has the focus.
+pub(crate) struct LinuxFocus(Option<Box<x11::X11Backend>>);
+
+impl LinuxFocus {
+    pub(crate) fn new() -> Self {
+        let var = |k: &str| std::env::var(k).ok();
+        let session = detect_session(
+            var("WAYLAND_DISPLAY").as_deref(),
+            var("XDG_SESSION_TYPE").as_deref(),
+            var("DISPLAY").as_deref(),
+        );
+        let x11 = (session == Some(Session::X11))
+            .then(|| x11::X11Backend::connect().map_err(|e| tracing::warn!("focus probe: {e}")).ok())
+            .flatten();
+        Self(x11.map(Box::new))
+    }
+
+    pub(crate) fn current(&self) -> Option<ForegroundApp> {
+        self.0.as_ref()?.foreground_app()
+    }
+}
+
 impl Backend for LinuxBackend {
     type Snapshot = clipboard::Snapshot;
 

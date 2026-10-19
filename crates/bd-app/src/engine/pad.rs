@@ -146,7 +146,7 @@ impl<U: Ui> Worker<U> {
 
     pub(super) fn on_pad_command(&mut self, action: PadAction) {
         match &self.pipeline {
-            Some(p) if self.settings.mode.pad() => p.pad(action),
+            Some(p) if self.settings.pad() => p.pad(action),
             _ => {}
         }
     }
@@ -161,7 +161,7 @@ impl<U: Ui> Worker<U> {
     /// size and place the user gave it.
     pub(super) fn sync_pad(&self) {
         let mut host = self.pad.host.borrow_mut();
-        if !self.settings.mode.pad() {
+        if !self.settings.pad() {
             return host.stop();
         }
         let listening = self.listening_since.is_some();

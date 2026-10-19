@@ -64,10 +64,11 @@ pub struct DictateArgs {
     /// "bear, send it", and for `bd file` at the end of each file.
     #[arg(long)]
     pub pad: bool,
-    /// Stream: Nemotron transcribes as you speak, and the words are typed
-    /// as they come (with --pad, shown in the pad), with no cleanup. The
-    /// text as typed is printed on stderr at the end, since stdout can't
-    /// take text back.
+    /// Stream, as the app does: Nemotron transcribes as you speak. With a
+    /// cleanup model, each sentence is cleaned and typed once; with
+    /// `--cleanup off` the words are typed as they come (with --pad, shown
+    /// in the pad, cleaned there). Live-typed text is printed on stderr at
+    /// the end, since stdout can't take text back.
     #[arg(long)]
     pub stream: bool,
 }
@@ -81,6 +82,11 @@ pub struct FileArgs {
     /// app would (for testing typing into a given app).
     #[arg(long)]
     pub inject: bool,
+    /// Feed the audio at speaking pace, as a microphone would, instead of
+    /// as fast as it goes: for timing (with -v, each text's wait after its
+    /// transcript).
+    #[arg(long)]
+    pub realtime: bool,
     #[command(flatten)]
     pub dictate: DictateArgs,
 }
@@ -115,7 +121,8 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
     } else {
         bd_pipeline::Recognizer::Segments(Box::new(setup::load_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?))
     };
-    let cleanup = if args.stream && !args.pad { None } else { setup::load_cleanup(&args.cleanup, &store)? };
+    let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
+    let live_typing = cleanup.is_none();
     match &cleanup {
         Some(c) => eprintln!("cleanup: {}", c.description),
         None => eprintln!("cleanup: off (ASR text with spoken commands applied)"),
@@ -124,6 +131,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         segmenter: Box::new(segmenter),
         asr,
         cleanup: cleanup.map(|c| Box::new(c.engine) as _),
+        focus: None,
     };
     let mut style = args.style.style();
     style.dialog_paragraphs = args.paragraphs != ParagraphsArg::Off;
@@ -131,7 +139,7 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         .then(|| Duration::try_from_secs_f32(args.pause_paragraph))
         .transpose()
         .context("--pause-paragraph must be a positive number of seconds")?;
-    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, ..PipelineConfig::default() };
+    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, live_typing, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
     Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))
 }
@@ -146,6 +154,8 @@ struct Reporter {
     page: std::cell::RefCell<String>,
     /// Print the page at each session's end.
     show_page: bool,
+    /// When each segment's transcript came, for the wait to its text.
+    heard_at: std::cell::RefCell<std::collections::HashMap<u64, std::time::Instant>>,
 }
 
 /// What a pipeline event asks of the focused window.
@@ -178,6 +188,7 @@ impl Reporter {
         }
         match event {
             Event::Transcribed { id, text, audio, pause, elapsed, .. } if self.verbose => {
+                self.heard_at.borrow_mut().insert(*id, std::time::Instant::now());
                 let pause = pause.map_or(String::new(), |p| format!(" after {:.1}s pause", p.as_secs_f32()));
                 eprintln!(
                     "[{id}] asr {:.2}s audio{pause} in {:.0} ms: {text:?}",
@@ -188,7 +199,8 @@ impl Reporter {
             Event::Text { id, take_back, text, commanded, cleanup } => {
                 if self.verbose {
                     let ms = cleanup.map_or_else(|| "off".into(), |d| format!("{:.0} ms", d.as_secs_f64() * 1e3));
-                    eprintln!("[{id}] cleanup {ms}: {commanded:?} -> {text:?}");
+                    let wait = self.heard_at.borrow().get(id).map_or_else(String::new, |t| format!(" ({:.2}s after its transcript)", t.elapsed().as_secs_f64()));
+                    eprintln!("[{id}] cleanup {ms}{wait}: {commanded:?} -> {text:?}");
                 }
                 let pending = self.pending.get().saturating_sub(*take_back);
                 let body = text.trim_end_matches(' ');
@@ -231,7 +243,13 @@ impl Reporter {
 pub fn file(args: &FileArgs) -> Result<()> {
     let audio: Vec<Vec<f32>> = args.wavs.iter().map(|p| read_wav(p)).collect::<Result<_>>()?;
     let pipeline = spawn_pipeline(&args.dictate)?;
-    let reporter = Reporter { verbose: args.dictate.verbose, pending: Default::default(), page: Default::default(), show_page: args.dictate.stream && !args.dictate.pad };
+    let reporter = Reporter {
+        verbose: args.dictate.verbose,
+        pending: Default::default(),
+        page: Default::default(),
+        show_page: args.dictate.stream && !args.dictate.pad,
+        heard_at: Default::default(),
+    };
     let mut injector = if args.inject {
         let mut injector = PlatformInjector::new(InjectorConfig::default())?;
         injector.prepare()?;
@@ -253,6 +271,12 @@ pub fn file(args: &FileArgs) -> Result<()> {
         pipeline.new_passage();
         for part in samples.chunks(chunk) {
             pipeline.push_audio(part.to_vec());
+            if args.realtime {
+                std::thread::sleep(Duration::from_millis(100));
+                for event in pipeline.events().try_iter() {
+                    handle(&event);
+                }
+            }
         }
         pipeline.end_session();
         for event in pipeline.events() {
@@ -401,7 +425,7 @@ fn spawn_output(events: Receiver<Event>, verbose: bool, inject: bool) -> Result<
             let _ = ready_tx.send(Ok("none"));
             None
         };
-        let reporter = Reporter { verbose, pending: Default::default(), page: Default::default(), show_page: false };
+        let reporter = Reporter { verbose, pending: Default::default(), page: Default::default(), show_page: false, heard_at: Default::default() };
         for event in events {
             let Some(output) = reporter.report(&event) else { continue };
             let Some(injector) = injector.as_mut() else { continue };

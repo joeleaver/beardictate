@@ -34,49 +34,38 @@ pub enum Punctuation {
     Logical,
 }
 
-/// How dictation reaches the page.
+/// Where dictated words go. Either way they're heard as they're spoken
+/// (Nemotron), and [`Settings::tidy`] says whether they're cleaned up.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum Mode {
-    /// Each sentence is cleaned up and typed into your app when you pause
-    /// (Parakeet).
+pub enum Destination {
+    /// Typed into the app you're working in.
     #[default]
-    Classic,
-    /// Words are typed into your app as you say them, with no cleanup
-    /// (Nemotron).
-    Streaming,
-    /// Words collect in the Bear Pad as you say them; "bear, send it" types
-    /// them (Nemotron).
-    PadStreaming,
-    /// The same, with the pad cleaned up as you go.
-    PadAuthor,
+    App,
+    /// Collected in the Bear Pad; "bear, send it" types it.
+    Pad,
 }
 
-impl Mode {
-    pub const ALL: [Mode; 4] = [Mode::Classic, Mode::Streaming, Mode::PadStreaming, Mode::PadAuthor];
-
-    /// Words show as they're spoken, from the streaming recognizer.
-    pub fn streams(self) -> bool {
-        self != Mode::Classic
-    }
-
-    pub fn pad(self) -> bool {
-        matches!(self, Mode::PadStreaming | Mode::PadAuthor)
-    }
-
-    /// The cleanup model runs.
-    pub fn cleans(self) -> bool {
-        matches!(self, Mode::Classic | Mode::PadAuthor)
-    }
+impl Destination {
+    pub const ALL: [Destination; 2] = [Destination::App, Destination::Pad];
 
     pub fn label(self) -> &'static str {
         match self {
-            Mode::Classic => "Classic",
-            Mode::Streaming => "Streaming",
-            Mode::PadStreaming => "Bear Pad, streaming",
-            Mode::PadAuthor => "Bear Pad, author",
+            Destination::App => "Into your app",
+            Destination::Pad => "Into the Bear Pad",
         }
     }
+}
+
+/// The four modes of 0.1.8-0.1.9, read from old settings files and turned
+/// into a [`Destination`] and [`Settings::tidy`] on load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum OldMode {
+    Classic,
+    Streaming,
+    PadStreaming,
+    PadAuthor,
 }
 
 /// The tray glyph's colours: dark ink for a light taskbar, light ink for a
@@ -134,9 +123,17 @@ pub struct Settings {
     pub auto_gain: bool,
     /// The gain when `auto_gain` is off, in dB (0 to 30).
     pub mic_gain_db: f32,
-    /// How dictation reaches the page (see [`Mode`]).
-    pub mode: Mode,
-    /// Earlier versions' Bear Pad switch, moved into [`Settings::mode`] on load.
+    /// Where the words go.
+    pub destination: Destination,
+    /// Clean up what's dictated with the cleanup model: fillers out,
+    /// sentences mended, dialog quoted. In your app each sentence is then
+    /// typed once, cleaned, when you pause; off, words are typed as you say
+    /// them. In the pad, the paragraph you're on is cleaned in place.
+    pub tidy: bool,
+    /// Earlier versions' modes, moved into `destination` and `tidy` on load.
+    #[serde(skip_serializing)]
+    mode: Option<OldMode>,
+    /// Earlier versions' Bear Pad switch, likewise.
     #[serde(skip_serializing)]
     bear_pad: bool,
     /// Keep the microphone open between dictations. The first syllable is
@@ -178,7 +175,9 @@ impl Default for Settings {
             hotword_boost: 2.0,
             microphone: String::new(),
             keep_mic_open: false,
-            mode: Mode::Classic,
+            destination: Destination::App,
+            tidy: true,
+            mode: None,
             bear_pad: false,
             auto_gain: true,
             mic_gain_db: 0.0,
@@ -199,8 +198,7 @@ impl Default for Settings {
 pub struct ModelSettings {
     cleanup: String,
     models_dir: String,
-    streams: bool,
-    cleans: bool,
+    tidy: bool,
 }
 
 /// The settings a running pipeline takes without reloading.
@@ -216,6 +214,8 @@ pub struct LiveSettings {
     pub auto_gain: bool,
     pub mic_gain_db: f32,
     pub pad: bool,
+    /// Outside the pad: words typed as spoken, uncleaned.
+    pub live_typing: bool,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -237,7 +237,15 @@ impl Settings {
             changed = true;
         }
         if std::mem::take(&mut self.bear_pad) {
-            self.mode = Mode::PadAuthor;
+            self.mode = Some(OldMode::PadAuthor);
+        }
+        if let Some(mode) = self.mode.take() {
+            (self.destination, self.tidy) = match mode {
+                OldMode::Classic => (Destination::App, true),
+                OldMode::Streaming => (Destination::App, false),
+                OldMode::PadStreaming => (Destination::Pad, false),
+                OldMode::PadAuthor => (Destination::Pad, true),
+            };
             changed = true;
         }
         if dropped_from_catalog(&self.cleanup) {
@@ -278,8 +286,7 @@ impl Settings {
         ModelSettings {
             cleanup: self.cleanup.clone(),
             models_dir: self.models_dir.clone(),
-            streams: self.mode.streams(),
-            cleans: self.mode.cleans(),
+            tidy: self.tidy,
         }
     }
 
@@ -294,8 +301,14 @@ impl Settings {
             voice_wake: self.voice_wake,
             auto_gain: self.auto_gain,
             mic_gain_db: self.mic_gain_db,
-            pad: self.mode.pad(),
+            pad: self.pad(),
+            live_typing: !self.tidy,
         }
+    }
+
+    /// Words go to the Bear Pad.
+    pub fn pad(&self) -> bool {
+        self.destination == Destination::Pad
     }
 }
 
@@ -435,9 +448,10 @@ const SETTINGS_HEADER: &str = "\
 # models_dir: where the models are; empty for the default location.
 # auto_gain: learn the microphone gain from your speech; mic_gain_db: the gain
 #   in dB (0 to 30) when auto_gain is false.
-# mode: \"classic\" (each sentence cleaned and typed when you pause), \"streaming\" (typed as
-#   you speak, no cleanup), \"pad-streaming\" (collected in the Bear Pad as you speak; \"bear,
-#   send it\" types it) or \"pad-author\" (the same, cleaned up in the pad).
+# destination: \"app\" (typed into the app you're in) or \"pad\" (collected in the Bear Pad;
+#   \"bear, send it\" types it).
+# tidy: true to clean up with the cleanup model (in your app each sentence is typed once,
+#   cleaned; in the pad the paragraph is cleaned in place); false to type words as you say them.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";
@@ -488,13 +502,24 @@ mod tests {
         assert!(!s.upgrade());
         assert!(!toml::to_string_pretty(&s).unwrap().contains("special_words"));
 
-        // Bear Pad on in an earlier version: the pad's author mode.
+        // Bear Pad on in an earlier version: the pad, tidied.
         let mut pad: Settings = toml::from_str("bear_pad = true\n").unwrap();
         assert!(pad.upgrade());
-        assert_eq!(pad.mode, Mode::PadAuthor);
+        assert_eq!((pad.destination, pad.tidy), (Destination::Pad, true));
         assert!(!toml::to_string_pretty(&pad).unwrap().contains("bear_pad"));
-        let modes: Settings = toml::from_str("mode = \"pad-streaming\"\n").unwrap();
-        assert!(modes.mode.pad() && modes.mode.streams() && !modes.mode.cleans());
+        // The four modes of 0.1.8.
+        for (mode, destination, tidy) in [
+            ("classic", Destination::App, true),
+            ("streaming", Destination::App, false),
+            ("pad-streaming", Destination::Pad, false),
+            ("pad-author", Destination::Pad, true),
+        ] {
+            let mut old: Settings = toml::from_str(&format!("mode = \"{mode}\"\n")).unwrap();
+            assert!(old.upgrade());
+            assert_eq!((old.destination, old.tidy), (destination, tidy), "{mode}");
+            assert!(!toml::to_string_pretty(&old).unwrap().lines().any(|l| l.starts_with("mode ")));
+            assert!(!old.upgrade());
+        }
 
         let mut gone: Settings = toml::from_str("cleanup = \"cleanup-qwen3-4b-q4_k_m\"\n").unwrap();
         assert!(gone.upgrade());

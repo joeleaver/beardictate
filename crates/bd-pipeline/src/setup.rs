@@ -13,8 +13,8 @@ use bd_core::{BoxError, Cleanup, CleanupRequest};
 use bd_models::{Manifest, ModelEntry, ModelKind, ModelStatus, Store};
 
 pub const ASR_MODEL: &str = "asr-parakeet-unified-en-0.6b-int8";
-/// The streaming recognizer, for the modes that show words as you speak.
-pub const STREAMING_ASR_MODEL: &str = "asr-nemotron-speech-streaming-en-0.6b-560ms-int8";
+/// The streaming recognizer: the app's only one; `bd --stream`'s.
+pub const STREAMING_ASR_MODEL: &str = "asr-nemotron-speech-streaming-en-0.6b-1120ms-int8";
 pub const VAD_MODEL: &str = "vad-silero";
 
 /// Which cleanup model to run.
@@ -132,8 +132,22 @@ pub fn load_cleanup(source: &CleanupSource, options: &CleanupOptions, store: &St
         "{name} ({template}; {} of {} layers on GPU, {} threads)",
         info.gpu_layers, info.n_layer, info.threads
     );
-    let engine = LlamaCleanup::new(chat, template)?;
+    let mut engine = LlamaCleanup::new(chat, template)?;
+    warm_up(&mut engine);
     Ok(Some(LoadedCleanup { engine: CleanupEngine::Llama(engine), name, description, template: template.to_string(), info: Some(info) }))
+}
+
+/// Cleans one short line while the model loads, so the first sentence
+/// dictated doesn't pay for setting it up: on a CPU that's many seconds
+/// (21 s once, on a 12-thread laptop), long enough to look broken.
+fn warm_up(engine: &mut dyn Cleanup) {
+    let started = std::time::Instant::now();
+    let style = bd_core::Style::default();
+    let request = CleanupRequest { context: "", raw: "Hello there.", style: &style, names: &[] };
+    match engine.clean(&request) {
+        Ok(_) => tracing::info!(ms = started.elapsed().as_millis() as u64, "cleanup model warmed up"),
+        Err(e) => tracing::warn!("warming up the cleanup model: {e}"),
+    }
 }
 
 /// Installed, released catalog cleanup models, smallest first.

@@ -17,12 +17,14 @@ mod notes;
 mod segment;
 mod transcribe;
 mod noise;
+mod pace;
 mod pad_mode;
 mod pad_voice;
 mod wake;
 
 use gate::{Gate, Step};
-use crate::{Event, Input, PadAction, Parts, PipelineConfig, Recognizer, Stage};
+use crate::{Event, FocusProbe, Input, PadAction, Parts, PipelineConfig, Recognizer, Stage};
+use pace::BACKLOG;
 use pad_mode::PadMode;
 
 /// From the segmenter to the ASR.
@@ -62,12 +64,12 @@ pub(crate) fn spawn(
 ) -> Result<Vec<JoinHandle<()>>, BoxError> {
     let (cut_tx, cut_rx) = unbounded();
     let (heard_tx, heard_rx) = unbounded();
-    let Parts { segmenter, asr, cleanup } = parts;
+    let Parts { segmenter, asr, cleanup, focus } = parts;
     let live = matches!(asr, Recognizer::Live(_));
     let asr_events = events.clone();
     let gain = InputGain::new(config.input_gain, config.auto_gain);
     let learner = gain.clone();
-    let finisher = Finisher::new(cleanup, config, events, live);
+    let finisher = Finisher::new(cleanup, config, events, live, focus);
     Ok(vec![
         thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live))?,
         thread::Builder::new().name("bd-asr".into()).spawn(move || match asr {
@@ -85,6 +87,9 @@ struct Pending {
     /// "scratch that" drops it.
     quote_before: bool,
     out: CommandOutput,
+    /// When it was ready to clean: when it, or the last part joined onto
+    /// it, arrived.
+    ready: Instant,
 }
 
 enum Item {
@@ -164,6 +169,23 @@ struct Finisher {
     passage_has_text: bool,
     /// See [`PipelineConfig::sentence_hold`].
     sentence_hold: Duration,
+    /// See [`PipelineConfig::sentence_hold_speaking`].
+    sentence_hold_speaking: Duration,
+    /// The utterance a streaming recognizer is hearing now, if any.
+    speaking: Option<u64>,
+    /// See [`PipelineConfig::live_typing`].
+    live_typing: bool,
+    /// See [`PipelineConfig::context_window`] and
+    /// [`PipelineConfig::cleanup_context_chars`].
+    context_window: Duration,
+    cleanup_context_chars: usize,
+    /// See [`PipelineConfig::passage_gap`].
+    passage_gap: Duration,
+    /// When the last segment came in.
+    last_segment_at: Option<Instant>,
+    /// See [`Parts::focus`]; and the app the last segment was dictated into.
+    focus: Option<FocusProbe>,
+    last_focus: Option<String>,
     /// See [`PipelineConfig::blank_line_paragraphs`].
     blank_line_paragraphs: bool,
     gate: Gate,
@@ -176,7 +198,7 @@ struct Finisher {
 }
 
 impl Finisher {
-    fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>, live: bool) -> Self {
+    fn new(cleanup: Option<Box<dyn Cleanup>>, config: PipelineConfig, events: Sender<Event>, live: bool, focus: Option<FocusProbe>) -> Self {
         let pad = config.pad;
         let mut finisher = Self {
             vocabulary: config.vocabulary,
@@ -192,6 +214,15 @@ impl Finisher {
             pause_paragraph: config.pause_paragraph,
             passage_has_text: false,
             sentence_hold: config.sentence_hold,
+            sentence_hold_speaking: config.sentence_hold_speaking,
+            speaking: None,
+            live_typing: config.live_typing,
+            context_window: config.context_window,
+            cleanup_context_chars: config.cleanup_context_chars,
+            passage_gap: config.passage_gap,
+            last_segment_at: None,
+            focus,
+            last_focus: None,
             blank_line_paragraphs: config.blank_line_paragraphs,
             gate: Gate::new(config.voice_wake),
             pad: None,
@@ -217,8 +248,8 @@ impl Finisher {
                 }
             }
             self.take_in_ready(&input);
-            if self.waiting_for_rest() {
-                match input.recv_timeout(self.sentence_hold) {
+            if let Some(wait) = self.hold() {
+                match input.recv_timeout(wait) {
                     Ok(heard) => {
                         self.take_in(heard);
                         continue;
@@ -252,20 +283,6 @@ impl Finisher {
         }
     }
 
-    /// Whether everything queued is one sentence still being spoken.
-    fn waiting_for_rest(&self) -> bool {
-        // Live text is on the page already: each utterance is finished alone.
-        if self.live {
-            return false;
-        }
-        let mut segments = self.queue.iter().enumerate().map(|(i, item)| match item {
-            Item::Segment(p) if i == 0 || p.continues() => Some(p),
-            _ => None,
-        });
-        segments.all(|p| p.is_some())
-            && matches!(self.queue.back(), Some(Item::Segment(p)) if !p.ends_sentence())
-    }
-
     /// The next item, with an unfinished sentence joined to the segments
     /// that finish it, so cleanup sees "…and said, Oh no" whole. "Scratch
     /// that" while it waits still drops one segment at a time; once joined
@@ -273,7 +290,7 @@ impl Finisher {
     fn pop_sentence(&mut self) -> Option<Item> {
         let mut item = self.queue.pop_front()?;
         if let Item::Segment(p) = &mut item {
-            while !self.live && !p.ends_sentence() {
+            while !self.types_live() && !p.ends_sentence() {
                 let Some(Item::Segment(next)) = self.queue.front() else { break };
                 if !next.continues() {
                     break;
@@ -286,6 +303,7 @@ impl Finisher {
                 }
                 p.out.text.push_str(&tail);
                 p.out.quote_open = next.out.quote_open;
+                p.ready = next.ready;
             }
         }
         Some(item)
@@ -294,7 +312,13 @@ impl Finisher {
     fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let commanded = p.out.text;
-        let (text, cleanup) = self.clean(p.id, &commanded);
+        let behind = self.queue.iter().any(|item| matches!(item, Item::Segment(_)));
+        let (text, cleanup) = if behind && self.cleanup.is_some() && p.ready.elapsed() > BACKLOG {
+            tracing::info!(segment = p.id, waited_ms = p.ready.elapsed().as_millis() as u64, "cleanup is behind; delivered as dictated");
+            (commanded.clone(), None)
+        } else {
+            self.clean(p.id, &commanded)
+        };
         // A "scratch that" spoken while this was cleaning still drops it.
         self.take_in_ready(input);
         let flight = self.in_flight.take();
@@ -312,7 +336,7 @@ impl Finisher {
                 last.text.pop();
             }
         }
-        if self.live {
+        if self.types_live() {
             return self.typed_live(p.id, p.quote_before, &base, take_back, text);
         }
         if text.is_empty() {
@@ -332,7 +356,7 @@ impl Finisher {
         };
         let started = Instant::now();
         // Without the trailing space typed for the next segment.
-        let context = self.composer.context().trim_end_matches(' ');
+        let context = self.composer.recent(self.context_window, self.cleanup_context_chars).trim_end_matches(' ');
         let names = self.vocabulary.spellings();
         let request = CleanupRequest { context, raw: commanded, style: &self.style, names: &names };
         let result = cleanup.clean(&request);
@@ -358,12 +382,24 @@ impl Finisher {
     }
 
     fn take_in(&mut self, heard: Heard) {
+        if let Heard::Text { id, .. } = &heard
+            && self.speaking == Some(*id)
+        {
+            self.speaking = None;
+        }
         let (id, text, pause) = match heard {
             Heard::Text { id, text, pause } if self.live => (id, live_type::end_sentence(text), pause),
             Heard::Text { id, text, pause } => (id, text, pause),
             Heard::EndSession => return self.queue.push_back(Item::EndSession),
             Heard::Reconfigure(config) => return self.reconfigure(*config),
-            Heard::Partial { id, text } => return self.queue.push_back(Item::Partial(id, text)),
+            Heard::Partial { id, text } if self.types_live() || self.pad.is_some() => {
+                return self.queue.push_back(Item::Partial(id, text));
+            }
+            Heard::Partial { id, text } => {
+                // Typed a sentence at a time: only whether someone's speaking.
+                self.speaking = (!text.is_empty()).then_some(id);
+                return;
+            }
             Heard::Pad(action) => return self.pad_action(action),
             Heard::Awake(awake) => {
                 let step = self.gate.set(awake);
@@ -401,6 +437,9 @@ impl Finisher {
     }
 
     fn take_in_text(&mut self, id: u64, heard: String, pause: Option<Duration>) {
+        if self.pad.is_none() {
+            self.new_passage_if_moved_on();
+        }
         let text = self.vocabulary.apply(&heard);
         let (text, pad_action) = self.pad_command(text);
         let mut out = self.pass.apply(&text, self.quote_open);
@@ -433,12 +472,12 @@ impl Finisher {
         }
         // Live text may be on the page already: an utterance that comes to
         // nothing still has to take it back.
-        let typed_live = self.live && self.pad.is_none();
+        let typed_live = self.types_live();
         if !out.text.is_empty() || typed_live {
             if self.pad.is_some() {
                 self.pad_push(id, out.text, quote_before);
             } else {
-                self.queue.push_back(Item::Segment(Pending { id, quote_before, out }));
+                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now() }));
             }
         }
         if let Some(action) = pad_action {
@@ -453,6 +492,11 @@ impl Finisher {
         self.style = config.style;
         self.pause_paragraph = config.pause_paragraph;
         self.sentence_hold = config.sentence_hold;
+        self.sentence_hold_speaking = config.sentence_hold_speaking;
+        self.live_typing = config.live_typing;
+        self.context_window = config.context_window;
+        self.cleanup_context_chars = config.cleanup_context_chars;
+        self.passage_gap = config.passage_gap;
         self.blank_line_paragraphs = config.blank_line_paragraphs;
         self.gate.configure(config.voice_wake);
         self.set_pad(config.pad);

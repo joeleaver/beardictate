@@ -186,13 +186,17 @@ pub fn tray_menu(shared: &Shared) -> Menu {
         menu = menu.item(MenuItem::new(label).on_click(move || change(&s, |st| st.microphone_on = !on)));
     }
 
-    // The mode: a radio group; a click moves the mark, then saves it.
-    let mode = Signal::new(shared.settings.with(|st| st.mode));
+    // Where the words go: a radio group; a click moves the mark, then saves
+    // it. Then whether they're tidied up.
+    let destination = Signal::new(shared.settings.with(|st| st.destination));
     menu = menu.separator();
-    for m in crate::settings::Mode::ALL {
+    for d in crate::settings::Destination::ALL {
         let s = shared.clone();
-        menu = menu.item(MenuItem::radio(m.label(), mode, m).on_click(move || change(&s, |st| st.mode = mode.get())));
+        menu = menu.item(MenuItem::radio(d.label(), destination, d).on_click(move || change(&s, |st| st.destination = destination.get())));
     }
+    let tidy = Signal::new(shared.settings.with(|st| st.tidy));
+    let s = shared.clone();
+    menu = menu.item(MenuItem::checkbox("Tidy up", tidy).on_click(move || change(&s, |st| st.tidy = tidy.get())));
 
     let open_settings = {
         let s = shared.clone();

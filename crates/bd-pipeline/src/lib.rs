@@ -20,7 +20,9 @@
 //!
 //! The context the cleanup model sees is the pipeline's own delivered text
 //! for the current passage (see [`Pipeline::new_passage`]), never text read
-//! back from the target application.
+//! back from the target application: only what was delivered in the last
+//! [`PipelineConfig::context_window`], and a new passage starts after a long
+//! silence or when another app has the focus ([`Parts::focus`]).
 
 mod compose;
 pub mod dump;
@@ -91,11 +93,15 @@ pub enum Recognizer {
     /// A finished segment at a time (Parakeet): text arrives when the
     /// speaker pauses.
     Segments(Box<dyn Asr>),
-    /// As the speaker talks (Nemotron): with [`PipelineConfig::pad`] off,
-    /// the words are typed as they come, with no cleanup; with it on, they
-    /// show in the pad.
+    /// As the speaker talks (Nemotron): with [`PipelineConfig::pad`] on, the
+    /// words show in the pad; off, they're typed as they come
+    /// ([`PipelineConfig::live_typing`]) or a sentence at a time, cleaned.
     Live(Box<dyn StreamingAsr>),
 }
+
+/// Which app has the keyboard focus, as a name to compare (an executable),
+/// or `None` when the platform can't tell (Wayland).
+pub type FocusProbe = Box<dyn FnMut() -> Option<String> + Send>;
 
 /// The stages a pipeline runs. Each moves onto its own thread.
 pub struct Parts {
@@ -104,6 +110,10 @@ pub struct Parts {
     /// `None` runs without a cleanup model: ASR text with spoken commands
     /// applied.
     pub cleanup: Option<Box<dyn Cleanup>>,
+    /// Asked as each segment comes in (outside the pad): text dictated into
+    /// another app than the last segment's starts a new passage, so cleanup
+    /// never reads one app's text as context for another's.
+    pub focus: Option<FocusProbe>,
 }
 
 /// Settings for a pipeline. All but `context_chars` can be changed while it
@@ -124,14 +134,28 @@ pub struct PipelineConfig {
     /// dictated breaks and (with [`Style::dialog_paragraphs`]) the cleanup
     /// model's.
     pub pause_paragraph: Option<Duration>,
-    /// Characters of delivered text kept as context. The cleanup prompt
-    /// trims this further to its own budget.
+    /// Characters of delivered text kept to join onto. The cleanup model
+    /// sees less: see `context_window` and `cleanup_context_chars`.
     pub context_chars: usize,
+    /// The cleanup model's context is only what was delivered this recently,
+    /// so a line dictated now isn't read against one from minutes ago.
+    pub context_window: Duration,
+    /// ...and at most this many characters of it, cut at a sentence.
+    pub cleanup_context_chars: usize,
+    /// A silence this long between segments starts a new passage, as a
+    /// dictation started this long after the last one does.
+    pub passage_gap: Duration,
     /// How long a segment that stops mid-sentence ("…and said,") waits for
     /// the next one, so cleanup sees the sentence whole and can quote the
-    /// line that follows a tag. Long enough to speak and transcribe the
-    /// next utterance; when it runs out, the half sentence goes on alone.
+    /// line that follows a tag. When it runs out, the half sentence goes on
+    /// alone...
     pub sentence_hold: Duration,
+    /// ...unless the next utterance is already being spoken (a streaming
+    /// recognizer says so): then it waits for that, up to this long.
+    pub sentence_hold_speaking: Duration,
+    /// Outside the pad, with a streaming recognizer: type the words as
+    /// they're spoken. Off, each sentence is typed once, cleaned.
+    pub live_typing: bool,
     /// Paragraphs separated by a blank line (two returns). Off, one return:
     /// for editors that space paragraphs themselves (Word, Scrivener,
     /// Google Docs). A "new line" is one return either way.
@@ -153,7 +177,25 @@ pub struct PipelineConfig {
 
 impl Default for PipelineConfig {
     fn default() -> Self {
-        Self { style: Style::default(), commands: CommandConfig::default(), vocabulary: Vocabulary::default(), hotword_boost: setup::DEFAULT_HOTWORD_BOOST, pause_paragraph: None, context_chars: 4000, sentence_hold: Duration::from_secs(8), blank_line_paragraphs: true, voice_wake: false, input_gain: 1.0, auto_gain: true, pad: false }
+        Self {
+            style: Style::default(),
+            commands: CommandConfig::default(),
+            vocabulary: Vocabulary::default(),
+            hotword_boost: setup::DEFAULT_HOTWORD_BOOST,
+            pause_paragraph: None,
+            context_chars: 4000,
+            context_window: Duration::from_secs(90),
+            cleanup_context_chars: 600,
+            passage_gap: Duration::from_secs(60),
+            sentence_hold: Duration::from_millis(1500),
+            sentence_hold_speaking: Duration::from_secs(6),
+            live_typing: true,
+            blank_line_paragraphs: true,
+            voice_wake: false,
+            input_gain: 1.0,
+            auto_gain: true,
+            pad: false,
+        }
     }
 }
 
