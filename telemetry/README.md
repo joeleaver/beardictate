@@ -35,6 +35,7 @@ From this folder, with Joe's jkbase login:
 ```
 jkbase project create beardictate-telemetry
 jkbase secret set ALPHA_KEY=<the key alpha builds are built with>
+jkbase secret set READ_KEY=<a different key, for reading back>
 jkbase access-key issue --label telemetry-audio     # prints the id and secret once
 jkbase secret set S3_ACCESS_KEY=<id>
 jkbase secret set S3_SECRET_KEY=<secret>
@@ -47,17 +48,20 @@ environment of `cargo build --features alpha`.
 
 ## Reading it
 
-Agents and people alike: `./pull.sh <out.jsonl> [--install <id>] [--since 2026-10-18]`.
-It takes the managed-DB key from `~/.config/beardictate/telemetry-db.env`
-(see the top of `pull.sh`; Joe makes it once with `jkbase db key create`),
-runs the proxy, exports, and stops the proxy. Write the export outside the
-repo: it holds testers' words. By hand:
+Agents and people alike, from the repo root:
 
 ```
-jkbase db proxy --project beardictate-telemetry     # RhypeDB on 127.0.0.1:4200
-node export.js telemetry.jsonl [--install <id>] [--since 2026-10-18]
-curl -H "Authorization: Bearer $KEY" https://beardictate-telemetry.jkbase.app/v1/stats
+telemetry/pull.sh stats
+telemetry/pull.sh export <out.jsonl> [--install <id>] [--since 2026-10-19]
+telemetry/pull.sh audio <audio key from the export> <out.flac>
 ```
 
-Audio is in the console's storage browser, bucket `telemetry`, under the
-keys the export gives.
+It asks the server's read endpoints (`GET /v1/stats`, `/v1/export`,
+`/v1/audio/…`) with the read key in
+`~/.config/beardictate-release/telemetry-read-key` (the server's `READ_KEY`
+secret). That key only reads, and it's never in the app: the app's key
+(`ALPHA_KEY`), which every copy carries, can only send. Write exports outside
+the repo: they hold testers' words. For the local server, `dev.sh`'s read
+key is `dev-read-key` (`BD_TELEMETRY_URL=http://127.0.0.1:8787`,
+`BD_TELEMETRY_READ_KEY_FILE`). `export.js` does the same export straight from
+a local RhypeDB.

@@ -15,5 +15,5 @@ mkdir -p .data
 db=$!
 trap 'kill $db 2>/dev/null' EXIT
 
-PORT=$PORT ALPHA_KEY=${ALPHA_KEY:-dev-key} RHYPEDB_URL="http://127.0.0.1:$DB_PORT" \
+PORT=$PORT ALPHA_KEY=${ALPHA_KEY:-dev-key} READ_KEY=${READ_KEY:-dev-read-key} RHYPEDB_URL="http://127.0.0.1:$DB_PORT" \
   AUDIO_DIR=.data/audio AUDIO_BUDGET_GB=${AUDIO_BUDGET_GB:-1} node server.js

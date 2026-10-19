@@ -15,6 +15,7 @@ import { createServer } from "node:net";
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = process.env.RHYPEDB_BIN || join(homedir(), "dev/rhypedb/target/release/rhypedb-server");
 const KEY = "test-key";
+const READ = "read-key";
 const skip = !existsSync(BIN) && `no RhypeDB at ${BIN}`;
 
 let tmp, db, server, base;
@@ -46,7 +47,7 @@ before(async () => {
   db = spawn(BIN, ["--schema", join(here, "..", "schema.rhype"), "--data-dir", join(tmp, "db"), "--listen", `127.0.0.1:${dbPort}`, "--tcp-listen", `127.0.0.1:${tcpPort}`], { stdio: ["ignore", "ignore", "inherit"] });
   await until(`http://127.0.0.1:${dbPort}/health`);
   server = spawn(process.execPath, [join(here, "..", "server.js")], {
-    env: { ...process.env, PORT: String(port), ALPHA_KEY: KEY, RHYPEDB_URL: `http://127.0.0.1:${dbPort}`, AUDIO_DIR: join(tmp, "audio"), AUDIO_BUDGET_GB: String(3000 / (1 << 30)) },
+    env: { ...process.env, PORT: String(port), ALPHA_KEY: KEY, READ_KEY: READ, RHYPEDB_URL: `http://127.0.0.1:${dbPort}`, AUDIO_DIR: join(tmp, "audio"), AUDIO_BUDGET_GB: String(3000 / (1 << 30)) },
     stdio: ["ignore", "ignore", "inherit"],
   });
   base = `http://127.0.0.1:${port}`;
@@ -65,6 +66,7 @@ after(async () => {
 const install = "7f3a9c0e5b1d4f2a8c6e0b9d7a5f3e1c";
 const session = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
 const auth = { authorization: `Bearer ${KEY}` };
+const readAuth = { authorization: `Bearer ${READ}` };
 
 function line(seq, kind, data, segment = null) {
   return JSON.stringify({ v: 1, install, session, seq, ts: "2026-10-18T16:02:11.482Z", app: "0.1.8-alpha", os: "linux", kind, segment, data });
@@ -125,7 +127,7 @@ test("audio is stored, replaced on retry, and kept under the budget", { skip }, 
   for (const seg of ["000002", "000003"]) assert.equal((await put(seg, flac(1000))).status, 200);
   const dir = join(tmp, "audio", "audio", install, session);
   assert.deepEqual(readdirSync(dir).sort(), ["2.flac", "3.flac"]);
-  const stats = await (await fetch(`${base}/v1/stats`, { headers: auth })).json();
+  const stats = await (await fetch(`${base}/v1/stats`, { headers: readAuth })).json();
   assert.equal(stats.audio.clips, 2);
   assert.equal(stats.audio.bytes, 2000);
   const mine = stats.installs.find((i) => i.install === install);
@@ -146,4 +148,24 @@ test("an install is held to 60 requests a minute", { skip }, async () => {
   }
   assert.ok(statuses.slice(0, 55).every((s) => s === 200));
   assert.ok(statuses.includes(429));
+});
+
+test("the read key exports and fetches audio; the app's key can't read", { skip }, async () => {
+  for (const path of ["/v1/stats", "/v1/export", `/v1/audio/${install}/${session}/2.flac`]) {
+    assert.equal((await fetch(`${base}${path}`, { headers: auth })).status, 401, path);
+  }
+  const r = await fetch(`${base}/v1/export?install=${install}`, { headers: readAuth });
+  assert.equal(r.status, 200);
+  const lines = (await r.text()).trim().split("\n").map((l) => JSON.parse(l));
+  const seg = lines.find((l) => l.segment === 3);
+  assert.equal(seg.events[0].kind, "cleaned");
+  assert.ok(lines.some((l) => l.segment === null && l.events.some((e) => e.kind === "system")));
+  const withAudio = lines.find((l) => l.audio);
+  assert.ok(!withAudio || withAudio.audio.startsWith("audio/"));
+  assert.equal((await (await fetch(`${base}/v1/export?since=2099-01-01`, { headers: readAuth })).text()), "");
+  assert.equal((await fetch(`${base}/v1/export?since=nonsense`, { headers: readAuth })).status, 400);
+  const clip = await fetch(`${base}/v1/audio/${install}/${session}/2.flac`, { headers: readAuth });
+  assert.equal(clip.status, 200);
+  assert.equal(Buffer.from(await clip.arrayBuffer()).subarray(0, 4).toString(), "fLaC");
+  assert.equal((await fetch(`${base}/v1/audio/${install}/${session}/1.flac`, { headers: readAuth })).status, 404);
 });

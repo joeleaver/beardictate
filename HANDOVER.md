@@ -297,17 +297,13 @@ README.md.
 ## Telemetry (testers' logs)
 
 The server is live, and every build from 0.1.9 sends telemetry (see
-"Telemetry server" above; contract: `docs/telemetry.md`). Reading the
-database needs a managed-DB key, which doesn't exist yet: Joe makes it once
-with `jkbase db key create --project beardictate-telemetry` and writes it to
-`~/.config/beardictate/telemetry-db.env` (mode 600, as
-`JKBASE_DB_ACCESS_KEY_ID=` and `JKBASE_DB_SECRET=` lines).
-
-Then the one way for any agent to read the logs is
-`telemetry/pull.sh <out.jsonl> [--install <id>] [--since <date>]`. It runs
-`jkbase db proxy` on a free port, `export.js`, then stops the proxy. The key
-stays in that file. Write the export outside the repo: it holds testers'
-words. Skip the install `0badc0ffee…` (the deploy check). A tester's own log
+"Telemetry server" above; contract: `docs/telemetry.md`). Any agent reads it
+with `telemetry/pull.sh stats | export <out.jsonl> [--install <id>]
+[--since <date>] | audio <key> <out.flac>`, which uses the read key in
+`~/.config/beardictate-release/telemetry-read-key` (server secret
+`READ_KEY`, made 2026-10-19; the app's key can only send). Write exports
+outside the repo: they hold testers' words. Skip the install `0badc0ffee…`
+(the deploy check). A tester's own log
 (`~/.local/state/beardictate/beardictate.log` on Linux) has segment numbers,
 timings and joins, but never the words.
 

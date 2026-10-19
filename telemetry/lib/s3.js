@@ -58,8 +58,16 @@ export class Store {
       headers: { ...sendHeaders, authorization: signed.authorization },
       body: method === "PUT" ? payload : undefined,
     });
-    const text = await response.text();
-    return { status: response.status, text };
+    const bytes = Buffer.from(await response.arrayBuffer());
+    return { status: response.status, text: bytes.toString("utf8"), bytes };
+  }
+
+  /// The object, or null when there's none.
+  async get(key) {
+    const r = await this.request("GET", key);
+    if (r.status === 404) return null;
+    if (r.status >= 300) throw new Error(`store GET ${key}: ${r.status} ${r.text.slice(0, 200)}`);
+    return r.bytes;
   }
 
   async put(key, body, contentType) {
@@ -93,6 +101,12 @@ export class FolderStore {
     const path = join(this.dir, key);
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, body);
+  }
+
+  async get(key) {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    return readFile(join(this.dir, key)).catch((e) => (e.code === "ENOENT" ? null : Promise.reject(e)));
   }
 
   async delete(key) {

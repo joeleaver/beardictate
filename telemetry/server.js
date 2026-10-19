@@ -4,6 +4,9 @@
 //
 // Environment:
 //   ALPHA_KEY        the shared key alpha builds send (required)
+//   READ_KEY         the key for reading it back (export, audio, stats);
+//                    never in the app, so a key pulled out of a build can
+//                    only add data, not read testers' words
 //   PORT             default 8080
 //   RHYPEDB_URL      default http://127.0.0.1:4200
 //   AUDIO_BUDGET_GB  audio kept, default 8
@@ -17,11 +20,13 @@ import { timingSafeEqual } from "node:crypto";
 
 import { createMany, rows, scan } from "./lib/db.js";
 import { BadBatch, MAX_COMPRESSED, toEvent, unpack } from "./lib/events.js";
+import { exportLines } from "./lib/export.js";
 import { Clips, MAX_CLIP, clipKey } from "./lib/audio.js";
 import { Limiter, count } from "./lib/installs.js";
 import { FolderStore, Store } from "./lib/s3.js";
 
 const KEY = process.env.ALPHA_KEY ?? "";
+const READ_KEY = process.env.READ_KEY ?? "";
 if (!KEY) {
   console.error("ALPHA_KEY is not set; every request will be refused");
 }
@@ -68,11 +73,16 @@ function send(res, status, body, headers = {}) {
   res.end(text);
 }
 
-function authorized(req) {
+function holds(req, key) {
   const given = Buffer.from(req.headers.authorization ?? "");
-  const want = Buffer.from(`Bearer ${KEY}`);
-  return KEY !== "" && given.length === want.length && timingSafeEqual(given, want);
+  const want = Buffer.from(`Bearer ${key}`);
+  return key !== "" && given.length === want.length && timingSafeEqual(given, want);
 }
+
+/// The app's key: it may send.
+const authorized = (req) => holds(req, KEY);
+/// The read key: it may read back.
+const reader = (req) => holds(req, READ_KEY);
 
 /// The request body, or null past `max` bytes.
 function body(req, max) {
@@ -153,13 +163,41 @@ async function handle(req, res) {
     return send(res, 200, "ok");
   }
   if (!path.startsWith("/v1/")) return send(res, 404, { error: "not found" });
+  if (req.method === "GET" && path.startsWith("/v1/")) return read(req, res, url);
   if (!authorized(req)) return send(res, 401, { error: "key" });
   if (req.method === "POST" && path === "/v1/events") return postEvents(req, res);
   const audio = path.match(/^\/v1\/audio\/([^/]+)\/([^/]+)\/([^/]+)\.flac$/);
   if (req.method === "PUT" && audio) return putAudio(req, res, audio[1], audio[2], audio[3]);
-  if (req.method === "GET" && path === "/v1/stats") {
-    await prepare();
-    return stats(res);
+  send(res, 404, { error: "not found" });
+}
+
+/// The read endpoints, with READ_KEY: stats, the export (JSONL, a line per
+/// segment, lib/export.js), and a segment's audio.
+async function read(req, res, url) {
+  if (!reader(req)) return send(res, 401, { error: "key" });
+  const path = url.pathname;
+  await prepare();
+  if (path === "/v1/stats") return stats(res);
+  if (path === "/v1/export") {
+    const since = url.searchParams.get("since") ?? undefined;
+    if (since && Number.isNaN(Date.parse(since))) return send(res, 400, { error: "since: a date" });
+    const install = url.searchParams.get("install") ?? undefined;
+    if (install && !/^[0-9a-f-]{8,64}$/.test(install)) return send(res, 400, { error: "install: an id" });
+    res.writeHead(200, { "content-type": "application/x-ndjson" });
+    for await (const line of exportLines({ install, since })) {
+      if (!res.write(`${line}\n`)) await new Promise((r) => res.once("drain", r));
+    }
+    return res.end();
+  }
+  const audio = path.match(/^\/v1\/audio\/([^/]+)\/([^/]+)\/([^/]+)\.flac$/);
+  if (audio) {
+    if (!objects) return send(res, 503, { error: "audio store not configured" });
+    const key = clipKey(audio[1], audio[2], audio[3]);
+    if (!key) return send(res, 400, { error: "bad clip name" });
+    const flac = await objects.get(key);
+    if (!flac) return send(res, 404, { error: "no such clip (pruned, or never sent)" });
+    res.writeHead(200, { "content-type": "audio/flac", "content-length": flac.length });
+    return res.end(flac);
   }
   send(res, 404, { error: "not found" });
 }
