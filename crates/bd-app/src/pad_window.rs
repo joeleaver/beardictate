@@ -103,7 +103,8 @@ pub enum ToPad {
     /// The bear on screen, on or off.
     Bear { on: bool },
     /// What the app is doing: `idle`, `asleep`, `mic-off`, `listening`,
-    /// `cleaning`, `loading` or `needs-you`.
+    /// `cleaning`, `loading` or `needs-you`, then ` list` in list mode and
+    /// ` quiet` while the microphone is too quiet.
     Look { state: String },
     /// The bear's menu.
     Menu { entries: Vec<Entry> },

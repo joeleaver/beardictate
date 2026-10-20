@@ -13,16 +13,18 @@ pub(super) fn note(event: &Event, live_typing: bool) {
         return;
     }
     match event {
-        Event::Transcribed { id, text, audio, level, gain, pause, elapsed } => record("transcribed", Some(*id), || {
+        Event::Transcribed { id, text, audio, level, gain, pause, elapsed, far } => record("transcribed", Some(*id), || {
+            // Someone else's voice: how loud and long, never the words or audio.
             json!({
-                "text": text,
+                "text": if *far { "" } else { text.as_str() },
+                "far": far,
                 "audio_ms": ms(*audio),
                 "level_dbfs": 20.0 * level.max(1e-9).log10(),
                 "gain": gain,
                 "pause_ms": pause.map(ms),
                 "asr_ms": ms(*elapsed),
                 "recognizer": "nemotron",
-                "audio": cfg!(feature = "alpha"),
+                "audio": cfg!(feature = "alpha") && !far,
             })
         }),
         Event::Partial { id, text, since_speech } => {

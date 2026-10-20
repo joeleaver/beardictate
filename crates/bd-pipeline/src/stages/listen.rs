@@ -17,8 +17,9 @@ use bd_core::{AudioSegment, BoxError, LiveAudio, SAMPLE_RATE, StreamingAsr};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
 use super::transcribe::Report;
-use super::{Cut, Heard};
+use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;
+use crate::voice::VoiceLevel;
 use crate::{Event, Stage};
 
 /// How long a stopped utterance waits for more before it's a sentence's end.
@@ -27,6 +28,8 @@ const WAIT: Duration = Duration::from_millis(1500);
 const WAIT_UNFINISHED: Duration = Duration::from_secs(4);
 /// A stream this long (60 s) is finished at the next pause, not held.
 const MAX_HELD: usize = 60 * SAMPLE_RATE as usize;
+/// How much of an utterance it takes to tell whose voice it is.
+const JUDGE_AFTER: usize = SAMPLE_RATE as usize * 2 / 5;
 
 /// Words a sentence doesn't end on: after one, a pause is the speaker
 /// thinking.
@@ -66,6 +69,9 @@ struct Listener {
     held_at: Option<Instant>,
     /// For spoken marks: one said after a pause joins the utterance before.
     commands: CommandConfig,
+    /// The utterance being spoken so far: its samples' sum of squares and
+    /// count, and the gain they were raised by, to tell whose voice it is.
+    loudness: (f64, usize, f32),
 }
 
 pub(super) fn live(
@@ -74,10 +80,24 @@ pub(super) fn live(
     out: Sender<Heard>,
     events: Sender<Event>,
     gain: InputGain,
+    voice: VoiceLevel,
     commands: CommandConfig,
 ) {
-    let report = Report { events, gain, previous_end: None };
-    let mut l = Listener { asr, out, report, open: false, text: String::new(), done: 0, fed: 0, speaking: None, stopped: None, held_at: None, commands };
+    let report = Report { events, gain, voice, previous_end: None };
+    let mut l = Listener {
+        asr,
+        out,
+        report,
+        open: false,
+        text: String::new(),
+        done: 0,
+        fed: 0,
+        speaking: None,
+        stopped: None,
+        held_at: None,
+        commands,
+        loudness: (0.0, 0, 1.0),
+    };
     loop {
         let cut = match l.deadline() {
             Some(at) => match input.recv_deadline(at) {
@@ -127,6 +147,13 @@ impl Listener {
             }
             return;
         };
+        if let LiveAudio::Start(_) = audio {
+            self.loudness = (0.0, 0, used);
+        }
+        if let LiveAudio::Start(samples) | LiveAudio::More(samples) = &audio {
+            self.loudness.0 += samples.iter().map(|s| f64::from(*s) * f64::from(*s)).sum::<f64>();
+            self.loudness.1 += samples.len();
+        }
         match audio {
             LiveAudio::Start(samples) => {
                 self.speaking = Some((id, Instant::now()));
@@ -184,7 +211,7 @@ impl Listener {
             return;
         }
         let text = words(&self.text, self.done, n);
-        if text.is_empty() {
+        if text.is_empty() || self.far_so_far(&text) {
             return;
         }
         let since_speech = self.speaking.map_or(Duration::ZERO, |(_, t)| t.elapsed());
@@ -232,8 +259,23 @@ impl Listener {
             return;
         }
         let text = words(&self.text, self.done, n);
+        // Someone else's voice: nothing to show while it waits.
+        let far = self.report.voice.is_far(noise::rms(&seg.samples) / used, wake::heard(&text).is_some());
         self.stopped = Some(Stopped { id, seg, used, started, end: n, at: Instant::now() });
-        let _ = self.out.send(Heard::Partial { id, text, settled: true });
+        if !far {
+            let _ = self.out.send(Heard::Partial { id, text, settled: true });
+        }
+    }
+
+    /// Whether the utterance being spoken, `text` so far, is someone else's
+    /// voice (`voice.rs`), once there's enough of it to tell.
+    fn far_so_far(&self, text: &str) -> bool {
+        let (squares, n, used) = self.loudness;
+        if n < JUDGE_AFTER {
+            return false;
+        }
+        let level = (squares / n as f64).sqrt() as f32 / used;
+        self.report.voice.is_far(level, wake::heard(text).is_some())
     }
 
     /// Whether the stream's words after the stopped utterance, up to `n`,

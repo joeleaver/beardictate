@@ -2,12 +2,49 @@
 //! pipeline's gate decides what is typed. "Bear, wake up", "bear, go to
 //! sleep" and the hotkey switch typing on and off; only the tray menu turns
 //! the microphone itself off and on (`Settings::microphone_on`).
+//!
+//! Awake, it goes back to sleep after [`UNSPOKEN_TO`] with nothing said to
+//! it (someone else's voice doesn't count: `bd_pipeline::FAR_BELOW_DB`), as
+//! a dictation started by the hotkey stops: an alpha tester's, left awake,
+//! typed and recorded the room for an hour and a half.
+
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use serde_json::json;
 
 use super::{Ui, Worker};
 
+/// Asleep (or stopped) after this long with nothing said to it. Testers
+/// paused for up to eight minutes mid-dictation.
+pub(super) const UNSPOKEN_TO: Duration = Duration::from_secs(10 * 60);
+
+/// Whether a dictation that last heard the user at `last_heard` has gone on
+/// too long unspoken to.
+pub(super) fn unspoken_to(last_heard: Instant, now: Instant) -> bool {
+    now.saturating_duration_since(last_heard) >= UNSPOKEN_TO
+}
+
 impl<U: Ui> Worker<U> {
+    /// On the engine's tick: sends a dictation nobody is speaking to back
+    /// to sleep, or stops it.
+    pub(super) fn sleep_if_unspoken_to(&mut self) {
+        if self.listening_since.is_none() || self.testing || !unspoken_to(self.last_heard, Instant::now()) {
+            return;
+        }
+        let Some(pipeline) = self.pipeline.as_ref() else { return };
+        let minutes = UNSPOKEN_TO.as_secs() / 60;
+        tracing::info!("nothing said to it for {minutes} minutes: going to sleep");
+        crate::telemetry::record("state", None, || json!({"state": "unspoken_to", "minutes": minutes}));
+        self.last_heard = Instant::now();
+        if self.standby {
+            // The pipeline says when it's asleep (Event::Slept).
+            pipeline.set_awake(false);
+        } else {
+            self.stop();
+        }
+    }
+
     /// Whether the settings ask for the microphone to be running.
     pub(super) fn wants_standby(&self) -> bool {
         self.settings.voice_wake && self.settings.microphone_on
@@ -105,5 +142,19 @@ impl<U: Ui> Worker<U> {
         self.settings_mtime = super::mtime(&self.paths.settings);
         self.ui.settings_changed(self.settings.clone());
         self.publish();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ten_minutes_unspoken_to_is_enough() {
+        let start = Instant::now();
+        assert!(!unspoken_to(start, start + Duration::from_secs(8 * 60)));
+        assert!(unspoken_to(start, start + UNSPOKEN_TO));
+        // A clock that went backwards isn't a long silence.
+        assert!(!unspoken_to(start + Duration::from_secs(5), start));
     }
 }

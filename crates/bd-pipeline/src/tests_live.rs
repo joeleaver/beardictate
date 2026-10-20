@@ -427,3 +427,24 @@ fn a_mark_said_while_its_sentence_is_tidied_stays_the_only_mark() {
 
 #[path = "tests_hold.rs"]
 mod hold;
+
+#[test]
+fn someone_elses_voice_is_neither_shown_as_spoken_nor_typed() {
+    let config = PipelineConfig { drop_far_voices: true, ..PipelineConfig::default() };
+    let p = live_rig(
+        vec![
+            // Line 0 comes in silent (its samples are zeros): the room.
+            vec!["Someone", "Someone across", "Someone across the", "Someone across the room."],
+            vec!["It", "It was", "It was late", "It was late."],
+            vec!["We", "We stayed", "We stayed in", "We stayed in."],
+        ],
+        config,
+    );
+    for line in [1, 0, 2] {
+        p.push_audio(vec![line as f32; 16_000]);
+    }
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "It was late. We stayed in.");
+    let shown = |e: &Event| matches!(e, Event::Partial { text, .. } if text.contains("Someone"));
+    assert!(!events.iter().any(shown), "{events:?}");
+}

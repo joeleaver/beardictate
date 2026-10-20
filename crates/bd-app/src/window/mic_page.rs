@@ -11,6 +11,8 @@ use crate::ui::{Section, Shared, change};
 /// The Select value standing for "no particular microphone".
 const DEFAULT_MIC: &str = "(default)";
 
+const WARNING_STYLE: &str = "padding: 10px 12px; border-radius: 8px; background: #fbefd0; color: #5c4300; border: 1px solid #e0a800;";
+
 /// dBFS for an RMS level.
 fn db(level: f32) -> f32 {
     20.0 * level.max(1e-6).log10()
@@ -37,11 +39,16 @@ pub fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             crate::engine_send(Command::MicTest(false));
         }
     });
+    let status = s.status;
     let manual_db = Signal::new(f64::from(s.settings.with(|st| st.mic_gain_db)));
     let (s1, s2, s3, s4, s5, s6) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Microphone" }
+            // Also on the bear and in the tray: Windows may silence the notification.
+            div { style: {move || if status.with(|st| st.warning.is_some()) { WARNING_STYLE.to_string() } else { "display: none;".to_string() }},
+                Text { size: "sm", {move || status.with(|st| st.warning.clone().map(|w| format!("\u{26A0} {w}.")).unwrap_or_default())} }
+            }
             Select {
                 label: "Microphone",
                 data: data,

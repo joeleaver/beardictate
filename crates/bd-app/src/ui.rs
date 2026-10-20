@@ -82,7 +82,7 @@ impl Shared {
             section: Signal::new(Section::General),
             hotkey_text: Signal::new(readable(&settings.hotkey)),
             hotkey_note: Signal::new(String::new()),
-            status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false }),
+            status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false, warning: None }),
             settings: Signal::new(settings),
             models,
             mic: MicView {
@@ -150,6 +150,14 @@ pub fn tray_image(status: &Status, theme: TrayTheme) -> TrayIconImage {
 /// The tray's tooltip. (The item's title, which Plasma sorts the tray by,
 /// stays "beardictate", so the icon doesn't move as this changes.)
 fn tooltip(status: &Status, hotkey: &str) -> String {
+    let line = state_line(status, hotkey);
+    match &status.warning {
+        Some(warning) => format!("{line}\n\u{26A0} {warning}"),
+        None => line,
+    }
+}
+
+fn state_line(status: &Status, hotkey: &str) -> String {
     match status.state {
         // "Loading Qwen3.5 4B…", "Switching to Gemma 4 E2B…".
         State::Loading => status.detail.clone(),
@@ -374,8 +382,10 @@ mod tests {
 
     #[test]
     fn tooltips_say_what_to_do() {
-        let idle = Status { state: State::Idle, detail: "Post-processing: Qwen3 4B".into(), since: None, voice: false };
+        let idle = Status { state: State::Idle, detail: "Post-processing: Qwen3 4B".into(), since: None, voice: false, warning: None };
         assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nPost-processing: Qwen3 4B");
+        let quiet = Status { warning: Some("Your microphone is quiet".into()), ..idle };
+        assert!(tooltip(&quiet, "Ctrl+Alt+Space").ends_with("\n\u{26A0} Your microphone is quiet"));
         assert_eq!(crate::menu::shorten("abcdef", 4), "abc…");
     }
 }

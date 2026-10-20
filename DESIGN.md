@@ -241,6 +241,22 @@ microphone that fails to open, or disappears, is recorded as off, so the
 menu offers to turn it back on. Waking after more than a minute asleep
 starts a new passage (no cleanup context from before).
 
+**Other voices in the room** (2026-10-20). An alpha tester left it awake;
+for an hour and a half it typed, and sent as telemetry, a video and other
+people at -45 to -76 dBFS, while their own voice came in at -25 to -37 (and
+the microphone gain learned from them, up to its 30 dB limit). Two rules:
+- A sentence more than 15 dB quieter than the user's own speech is someone
+  else's: not typed, its audio not sent, the gain not learned from it
+  (`bd-pipeline` `voice.rs`, `PipelineConfig::drop_far_voices`, on in the
+  app, off for files). The user's level is learned from what they dictate,
+  quickly up and slowly down; a sentence with "bear, wake up" or "go to
+  sleep" in it, and the first one after the hotkey wakes or a dictation
+  starts, is theirs at any level and sets it afresh, so someone who moved
+  away from the microphone isn't shut out for long.
+- Awake with nothing said to it (by the user: other voices don't count)
+  for 10 minutes, it goes back to sleep; a dictation started by the hotkey
+  stops. The tester paused for up to eight minutes mid-dictation.
+
 Phrases are matched on the ASR text, ignoring case and punctuation, with
 the spellings the recognizer uses for "bear" (bare, bair, …). A wake phrase
 counts anywhere in a segment and what follows it is dictation; a sleep
@@ -423,7 +439,11 @@ from Right Ctrl+C (rinch's `chorded` flag is always false there).
   - an **OS notification** only for events that need the user's attention:
     guardrail fallback ("typed the raw text"), elevated-window clipboard
     fallback ("press Ctrl+V"), hotkey conflict, mic lost, model missing.
-    Rate-limited; never one per sentence.
+    Rate-limited; never one per sentence. A notification can be silenced
+    (Windows did, for an alpha tester's "microphone is quiet"), so a
+    condition that lasts also shows while it lasts: the microphone being
+    too quiet is an amber "!" on the bear, a line in the tray's tooltip and
+    menu (which opens Settings › Microphone), and a banner on that page.
     Uses rinch's notification API
     ([rinch#1522](https://github.com/joeleaver/rinch/issues/1522)).
 - **Settings window** — hotkey, mode, mic, cleanup tier, models (download

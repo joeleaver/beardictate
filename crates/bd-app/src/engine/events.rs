@@ -59,6 +59,7 @@ impl<U: Ui> Worker<U> {
             Event::Woke => {
                 tracing::info!("voice wake: awake");
                 self.listening_since = Some(Instant::now());
+                self.last_heard = Instant::now();
                 self.pad.dismissed = false;
                 self.publish();
             }
@@ -74,11 +75,16 @@ impl<U: Ui> Worker<U> {
             }
             // Counts only, never the words: enough to see in the log which
             // sentence went missing, and when.
-            Event::Transcribed { id, text, audio, level, gain, .. } => {
+            Event::Transcribed { id, text, audio, level, gain, far, .. } => {
                 let db = 20.0 * level.max(1e-9).log10();
                 let words = text.split_whitespace().count();
-                tracing::info!(segment = id, words, ms = audio.as_millis(), gain = format!("{:.1}", gain), "heard ({db:.0} dBFS)");
-                self.note_speech_level(level, words);
+                tracing::info!(segment = id, words, ms = audio.as_millis(), gain = format!("{:.1}", gain), far, "heard ({db:.0} dBFS)");
+                // Someone else's voice says nothing about the user's microphone,
+                // and isn't the user speaking to it.
+                if !far && words > 0 {
+                    self.last_heard = Instant::now();
+                    self.note_speech_level(level, words);
+                }
                 self.note_gain(gain);
                 if self.testing {
                     self.ui.heard(text, level);

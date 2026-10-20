@@ -415,6 +415,21 @@ fn voice_wake_delivers_only_what_is_said_while_awake() {
 }
 
 #[test]
+fn a_voice_far_quieter_than_the_users_is_not_delivered() {
+    let config = PipelineConfig { drop_far_voices: true, ..PipelineConfig::default() };
+    // Line 0 comes in silent (its samples are zeros), the others loud.
+    let r = rig_with(vec!["Someone across the room.", "It was late.", "We stayed in."], false, false, config);
+    // A second of each, long enough to teach the user's level.
+    for line in [1, 0, 2] {
+        r.pipeline.push_audio(vec![line as f32; 16_000]);
+    }
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "It was late. We stayed in.");
+    let far: Vec<bool> = events.iter().filter_map(|e| if let Event::Transcribed { far, .. } = e { Some(*far) } else { None }).collect();
+    assert_eq!(far, [false, true, false]);
+}
+
+#[test]
 fn spaces_trail_and_are_taken_back_before_a_break() {
     let r = rig(vec!["It was late.", "New paragraph. Morning came."], false, false);
     say(&r.pipeline, 0);

@@ -27,6 +27,8 @@ pub enum Act {
     List { on: bool },
     RestartToUpdate,
     Settings,
+    /// Settings, at the Microphone page.
+    MicrophoneSettings,
     Quit,
 }
 
@@ -63,6 +65,9 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
     if status.state == State::NeedsYou {
         out.push(item(capitalized(&shorten(&status.detail, 70)), None));
     }
+    if status.warning.is_some() {
+        out.push(item("\u{26A0} Your microphone is quiet\u{2026}", Some(Act::MicrophoneSettings)));
+    }
     if status.voice && status.state != State::Loading {
         let on = status.state != State::MicOff;
         let label = if on { "Turn microphone off" } else { "Turn microphone on" };
@@ -97,6 +102,10 @@ pub fn perform(shared: &Shared, act: Act) {
         Act::RestartToUpdate => crate::update::restart_to_update(),
         Act::Settings => {
             shared.section.set(Section::General);
+            show_current_window();
+        }
+        Act::MicrophoneSettings => {
+            shared.section.set(Section::Microphone);
             show_current_window();
         }
         Act::Quit => close_current_window(),

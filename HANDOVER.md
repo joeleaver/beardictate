@@ -17,7 +17,16 @@ file is *where things stand*.
 4. **Not tried by real voice yet**: "bear, wake up / delete / undo / send it
    / clear / start a list / end the list" (Piper can't say "bear"). The bear
    and its menu are untried on Windows and X11.
-5. Smaller: the Post-processing model is never chosen automatically; the
+5. **Unreleased (2026-10-20), from the Windows tester's telemetry**: other
+   voices in the room aren't typed or sent (more than 15 dB below the
+   user's learned level, `bd-pipeline` `voice.rs`), it goes back to sleep
+   after 10 minutes unspoken to, and "microphone is quiet" shows on the
+   bear (amber "!"), the tray tooltip and menu and Settings › Microphone,
+   not only as a notification (Windows silenced it). DESIGN.md "Always
+   listening", docs/telemetry.md (`far`, `unspoken_to`). Proved by tests
+   only; not yet tried by voice in the app. After release, check
+   `transcribed` events with `far: true` against testers' own levels.
+6. Smaller: the Post-processing model is never chosen automatically; the
    KDE portal keeps its own copy of the shortcut (documented); Nemotron
    sometimes misses a real sentence end across a pause. Command hotwords were
    tried and rejected (they made Nemotron hear commands in noise).

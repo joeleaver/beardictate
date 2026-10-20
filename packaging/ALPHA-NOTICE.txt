@@ -11,8 +11,11 @@ the next post-processing model trained on real dictation:
   system, processor, memory and graphics card.
 
 Only what you say while dictating is sent. With "Always listening" on,
-nothing said while beardictate is asleep leaves your computer. Nothing you
-type yourself is sent.
+nothing said while beardictate is asleep leaves your computer, and it goes
+back to sleep after 10 minutes with nothing said to it. Speech much quieter
+than your own voice, such as other people or a video across the room, is
+neither typed nor sent, though how loud it was is. Nothing you type
+yourself is sent.
 
 It is tied to a random install number, not your name or any account. It
 waits in a folder on your computer (at most 220 MB), is deleted there as soon

@@ -15,6 +15,14 @@ sentences) is recorded: `transcribed`, `partial`, `commanded` and the audio
 are dropped while always listening is asleep, so nothing said near the
 microphone then leaves the computer (`telemetry::set_dictating`).
 
+Nor is someone else's voice while awake (from 0.1.19): a sentence more than
+15 dB quieter than the user's own speech (`bd-pipeline` `voice.rs`) is sent
+as a `transcribed` event with `far: true`, an empty `text` and no audio, and
+its live text (`partial`) is held back. Awake, the app goes back to sleep
+after 10 minutes with nothing said to it (a `state` event, `unspoken_to`).
+An alpha tester's room (other people, a video) was recorded for an hour and
+a half on 2026-10-20 before this.
+
 This file is the contract between the app (`crates/bd-app/src/telemetry/`)
 and the server (`telemetry/`). Change both together; bump `v` when an event's
 meaning changes.
@@ -62,10 +70,10 @@ One JSON object per line:
 | `settings` | start, and each change (list mode by voice too) | the settings file, as saved (word lists included), plus `list_mode`; since 8cff5bb `destination` (`app`/`pad`) and `tidy` (bool) instead of `mode`. **Not sent before 0.1.17** (the contract said so; the app didn't) |
 | `load` | models loaded or failed | `destination`, `tidy`, `asr`, `cleanup` (name or null), `template`, `gpu_layers`, `n_layer`, `n_ctx`, `threads`, `load_ms`, `error` |
 | `log` | a warning or error, and llama.cpp's and the cleanup loader's messages while a model loads | `level`, `target`, `message` (at most 200 a session) |
-| `state` | dictation starts, stops, wakes, sleeps; list mode switched by voice | `state` (`listening`, `idle`, `asleep`, `cleaning`…), or `list_mode` (bool, from 0.1.13) |
+| `state` | dictation starts, stops, wakes, sleeps; list mode switched by voice | `state` (`listening`, `idle`, `asleep`, `cleaning`…; `unspoken_to` with `minutes` when it goes to sleep or stops by itself, from 0.1.19), or `list_mode` (bool, from 0.1.13) |
 | `mic` | microphone opened, lost, or warned about | `device`, `event`, `detail` |
 | `partial` | the streaming recognizer's text so far | `text`, `since_speech_ms` |
-| `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms` (from the utterance's start; from 0.1.11 it includes the wait to hear whether the sentence went on), `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent) |
+| `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms` (from the utterance's start; from 0.1.11 it includes the wait to hear whether the sentence went on), `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent), `far` (from 0.1.19: someone else's voice, so `text` is empty and no audio) |
 | `commanded` | after the vocabulary and command pass | `heard`, `vocabulary` (text after special-word fixes), `commanded`, `actions` (`["new_paragraph", "open_quote", …]`), `pad_command` |
 | `cleaned` | the cleanup model ran (a sentence, or a pad paragraph) | `segments`, `context`, `raw`, `names`, `model_output`, `final`, `verdict` (`accepted`/`repaired`/`fell_back`), `reason`, `respelled` `[[heard, word]]`, `removed`, `prompt_tokens`, `reused_tokens`, `generated_tokens`, `prefill_ms`, `decode_ms`, `total_ms`, `pad` (bool) |
 | `typed` | text sent to the focused app | `text`, `take_back`, `erase` (characters taken back), `backend`, `outcome` (`typed`/`pasted`/`clipboard`/`failed`), `inject_ms`, `live` (typed while spoken: your app with tidy off) |

@@ -3,7 +3,9 @@
 //! menu.
 //!
 //! The bear glows in the tray dot's colours for what the app is doing,
-//! pulsing while it listens, and its snout turns cobalt at work. A click
+//! pulsing while it listens, and its snout turns cobalt at work. A small
+//! amber "!" at its upper left says the microphone is too quiet (its menu
+//! says so too), and a list mark at its lower right that list mode is on. A click
 //! starts or stops dictating, a drag moves it, a right-click opens the
 //! tray's menu ([`crate::menu`]).
 
@@ -45,6 +47,11 @@ fn snout(state: &str) -> &'static str {
 
 const INK: &str = "#0E1A30";
 
+/// Whether the state (`"listening list quiet"`) carries `mark`.
+fn has(state: &str, mark: &str) -> bool {
+    state.split(' ').skip(1).any(|m| m == mark)
+}
+
 pub const CSS: &str = "
 @keyframes bear-pulse {
     0% { opacity: 0.45; }
@@ -83,6 +90,12 @@ pub fn glyph(__scope: &mut RenderScope, state: Signal<String>, at: f64, disc: f6
         at + disc - mark * 0.8,
         mark * 0.8
     );
+    let quiet_style = format!(
+        "position: absolute; left: {:.1}px; top: {:.1}px; width: {mark:.1}px; height: {mark:.1}px; border-radius: 50%; background: #E0A800; color: #0E1A30; font: bold {:.1}px/{mark:.1}px sans-serif; text-align: center;",
+        at - mark * 0.2,
+        at - mark * 0.2,
+        mark * 0.8
+    );
     // The bear spans 44/60 of the disc, centred.
     let (px, o) = (disc * 44.0 / 60.0, at + disc * 8.0 / 60.0);
     rsx! {
@@ -101,8 +114,12 @@ pub fn glyph(__scope: &mut RenderScope, state: Signal<String>, at: f64, disc: f6
             div { style: {move || part(o, o, px, (16.0, 22.0, 6.2, 4.8), snout(&state.get()))} }
             div { style: {part(o, o, px, (16.0, 19.4, 2.7, 1.8), INK)} }
             // List mode: a small list mark at the disc's lower right.
-            div { style: {move || if state.get().ends_with(" list") { list_style.clone() } else { "display: none;".to_string() }},
+            div { style: {move || if has(&state.get(), "list") { list_style.clone() } else { "display: none;".to_string() }},
                 "\u{2261}"
+            }
+            // The microphone is quiet: an amber mark at the disc's upper left.
+            div { style: {move || if has(&state.get(), "quiet") { quiet_style.clone() } else { "display: none;".to_string() }},
+                "!"
             }
         }
     }

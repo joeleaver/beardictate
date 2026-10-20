@@ -36,9 +36,10 @@ fn stamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-/// Saves segment `id`'s audio as `<time>-<id>.wav` and lists what the ASR made of it.
-pub fn segment(id: u64, samples: &[f32], heard: &str) {
-    if let Some(sink) = SINK.get() {
+/// Saves segment `id`'s audio as `<time>-<id>.wav` and lists what the ASR
+/// made of it; `share`: hands it to the sink too.
+pub fn segment(id: u64, samples: &[f32], heard: &str, share: bool) {
+    if share && let Some(sink) = SINK.get() {
         sink(id, samples);
     }
     let Some(dir) = dir() else { return };

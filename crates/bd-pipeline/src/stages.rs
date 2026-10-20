@@ -76,13 +76,14 @@ pub(crate) fn spawn(
     let asr_events = events.clone();
     let gain = InputGain::new(config.input_gain, config.auto_gain);
     let learner = gain.clone();
+    let voice = crate::voice::VoiceLevel::new(config.drop_far_voices);
     let commands = config.commands.clone();
     let finisher = Finisher::new(cleanup, config, events, live, focus);
     Ok(vec![
         thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live))?,
         thread::Builder::new().name("bd-asr".into()).spawn(move || match asr {
-            Recognizer::Segments(asr) => transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner),
-            Recognizer::Live(asr) => listen::live(asr, cut_rx, heard_tx, asr_events, learner, commands),
+            Recognizer::Segments(asr) => transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner, voice),
+            Recognizer::Live(asr) => listen::live(asr, cut_rx, heard_tx, asr_events, learner, voice, commands),
         })?,
         thread::Builder::new().name("bd-finish".into()).spawn(move || finisher.run(heard_rx))?,
     ])

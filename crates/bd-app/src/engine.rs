@@ -82,6 +82,10 @@ pub struct Status {
     pub since: Option<Instant>,
     /// Always listening: the hotkey wakes and sends to sleep.
     pub voice: bool,
+    /// Something the user should fix, shown on the bear, in the tray's
+    /// tooltip and menu and in Settings (a notification alone can be
+    /// silenced by the system).
+    pub warning: Option<String>,
 }
 
 /// What the engine tells the UI. Called on the engine's thread.
@@ -166,9 +170,11 @@ struct Worker<U> {
     reopen_mic: bool,
     /// The settings changed while models were loading: load again.
     reload_after_load: bool,
-    /// Quiet sentences in a row, and whether that was said this run.
-    quiet_run: u8,
-    quiet_warned: bool,
+    /// Whether the user's speech keeps arriving quiet (see `mic_check.rs`).
+    quiet: mic_check::Quiet,
+    /// When the user last said something to it, or started dictating
+    /// (see `standby.rs`: it goes to sleep after a long silence).
+    last_heard: Instant,
     /// Learned microphone gains by microphone, and the gain in use.
     gains: std::collections::BTreeMap<String, f32>,
     gain: f32,
@@ -215,8 +221,8 @@ impl<U: Ui> Worker<U> {
             mic_check: None,
             reopen_mic: false,
             reload_after_load: false,
-            quiet_run: 0,
-            quiet_warned: false,
+            quiet: mic_check::Quiet::default(),
+            last_heard: Instant::now(),
             gains,
             gain: 1.0,
             meter_peak: 0.0,
@@ -271,6 +277,7 @@ impl<U: Ui> Worker<U> {
                 recv(ticks) -> _ => {
                     self.watch_files();
                     self.check_mic_level();
+                    self.sleep_if_unspoken_to();
                 }
             }
         }
@@ -303,7 +310,8 @@ impl<U: Ui> Worker<U> {
             (State::Idle, self.cleanup_name.clone())
         };
         crate::telemetry::set_dictating(matches!(state, State::Listening | State::Cleaning));
-        self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake });
+        let warning = self.quiet.showing.then(|| mic_check::QUIET_WARNING.to_string());
+        self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake, warning });
         self.pad.look.set(state);
         self.sync_pad();
     }
@@ -356,6 +364,7 @@ impl<U: Ui> Worker<U> {
         }
         self.capture.as_mut().expect("opened above").start().context("starting the microphone")?;
         self.listening_since = Some(Instant::now());
+        self.last_heard = Instant::now();
         self.pad.dismissed = false;
         self.publish();
         Ok(())
@@ -426,6 +435,7 @@ impl<U: Ui> Worker<U> {
             // Each microphone has its own learned gain.
             pipeline.reconfigure(pipeline_config(s, self.starting_gain()));
             self.gain = self.starting_gain();
+            self.quiet = mic_check::Quiet::default();
         }
         let s = &self.settings;
         if self.standby && old.microphone != s.microphone {

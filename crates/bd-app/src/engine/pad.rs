@@ -82,11 +82,12 @@ impl PadHost {
     /// Brings the window up to date: the bear and its menu, the pad shown or
     /// hidden, its status and text.
     #[allow(clippy::too_many_arguments)]
-    fn sync(&mut self, bear: bool, look: &str, list: bool, menu: &[Entry], visible: bool, status: String, view: &PadView) {
+    fn sync(&mut self, bear: bool, look: &str, marks: (bool, bool), menu: &[Entry], visible: bool, status: String, view: &PadView) {
         if !bear && !visible && self.child.is_none() {
             return;
         }
-        let look = if list { format!("{look} list") } else { look.to_string() };
+        let (list, quiet) = marks;
+        let look = format!("{look}{}{}", if list { " list" } else { "" }, if quiet { " quiet" } else { "" });
         if self.look != look {
             self.tell(&ToPad::Look { state: look.clone() });
             self.look = look;
@@ -202,7 +203,8 @@ impl<U: Ui> Worker<U> {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
         let status = format!("{list}{status}");
-        host.sync(bear, look_name(self.pad.look.get()), self.settings.list_mode, &self.pad.menu, visible, status, &self.pad.view);
+        let marks = (self.settings.list_mode, self.quiet.showing);
+        host.sync(bear, look_name(self.pad.look.get()), marks, &self.pad.menu, visible, status, &self.pad.view);
     }
 }
 

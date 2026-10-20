@@ -1,7 +1,9 @@
 //! A few seconds after a microphone opens, how loud it was: logged, and a
 //! notification when it delivered nothing at all (the wrong input or
 //! channel, a muted interface), which otherwise looks like dictation being
-//! ignored.
+//! ignored. And speech that keeps arriving quiet: a warning that stays on
+//! the bear, the tray and Settings until a sentence comes in loud enough
+//! (Windows silenced the notification for an alpha tester, who never saw it).
 
 use std::time::{Duration, Instant};
 
@@ -15,8 +17,32 @@ const LISTEN: Duration = Duration::from_secs(8);
 /// Speech quieter than this (about -42 dBFS) is hard for the ASR, even
 /// brought up: the microphone's own hiss comes up with it.
 const QUIET: f32 = 0.008;
-/// This many quiet sentences in a row earn a warning (once a run).
+/// This many quiet sentences in a row earn a warning.
 const QUIET_RUN: u8 = 3;
+/// What the bear, the tray and Settings say meanwhile.
+pub(super) const QUIET_WARNING: &str = "Your microphone is quiet: turn up its input volume in your system's sound settings, or move closer";
+
+/// Quiet sentences in a row; whether the notification went out this run,
+/// and whether the warning is showing.
+#[derive(Debug, Default)]
+pub(super) struct Quiet {
+    run: u8,
+    notified: bool,
+    pub showing: bool,
+}
+
+impl Quiet {
+    /// Notes a sentence of the user's at `level`; true when the warning
+    /// should now show (`Some(true)`) or go (`Some(false)`).
+    fn note(&mut self, level: f32) -> Option<bool> {
+        if level >= QUIET {
+            self.run = 0;
+            return std::mem::take(&mut self.showing).then_some(false);
+        }
+        self.run = self.run.saturating_add(1);
+        (self.run >= QUIET_RUN && !std::mem::replace(&mut self.showing, true)).then_some(true)
+    }
+}
 
 /// Below this the input is digital silence: no microphone noise floor is
 /// this quiet (about -100 dBFS).
@@ -63,26 +89,28 @@ impl<U: Ui> Worker<U> {
         self.mic_check = None;
     }
 
-    /// Notes how loud a heard sentence was; after a few quiet ones in a
-    /// row, suggests turning the microphone up.
+    /// Notes how loud a sentence of the user's was; after a few quiet ones
+    /// in a row, suggests turning the microphone up, until a loud one.
     pub(super) fn note_speech_level(&mut self, level: f32, words: usize) {
         if words == 0 {
             return;
         }
-        if level >= QUIET {
-            self.quiet_run = 0;
-            return;
+        match self.quiet.note(level) {
+            Some(true) => {
+                let db = 20.0 * level.max(1e-9).log10();
+                tracing::info!("speech keeps arriving quiet ({db:.0} dBFS)");
+                if !std::mem::replace(&mut self.quiet.notified, true) {
+                    self.notifier.notify(
+                        "mic-quiet",
+                        "Your microphone is quiet",
+                        "Words get missed or misheard. Turn up the microphone's input volume in your system's sound settings, or move closer to it.",
+                    );
+                }
+            }
+            Some(false) => tracing::info!("speech arrives loud enough again"),
+            None => return,
         }
-        self.quiet_run = self.quiet_run.saturating_add(1);
-        if self.quiet_run == QUIET_RUN && !std::mem::replace(&mut self.quiet_warned, true) {
-            let db = 20.0 * level.max(1e-9).log10();
-            tracing::info!("speech keeps arriving quiet ({db:.0} dBFS)");
-            self.notifier.notify(
-                "mic-quiet",
-                "Your microphone is quiet",
-                "Words get missed or misheard. Turn up the microphone's input volume in your system's sound settings, or move closer to it.",
-            );
-        }
+        self.publish();
     }
 
     /// The microphone gain to start from: learned for this microphone, or
@@ -139,5 +167,28 @@ impl<U: Ui> Worker<U> {
         } else if std::mem::take(&mut self.test_dictation) && self.listening_since.is_some() {
             self.stop();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_quiet_warning_shows_after_a_run_and_goes_with_a_loud_sentence() {
+        let mut q = Quiet::default();
+        assert_eq!(q.note(0.002), None);
+        assert_eq!(q.note(0.002), None);
+        assert_eq!(q.note(0.002), Some(true));
+        assert!(q.showing);
+        assert_eq!(q.note(0.002), None, "already showing");
+        assert_eq!(q.note(0.05), Some(false));
+        assert!(!q.showing);
+        assert_eq!(q.note(0.05), None);
+        // Quiet again: it shows again (the notification only once a run).
+        for _ in 0..2 {
+            q.note(0.002);
+        }
+        assert_eq!(q.note(0.002), Some(true));
     }
 }

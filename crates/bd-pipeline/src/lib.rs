@@ -27,6 +27,8 @@
 mod compose;
 pub mod dump;
 pub mod gain;
+mod voice;
+pub use voice::FAR_BELOW_DB;
 pub mod pad;
 pub mod setup;
 mod stages;
@@ -169,6 +171,11 @@ pub struct PipelineConfig {
     pub input_gain: f32,
     /// Learn the gain from recognized speech ([`gain`]).
     pub auto_gain: bool,
+    /// A sentence far quieter than the user's own speech is someone
+    /// else's: not delivered, its audio not shared, the gain not learned
+    /// from it ([`FAR_BELOW_DB`]; `voice.rs`). For the app, where the
+    /// microphone hears the room; off for files.
+    pub drop_far_voices: bool,
     /// Bear Pad ([`pad`]): segments collect in a pad, cleaned there as the
     /// speaker pauses, and are delivered only when the user sends it
     /// ([`Event::PadSend`]). Off, each segment is cleaned and delivered.
@@ -198,6 +205,7 @@ impl Default for PipelineConfig {
             voice_wake: false,
             input_gain: 1.0,
             auto_gain: true,
+            drop_far_voices: false,
             pad: false,
             list_mode: false,
         }
@@ -219,8 +227,10 @@ pub enum Event {
     /// `pause` is the silence before it in this session (`None` for the
     /// session's first segment).
     /// `level` is the segment's RMS loudness from the microphone (before
-    /// gain), 0 to 1; `gain` the input gain in use after it.
-    Transcribed { id: u64, text: String, audio: Duration, level: f32, gain: f32, pause: Option<Duration>, elapsed: Duration },
+    /// gain), 0 to 1; `gain` the input gain in use after it. `far`: with
+    /// [`PipelineConfig::drop_far_voices`], someone else's voice, so `text`
+    /// goes no further than this event.
+    Transcribed { id: u64, text: String, audio: Duration, level: f32, gain: f32, pause: Option<Duration>, elapsed: Duration, far: bool },
     /// Text to deliver now: first take back `take_back` characters (the
     /// trailing space before a break or a closing mark), then append `text`,
     /// which ends with the space the next segment needs.
