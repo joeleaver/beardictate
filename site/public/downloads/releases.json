@@ -23,33 +23,33 @@
   "builds": [
     {
       "platform": "linux",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "kind": "Archive",
-      "file": "beardictate-0.1.13-linux-x86_64.tar.gz",
-      "size": 42580632,
-      "sha256": "db1de8382beec007fcf0eb5b25a2e303cb459db6af4fd7a8fe0d3f691f79db0a",
-      "date": "2026-10-19",
-      "signature": "f5f9ba392de688d1ceefc1d5ad3fb14e25777fad7dba26bdb3183adeb53e7e2934658178d9b6abb5301bf472ae969cb10c0946210cecc643d53d0686147eb202"
+      "file": "beardictate-0.1.14-linux-x86_64.tar.gz",
+      "size": 42583910,
+      "sha256": "a5fdb41295f50e11a742d919320a22a84740da085e25304dca6041a2c86a95b2",
+      "date": "2026-10-20",
+      "signature": "bfbea6946c0253d8244ae055dbf9bb9be7b6bba5b41724ba5db5ae63c04a3043559cc6796658e0df6046a31b234a51adf6ff347afd886060aa96f63610006d06"
     },
     {
       "platform": "windows",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "kind": "Installer",
-      "file": "beardictate-0.1.13-windows-x64-setup.exe",
-      "size": 26762727,
-      "sha256": "d46f4af55b9e276886581deda8557a72f5d6eeb302993571850d1b5511442487",
-      "date": "2026-10-19",
-      "signature": "ff3fd3778b70b7d606c7d8336ef781c750b9adb0af20c487c14f27df30ca4e99ef8852b86c1c49c1867f1ce55d6c43ccda2d769db5cd970306fb8df2b5eaf405"
+      "file": "beardictate-0.1.14-windows-x64-setup.exe",
+      "size": 26770118,
+      "sha256": "415ae1ff2227f37b8682364d5bfc5000e4fd2b988ba3cfc9d70d9afcc25cb3bb",
+      "date": "2026-10-20",
+      "signature": "238cf3b8a633df5f98dcd4bb5cafb3d58bb5eedbeb550df69c643781a92f8c99ee2b676a2c5b8f6c423cddd03ca7f53eef143d7616ba519766e5c7687e316500"
     },
     {
       "platform": "windows",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "kind": "Portable zip",
-      "file": "beardictate-0.1.13-windows-x64.zip",
-      "size": 46123587,
-      "sha256": "5168927e95db3ceba60f32809ddf82710efd2d21740d5db017e506b4be783eaa",
-      "date": "2026-10-19",
-      "signature": "53a8e6888d408466e2024e234bc1585abb18578a5ce0c3e6c153e8fa860bff8b92a7ac82226bb68d396b56ce08e4de3296b35eb8b32c56b4080bab1a3e883c0f"
+      "file": "beardictate-0.1.14-windows-x64.zip",
+      "size": 46116858,
+      "sha256": "08cb84edc19bafc281d29abc47745b931e3fc709b8c1d832cd80602acb761f8a",
+      "date": "2026-10-20",
+      "signature": "55b18109f9d2744a759b5d7ee2fef620fa868c070eae344d944da9e194912018947f375d98bba85f3a79db2571f98019701ce5714bf1f29ade8b35b6b2b67c08"
     }
   ]
 }
