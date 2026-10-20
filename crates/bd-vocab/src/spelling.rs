@@ -161,7 +161,7 @@ fn tables() -> &'static Tables {
 /// colour.
 pub fn respell(text: &str, spelling: Spelling, keep: &[String]) -> String {
     let table = match spelling {
-        Spelling::AsHeard => return text.to_string(),
+        Spelling::Unchanged => return text.to_string(),
         Spelling::American => &tables().to_american,
         Spelling::British => &tables().to_british,
     };
@@ -255,7 +255,7 @@ mod tests {
         assert_eq!(us("colour-coded"), "color-coded");
         let keep = vec!["Colour Sergeant".to_string()];
         assert_eq!(respell("the Colour Sergeant's colours", Spelling::American, &keep), "the Colour Sergeant's colors");
-        assert_eq!(respell("colour", Spelling::AsHeard, &[]), "colour");
+        assert_eq!(respell("colour", Spelling::Unchanged, &[]), "colour");
     }
 
     #[test]

@@ -20,10 +20,10 @@ file is *where things stand*.
 5. **Unreleased (2026-10-20), testers' asks**: special-word spellings may
    hold `<new line>`/`<paragraph>` (`\n`, `\n\n`) breaks (bd-vocab
    `breaks.rs`, typed by the command pass even with break commands off);
-   Writing › Spelling, American by default, British or as heard
+   Writing › Spelling, American by default or British (no "leave it": Nemotron is mostly British)
    (bd-vocab `spelling.rs`, a fixed word list; applied before the special
    words and to the tidy-up's output; British-only twins like cheque/tyre
-   only ever become American). Nemotron writes both spellings.
+   only ever become American). Nemotron often writes British, sometimes both in one sentence.
 6. **0.1.19 (2026-10-20)**: with automatic updates on, the app restarts
    into a waiting update after 30 minutes with nothing going on
    (`engine/idle_update.rs`; the next start stays asleep, told by a

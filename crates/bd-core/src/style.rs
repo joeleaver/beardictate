@@ -46,13 +46,15 @@ pub enum PunctuationPlacement {
 }
 
 /// Whose spelling to write: colour or color, centre or center. The speech
-/// recognizer learned both and writes either, even in one sentence.
+/// recognizer (Nemotron) often writes British, sometimes American in the
+/// same sentence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Spelling {
-    /// As the recognizer and the cleanup model wrote it.
+    /// Left as the recognizer and the cleanup model wrote it (`bd file`, the
+    /// eval); the app always picks one of the others.
     #[default]
-    AsHeard,
+    Unchanged,
     American,
     British,
 }
@@ -98,7 +100,7 @@ impl Default for Style {
             dialog_paragraphs: true,
             topic_paragraphs: false,
             close_continued_speech: false,
-            spelling: Spelling::AsHeard,
+            spelling: Spelling::Unchanged,
         }
     }
 }
