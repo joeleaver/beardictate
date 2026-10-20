@@ -279,3 +279,30 @@ fn the_style_guide_writes_numbers_as_books_do() {
     assert_eq!(out("One of them, two of them."), "One of them, two of them.");
     assert_eq!(out("A twelve percent rise."), "A 12 percent rise.");
 }
+
+#[test]
+fn marks_said_in_a_row_are_all_marks() {
+    let config = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
+    let pass = CommandPass::new(config, Style::default());
+    let out = |s: &str| pass.apply(s, false).text;
+    // A tester's test, as Nemotron wrote it.
+    assert_eq!(
+        out("Comma period full stop question mark exclamation point colon semicolon M dash dot dot dot."),
+        ",..?!:;\u{2014}\u{2026}"
+    );
+    assert_eq!(out("Is it done question mark new paragraph"), "Is it done?\n\n");
+    assert_eq!(out("She loved period dramas."), "She loved period dramas.");
+    assert_eq!(out("Wait em-dash no."), "Wait\u{2014}no.");
+}
+
+#[test]
+fn commands_as_the_recognizer_writes_them_mid_sentence() {
+    let config = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
+    let pass = CommandPass::new(config, Style::default());
+    let out = |s: &str| pass.apply(s, false).text;
+    assert_eq!(out("I like Apple's Scratch that I like pears."), "I like pears.");
+    assert_eq!(out("I could scratch that itch."), "I could scratch that itch.");
+    assert_eq!(out("And then dot dot dot nothing."), "And then\u{2026} nothing.");
+    // A comma before a break stays: "Dear John, new line".
+    assert_eq!(out("First line comma new line second line."), "First line,\nSecond line.");
+}

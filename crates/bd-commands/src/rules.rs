@@ -44,18 +44,22 @@ const PHRASES: &[Phrase] = &[
     p(&["new", "paragraph"], Cmd::NewParagraph),
     p(&["new", "line"], Cmd::NewLine),
     p(&["scratch", "that"], Cmd::Scratch),
-    punct(&["dot", "dot", "dot"], "\u{2026}", true),
+    // An ellipsis trails off mid-sentence as often as it ends one.
+    punct(&["dot", "dot", "dot"], "\u{2026}", false),
     punct(&["question", "mark"], "?", true),
     punct(&["exclamation", "point"], "!", true),
     punct(&["exclamation", "mark"], "!", true),
     punct(&["full", "stop"], ".", true),
     punct(&["semi", "colon"], ";", false),
     punct(&["em", "dash"], "\u{2014}", false),
+    // As the recognizer writes "em dash" more often than not.
+    punct(&["m", "dash"], "\u{2014}", false),
+    punct(&["emdash"], "\u{2014}", false),
     punct(&["period"], ".", true),
     punct(&["comma"], ",", false),
     punct(&["colon"], ":", false),
     punct(&["semicolon"], ";", false),
-    punct(&["ellipsis"], "\u{2026}", true),
+    punct(&["ellipsis"], "\u{2026}", false),
 ];
 
 /// Whether `words` (lowercase) spell any command, for hyphen splitting.
@@ -165,11 +169,21 @@ fn context_ok(toks: &[Token], i: usize, ph: &Phrase, after_command: bool) -> boo
         }
         Cmd::NewParagraph | Cmd::NewLine => !noun_blocked(toks, i) && !next_is_noun,
         Cmd::Scratch => {
-            let left = i == 0 || after_command || toks[i - 1].ends_sentence() || toks[i - 1].is_bare_punct();
+            // A clause starts here: the segment's start, a sentence's end
+            // before it, or a capital the recognizer gave it mid-sentence
+            // ("…apples Scratch that I…"). A comma isn't enough: "if it
+            // itches, scratch that" is prose.
+            let capital = first.core.starts_with(|c: char| c.is_uppercase());
+            let left = i == 0
+                || after_command
+                || toks[i - 1].ends_sentence()
+                || toks[i - 1].is_bare_punct()
+                || capital;
             let right = end == toks.len()
                 || !last.trail.is_empty()
                 || toks[end].is_bare_punct()
-                || match_at(toks, end, false, true).is_some();
+                || match_at(toks, end, false, true).is_some()
+                || (capital && toks[end].core.starts_with(|c: char| c.is_uppercase()));
             left && right && first.lead.is_empty()
         }
         Cmd::Punct { terminal, .. } => {
@@ -182,6 +196,9 @@ fn context_ok(toks: &[Token], i: usize, ph: &Phrase, after_command: bool) -> boo
             !terminal
                 || next.is_none()
                 || next.is_some_and(|n| n.core.chars().next().is_some_and(char::is_uppercase))
+                // Another spoken command: "question mark, new paragraph",
+                // or marks said in a row.
+                || match_at(toks, end, true, true).is_some()
         }
     }
 }

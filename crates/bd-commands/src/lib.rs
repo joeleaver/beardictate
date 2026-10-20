@@ -180,6 +180,9 @@ impl CommandPass {
                 _ => {}
             }
         }
+        // What was said after a "scratch that" starts the sentence over.
+        let restarted = leading.iter().any(|a| matches!(a.kind, ActionKind::ScratchWithinSegment { .. }));
+        let text = if restarted { render::capitalize_first(&text) } else { text };
         leading.append(&mut actions);
         CommandOutput { text, actions: leading, quote_open: open }
     }
