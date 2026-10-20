@@ -255,7 +255,9 @@ the microphone gain learned from them, up to its 30 dB limit). Two rules:
   away from the microphone isn't shut out for long.
 - Awake with nothing said to it (by the user: other voices don't count)
   for 10 minutes, it goes back to sleep; a dictation started by the hotkey
-  stops. The tester paused for up to eight minutes mid-dictation.
+  stops. The tester paused for up to eight minutes mid-dictation. Settings
+  › General chooses 5, 10, 20, 30 or 60 minutes, or never
+  (`sleep_after_mins`, 0 for never; Joe, 2026-10-20).
 
 Phrases are matched on the ASR text, ignoring case and punctuation, with
 the spellings the recognizer uses for "bear" (bare, bair, …). A wake phrase

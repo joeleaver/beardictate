@@ -20,7 +20,7 @@ file is *where things stand*.
 5. **Unreleased (2026-10-20), from the Windows tester's telemetry**: other
    voices in the room aren't typed or sent (more than 15 dB below the
    user's learned level, `bd-pipeline` `voice.rs`), it goes back to sleep
-   after 10 minutes unspoken to, and "microphone is quiet" shows on the
+   after 10 minutes unspoken to (Settings › General: 5–60 min or never), and "microphone is quiet" shows on the
    bear (amber "!"), the tray tooltip and menu and Settings › Microphone,
    not only as a notification (Windows silenced it). DESIGN.md "Always
    listening", docs/telemetry.md (`far`, `unspoken_to`). Proved by tests

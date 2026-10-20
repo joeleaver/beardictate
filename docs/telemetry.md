@@ -19,7 +19,8 @@ Nor is someone else's voice while awake (from 0.1.19): a sentence more than
 15 dB quieter than the user's own speech (`bd-pipeline` `voice.rs`) is sent
 as a `transcribed` event with `far: true`, an empty `text` and no audio, and
 its live text (`partial`) is held back. Awake, the app goes back to sleep
-after 10 minutes with nothing said to it (a `state` event, `unspoken_to`).
+after 10 minutes with nothing said to it, or the `sleep_after_mins` setting
+(0: never) (a `state` event, `unspoken_to`, with `minutes`).
 An alpha tester's room (other people, a video) was recorded for an hour and
 a half on 2026-10-20 before this.
 

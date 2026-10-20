@@ -125,6 +125,9 @@ pub struct Settings {
     pub voice_wake: bool,
     /// With `voice_wake`: the microphone is on. Switched from the tray menu.
     pub microphone_on: bool,
+    /// Go back to sleep (or stop a hotkey dictation) after this many minutes
+    /// with nothing said to it; 0 never does.
+    pub sleep_after_mins: u32,
     /// Learn the microphone gain from your speech, like a call app does.
     pub auto_gain: bool,
     /// The gain when `auto_gain` is off, in dB (0 to 30).
@@ -188,6 +191,7 @@ impl Default for Settings {
             curly_quotes: true,
             voice_wake: true,
             microphone_on: true,
+            sleep_after_mins: 10,
             blank_line_paragraphs: true,
             close_continued_speech: false,
             punctuation: Punctuation::Inside,

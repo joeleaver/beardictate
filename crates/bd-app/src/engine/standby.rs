@@ -3,8 +3,8 @@
 //! sleep" and the hotkey switch typing on and off; only the tray menu turns
 //! the microphone itself off and on (`Settings::microphone_on`).
 //!
-//! Awake, it goes back to sleep after [`UNSPOKEN_TO`] with nothing said to
-//! it (someone else's voice doesn't count: `bd_pipeline::FAR_BELOW_DB`), as
+//! Awake, it goes back to sleep after `Settings::sleep_after_mins` (10 by
+//! default) with nothing said to it (someone else's voice doesn't count: `bd_pipeline::FAR_BELOW_DB`), as
 //! a dictation started by the hotkey stops: an alpha tester's, left awake,
 //! typed and recorded the room for an hour and a half.
 
@@ -15,25 +15,21 @@ use serde_json::json;
 
 use super::{Ui, Worker};
 
-/// Asleep (or stopped) after this long with nothing said to it. Testers
-/// paused for up to eight minutes mid-dictation.
-pub(super) const UNSPOKEN_TO: Duration = Duration::from_secs(10 * 60);
-
 /// Whether a dictation that last heard the user at `last_heard` has gone on
-/// too long unspoken to.
-pub(super) fn unspoken_to(last_heard: Instant, now: Instant) -> bool {
-    now.saturating_duration_since(last_heard) >= UNSPOKEN_TO
+/// `minutes` unspoken to; 0 never has.
+pub(super) fn unspoken_to(last_heard: Instant, now: Instant, minutes: u32) -> bool {
+    minutes > 0 && now.saturating_duration_since(last_heard) >= Duration::from_secs(u64::from(minutes) * 60)
 }
 
 impl<U: Ui> Worker<U> {
     /// On the engine's tick: sends a dictation nobody is speaking to back
     /// to sleep, or stops it.
     pub(super) fn sleep_if_unspoken_to(&mut self) {
-        if self.listening_since.is_none() || self.testing || !unspoken_to(self.last_heard, Instant::now()) {
+        let minutes = self.settings.sleep_after_mins;
+        if self.listening_since.is_none() || self.testing || !unspoken_to(self.last_heard, Instant::now(), minutes) {
             return;
         }
         let Some(pipeline) = self.pipeline.as_ref() else { return };
-        let minutes = UNSPOKEN_TO.as_secs() / 60;
         tracing::info!("nothing said to it for {minutes} minutes: going to sleep");
         crate::telemetry::record("state", None, || json!({"state": "unspoken_to", "minutes": minutes}));
         self.last_heard = Instant::now();
@@ -152,9 +148,16 @@ mod tests {
     #[test]
     fn ten_minutes_unspoken_to_is_enough() {
         let start = Instant::now();
-        assert!(!unspoken_to(start, start + Duration::from_secs(8 * 60)));
-        assert!(unspoken_to(start, start + UNSPOKEN_TO));
+        assert!(!unspoken_to(start, start + Duration::from_secs(8 * 60), 10));
+        assert!(unspoken_to(start, start + Duration::from_secs(10 * 60), 10));
+        assert!(unspoken_to(start, start + Duration::from_secs(5 * 60), 5));
         // A clock that went backwards isn't a long silence.
-        assert!(!unspoken_to(start + Duration::from_secs(5), start));
+        assert!(!unspoken_to(start + Duration::from_secs(5), start, 10));
+    }
+
+    #[test]
+    fn never_means_never() {
+        let start = Instant::now();
+        assert!(!unspoken_to(start, start + Duration::from_secs(24 * 3600), 0));
     }
 }

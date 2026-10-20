@@ -149,7 +149,7 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let s4 = s.clone();
     let s5 = s.clone();
     let (s6, s7, s8, s9, s10) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
-    let (s11, s12, s13) = (s.clone(), s.clone(), s.clone());
+    let (s11, s12, s13, s14, s15) = (s.clone(), s.clone(), s.clone(), s.clone(), s.clone());
     let modes = modes(__scope, s);
     let old_models = old_models(__scope, s);
     let paths = s.paths.clone();
@@ -178,6 +178,15 @@ fn general(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 description: "The microphone stays on. Say \u{201C}bear, wake up\u{201D} (or press the shortcut) to start dictating, and \u{201C}bear, go to sleep\u{201D} to stop. Turn the microphone off and on from the bear\u{2019}s menu. Off, the shortcut turns the microphone on and off.",
                 checked_fn: move || s7.settings.with(|st| st.voice_wake),
                 onchange: move || change(&s8, |st| st.voice_wake = !st.voice_wake),
+            }
+            div { style: "display: flex; flex-direction: column; gap: 6px;",
+                Text { style: "font-weight: 600;", "Stop listening when nothing\u{2019}s said to it" }
+                Text { size: "sm", color: "dimmed", "After this long without your voice, it goes back to sleep (or a dictation stops). Other voices in the room don\u{2019}t count." }
+                Select {
+                    data: [5, 10, 20, 30, 60, 0].map(|m| SelectOption::new(m.to_string(), sleep_label(m))).to_vec(),
+                    value_fn: move || s14.settings.with(|st| st.sleep_after_mins).to_string(),
+                    onchange: move |v: String| change(&s15, |st| st.sleep_after_mins = v.parse().unwrap_or(10)),
+                }
             }
             {modes}
             {old_models}
@@ -266,6 +275,14 @@ fn feed_capture(capture: &mut HotkeyCapture, held: &RefCell<Vec<&'static str>>, 
         held.borrow_mut().clear();
     }
     step
+}
+
+fn sleep_label(minutes: u32) -> String {
+    match minutes {
+        0 => "Never".into(),
+        60 => "After an hour".into(),
+        m => format!("After {m} minutes"),
+    }
 }
 
 fn theme_key(t: TrayTheme) -> &'static str {
