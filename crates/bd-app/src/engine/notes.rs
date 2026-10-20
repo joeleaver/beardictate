@@ -6,8 +6,9 @@ use serde_json::json;
 use crate::telemetry::{ms, record};
 
 /// Records what `event` says, before the engine acts on it.
-/// `live_typing`: text outside the pad is typed as it's spoken.
-pub(super) fn note(event: &Event, live_typing: bool) {
+/// `live_typing`: text outside the pad is typed as it's spoken; `testing`:
+/// a microphone test, which types nothing.
+pub(super) fn note(event: &Event, live_typing: bool, testing: bool) {
     let heard = matches!(event, Event::Transcribed { .. } | Event::Partial { .. } | Event::Commanded { .. });
     if heard && !crate::telemetry::dictating() {
         return;
@@ -54,9 +55,12 @@ pub(super) fn note(event: &Event, live_typing: bool) {
                 })
             });
         }
-        Event::Text { id, take_back, text, cleanup, .. } => record("typed", Some(*id), || {
-            json!({"text": text, "take_back": take_back, "live": cleanup.is_none() && live_typing})
+        // A microphone test types nothing; otherwise the typing thread
+        // records `typed` once it knows how typing went (inject.rs).
+        Event::Text { id, take_back, text, cleanup, .. } if testing => record("typed", Some(*id), || {
+            json!({"text": text, "take_back": take_back, "live": cleanup.is_none() && live_typing, "outcome": "test"})
         }),
+        Event::Text { .. } => {}
         Event::Erase { id, text } => record("scratch", Some(*id), || json!({"what": "erased", "text": text})),
         Event::Scratched { id } => record("scratch", Some(*id), || json!({"what": "queued"})),
         Event::ScratchTooLate => record("scratch", None, || json!({"what": "too_late"})),

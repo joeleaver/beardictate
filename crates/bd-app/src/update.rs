@@ -12,12 +12,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context, Result};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, unbounded};
 use rinch::prelude::Signal;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 
 pub mod feed;
@@ -29,9 +30,12 @@ use install::Install;
 
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 const SITE: &str = "https://beardictate.jkbase.app";
-/// The first check a minute after start, then every six hours.
+/// The first check a minute after start, then every six hours by the clock
+/// on the wall: time the computer spends asleep counts, which a monotonic
+/// timer may not, so the checker looks at the clock every few minutes.
 const FIRST_CHECK: Duration = Duration::from_secs(60);
 const EVERY: Duration = Duration::from_secs(6 * 3600);
+const POLL: Duration = Duration::from_secs(10 * 60);
 /// When what the last update left behind is cleared.
 const LEFTOVERS: Duration = Duration::from_secs(30);
 
@@ -232,6 +236,20 @@ impl Updates {
         let (tx, rx) = unbounded();
         let install = Install::detect();
         tracing::info!(?install, channel = feed::channel(), "updates");
+        // Telemetry starts after `at_start`, so how it went is told here.
+        let staged = read_staged(&dir);
+        let can_update = install.can_update();
+        crate::telemetry::record("update", None, || {
+            json!({
+                "event": "start",
+                "auto": auto,
+                "can_update": can_update,
+                "channel": feed::channel(),
+                "note": note,
+                "staged": staged.as_ref().map(|s| &s.version),
+                "staged_failed": staged.as_ref().map(|s| s.failed),
+            })
+        });
         let checker = Checker {
             dir,
             phase,
@@ -271,34 +289,36 @@ impl Checker {
     }
 
     fn run(self, rx: Receiver<Msg>, mut auto: bool) {
-        let mut next = Instant::now() + FIRST_CHECK;
+        let mut next = SystemTime::now() + FIRST_CHECK;
         // What an update left: on Windows the installer is still running
         // when it starts the new version, so its file can't go at start.
         let mut leftovers = Some(Instant::now() + LEFTOVERS);
         loop {
-            let check_at = if auto { next } else { Instant::now() + Duration::from_secs(24 * 3600) };
-            let wait = leftovers.map_or(check_at, |at| at.min(check_at)).saturating_duration_since(Instant::now());
             if leftovers.is_some_and(|at| at <= Instant::now()) {
                 leftovers = None;
                 if read_staged(&self.dir).is_none() {
                     clear(&self.dir);
                 }
+            }
+            let now = SystemTime::now();
+            next = sane_next(next, now);
+            if auto && now >= next {
+                self.check();
+                next = SystemTime::now() + EVERY;
                 continue;
             }
+            let until_check = if auto { next.duration_since(now).unwrap_or_default().min(POLL) } else { POLL };
+            let wait = leftovers.map_or(until_check, |at| at.saturating_duration_since(Instant::now()).min(until_check));
             match rx.recv_timeout(wait) {
                 Ok(Msg::Check) => {
                     self.check();
-                    next = Instant::now() + EVERY;
+                    next = SystemTime::now() + EVERY;
                 }
                 Ok(Msg::Auto(on)) => {
                     if on && !auto {
-                        next = Instant::now() + FIRST_CHECK;
+                        next = SystemTime::now() + FIRST_CHECK;
                     }
                     auto = on;
-                }
-                Err(RecvTimeoutError::Timeout) if auto && Instant::now() >= next => {
-                    self.check();
-                    next = Instant::now() + EVERY;
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => return,
@@ -314,12 +334,22 @@ impl Checker {
             Ok(p) => p,
             Err(e) => {
                 tracing::warn!("checking for updates: {e:#}");
+                let error = format!("{e:#}");
+                crate::telemetry::record("update", None, || json!({"event": "check", "result": "failed", "error": error}));
                 match before {
                     Phase::Ready { .. } => before,
                     _ => Phase::Failed(format!("{e:#}")),
                 }
             }
         };
+        if let Some((result, version)) = match &phase {
+            Phase::UpToDate => Some(("up_to_date", None)),
+            Phase::Ready { version } => Some(("ready", Some(version.clone()))),
+            Phase::Manual { version } => Some(("manual", Some(version.clone()))),
+            _ => None,
+        } {
+            crate::telemetry::record("update", None, || json!({"event": "check", "result": result, "version": version}));
+        }
         self.show(phase);
     }
 
@@ -447,10 +477,29 @@ impl Checker {
     }
 }
 
+/// The next check, unless the clock went back (then six hours from now at
+/// most, not however far it went).
+fn sane_next(next: SystemTime, now: SystemTime) -> SystemTime {
+    if next.duration_since(now).is_ok_and(|d| d > EVERY) { now + EVERY } else { next }
+}
+
 fn agent() -> ureq::Agent {
     let options = bd_models::HttpOptions {
         https_only: !site().starts_with("http://"),
         ..Default::default()
     };
     bd_models::http_agent(&options)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_clock_set_back_doesnt_put_the_next_check_off_for_long() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000_000);
+        assert_eq!(sane_next(now + FIRST_CHECK, now), now + FIRST_CHECK);
+        assert_eq!(sane_next(now - EVERY, now), now - EVERY);
+        assert_eq!(sane_next(now + EVERY * 30, now), now + EVERY);
+    }
 }

@@ -7,8 +7,10 @@ use bd_pipeline::setup::{self, CleanupOptions, CleanupSource};
 use bd_pipeline::{Parts, Pipeline, PipelineConfig, Recognizer};
 
 use std::thread;
+use std::time::Instant;
 
 use crossbeam_channel::bounded;
+use serde_json::json;
 
 use super::{Loaded, Ui, Worker};
 use crate::settings::{Settings, vocabulary};
@@ -34,6 +36,8 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     let source = if settings.tidy { CleanupSource::parse(&settings.cleanup) } else { CleanupSource::Off };
     let cleanup = setup::load_cleanup(&source, &CleanupOptions::default(), &store)?;
     let name = cleanup.as_ref().map_or_else(|| "off".to_string(), |c| c.name.clone());
+    let template = cleanup.as_ref().map(|c| c.template.clone());
+    let info = cleanup.as_ref().and_then(|c| c.info.clone());
     if let Some(c) = &cleanup {
         tracing::info!("{}", c.description);
     }
@@ -44,7 +48,31 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
         focus: Some(focus_probe()),
     };
     let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
-    Ok(Loaded { pipeline, cleanup: name })
+    Ok(Loaded { pipeline, cleanup: name, template, info })
+}
+
+/// The `load` telemetry event: what loaded and how, or why it didn't.
+fn note_load(settings: &Settings, loaded: &Result<Loaded>, started: Instant) {
+    let load_ms = crate::telemetry::ms(started.elapsed());
+    crate::telemetry::record("load", None, || {
+        let (cleanup, template, info, error) = match loaded {
+            Ok(l) => ((l.template.is_some()).then(|| l.cleanup.clone()), l.template.clone(), l.info.as_ref(), None),
+            Err(e) => (None, None, None, Some(format!("{e:#}"))),
+        };
+        json!({
+            "destination": settings.destination,
+            "tidy": settings.tidy,
+            "asr": "nemotron",
+            "cleanup": cleanup,
+            "template": template,
+            "gpu_layers": info.map(|i| i.gpu_layers),
+            "n_layer": info.map(|i| i.n_layer),
+            "n_ctx": info.map(|i| i.n_ctx),
+            "threads": info.map(|i| i.threads),
+            "load_ms": load_ms,
+            "error": error,
+        })
+    });
 }
 
 /// Which app has the focus, for the pipeline to start a new passage when
@@ -110,7 +138,10 @@ impl<U: Ui> Worker<U> {
         thread::Builder::new()
             .name("bd-load".into())
             .spawn(move || {
-                let _ = tx.send(load(&settings, gain).map_err(|e| format!("{e:#}")));
+                let started = Instant::now();
+                let loaded = load(&settings, gain);
+                note_load(&settings, &loaded, started);
+                let _ = tx.send(loaded.map_err(|e| format!("{e:#}")));
             })
             .expect("spawning the loader");
         self.loading = Some(rx);
