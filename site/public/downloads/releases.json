@@ -23,33 +23,33 @@
   "builds": [
     {
       "platform": "linux",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "kind": "Archive",
-      "file": "beardictate-0.1.14-linux-x86_64.tar.gz",
-      "size": 42583910,
-      "sha256": "a5fdb41295f50e11a742d919320a22a84740da085e25304dca6041a2c86a95b2",
+      "file": "beardictate-0.1.15-linux-x86_64.tar.gz",
+      "size": 42587861,
+      "sha256": "6ab870b987c692f6a216e2109c5a3f5975771d73928ec87b58ec5a701bd281a3",
       "date": "2026-10-20",
-      "signature": "bfbea6946c0253d8244ae055dbf9bb9be7b6bba5b41724ba5db5ae63c04a3043559cc6796658e0df6046a31b234a51adf6ff347afd886060aa96f63610006d06"
+      "signature": "2a65bf81476d4436e51552f2458069124d954ae26b27b46ce302b1de3b13467c59b18c2c28eeae66cfe72db668443468871da36cbc3b3b7137d222d11f159a08"
     },
     {
       "platform": "windows",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "kind": "Installer",
-      "file": "beardictate-0.1.14-windows-x64-setup.exe",
-      "size": 26770118,
-      "sha256": "415ae1ff2227f37b8682364d5bfc5000e4fd2b988ba3cfc9d70d9afcc25cb3bb",
+      "file": "beardictate-0.1.15-windows-x64-setup.exe",
+      "size": 26783908,
+      "sha256": "fa92289b8118b4a406a121593adebe053f289e21ba7277e4762ff9f66d0acc28",
       "date": "2026-10-20",
-      "signature": "238cf3b8a633df5f98dcd4bb5cafb3d58bb5eedbeb550df69c643781a92f8c99ee2b676a2c5b8f6c423cddd03ca7f53eef143d7616ba519766e5c7687e316500"
+      "signature": "1fea47b18a19ca834f438081574cf865e9cb5e674b341e4085fa31c5def0e5ad8062f2a5756ef54cb911bfc89be5c43cd340d117c5a48aafd71e21c96e156a0f"
     },
     {
       "platform": "windows",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "kind": "Portable zip",
-      "file": "beardictate-0.1.14-windows-x64.zip",
-      "size": 46116858,
-      "sha256": "08cb84edc19bafc281d29abc47745b931e3fc709b8c1d832cd80602acb761f8a",
+      "file": "beardictate-0.1.15-windows-x64.zip",
+      "size": 46119820,
+      "sha256": "659cbe3fedbe99e6504b61c52c79ed28bab3428cd071329f86adaa65eaba1e6a",
       "date": "2026-10-20",
-      "signature": "55b18109f9d2744a759b5d7ee2fef620fa868c070eae344d944da9e194912018947f375d98bba85f3a79db2571f98019701ce5714bf1f29ade8b35b6b2b67c08"
+      "signature": "ec29c33dc52bb9300af8ca7b986552d9b3f525c5e456a308f7915ce08c4d54936430dd57b6fe12194299eca84f8cb2dc40dcaa0b568cda3b4a53f038a750600a"
     }
   ]
 }
