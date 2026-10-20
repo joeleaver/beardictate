@@ -1,7 +1,8 @@
-//! The Writing page's spelling choice. The recognizer (Nemotron) often
-//! writes British spelling, and sometimes American in the same sentence, so
-//! the app makes it one or the other. Leaving it alone isn't offered: that
-//! would be British with American mixed in (Joe, 2026-10-20).
+//! The Writing page's spelling choice. The recognizer (Nemotron) mostly
+//! writes American spelling and now and then British, even mid-sentence (a
+//! tester's 0.1.19 session: 4 of 18; the same clip can come out either way),
+//! so the app makes it one or the other. Leaving it alone isn't offered
+//! (Joe, 2026-10-20).
 
 use bd_core::Spelling;
 use rinch::prelude::*;
@@ -13,7 +14,7 @@ pub fn spelling(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 6px;",
             Text { style: "font-weight: 600;", "Spelling" }
-            Text { size: "sm", color: "dimmed", "Speech recognition often writes British spelling, and sometimes American in the same sentence. This makes it one or the other. Your special words keep their own spelling." }
+            Text { size: "sm", color: "dimmed", "Speech recognition sometimes writes British spelling, even mid-sentence. This makes common words one or the other. Your special words keep their own spelling." }
             Select {
                 data: vec![
                     SelectOption::new("american", "American: color, center, realize, traveled"),

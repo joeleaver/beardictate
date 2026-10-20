@@ -20,10 +20,10 @@ file is *where things stand*.
 5. **Unreleased (2026-10-20), testers' asks**: special-word spellings may
    hold `<new line>`/`<paragraph>` (`\n`, `\n\n`) breaks (bd-vocab
    `breaks.rs`, typed by the command pass even with break commands off);
-   Writing › Spelling, American by default or British (no "leave it": Nemotron is mostly British)
+   Writing › Spelling, American by default or British (no "leave it")
    (bd-vocab `spelling.rs`, a fixed word list; applied before the special
    words and to the tidy-up's output; British-only twins like cheque/tyre
-   only ever become American). Nemotron often writes British, sometimes both in one sentence.
+   only ever become American). Nemotron mostly writes American, now and then British (4 of 18 in a tester's spelling test; same with greedy and beam+hotwords, so nothing of ours steers it).
 6. **0.1.19 (2026-10-20)**: with automatic updates on, the app restarts
    into a waiting update after 30 minutes with nothing going on
    (`engine/idle_update.rs`; the next start stays asleep, told by a

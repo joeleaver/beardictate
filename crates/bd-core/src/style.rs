@@ -46,8 +46,8 @@ pub enum PunctuationPlacement {
 }
 
 /// Whose spelling to write: colour or color, centre or center. The speech
-/// recognizer (Nemotron) often writes British, sometimes American in the
-/// same sentence.
+/// recognizer (Nemotron) mostly writes American and now and then British,
+/// even mid-sentence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Spelling {
