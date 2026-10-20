@@ -135,6 +135,16 @@ struct Window {
 
 /// When the menu last opened.
 static OPENED: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+/// When a row of the menu was last picked. Picking closes the menu and the
+/// window shrinks back to the bear, so the same click's release can land
+/// on the bear: that's no click on it. A Windows tester's every pick also
+/// started or stopped dictating, 0.1 s later (2026-10-20).
+static PICKED: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+
+/// Whether `at` was within the last `ms` milliseconds.
+fn within(at: &Mutex<Option<std::time::Instant>>, ms: u64) -> bool {
+    at.lock().unwrap_or_else(|p| p.into_inner()).is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(ms))
+}
 
 static WINDOW: Mutex<Window> = Mutex::new(Window { shape: Shape::Hidden, pad: false, bear: false, home: None, rest: None });
 
@@ -345,9 +355,10 @@ fn pad() -> NodeHandle {
     };
     let pick = move |act: Act| {
         // The release of the right-click that opened it, landing on a row.
-        if OPENED.lock().unwrap_or_else(|p| p.into_inner()).is_some_and(|t| t.elapsed() < std::time::Duration::from_millis(400)) {
+        if within(&OPENED, 400) {
             return;
         }
+        *PICKED.lock().unwrap_or_else(|p| p.into_inner()) = Some(std::time::Instant::now());
         say(&format!("act {}", serde_json::to_string(&act).unwrap_or_default()));
         close_menu();
     };
@@ -372,7 +383,7 @@ fn pad() -> NodeHandle {
     // the release of the right-click that opened the menu, which has
     // moved the window to make room.
     let released = move || {
-        if menu_open.get() {
+        if menu_open.get() || within(&PICKED, 500) {
             return;
         }
         let now = current_window_position();
