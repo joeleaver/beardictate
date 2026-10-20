@@ -501,9 +501,10 @@ impl<U: Ui> Worker<U> {
         let now = mtime(&self.paths.settings);
         if now != self.settings_mtime {
             self.settings_mtime = now;
-            // List mode isn't in the file: it carries over.
+            // List and case modes aren't in the file: they carry over.
             let loaded = self.paths.load().map(|mut s| {
                 s.list_mode = self.settings.list_mode;
+                s.case_mode = self.settings.case_mode;
                 s
             });
             match loaded {

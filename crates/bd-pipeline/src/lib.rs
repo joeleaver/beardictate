@@ -24,6 +24,7 @@
 //! [`PipelineConfig::context_window`], and a new passage starts after a long
 //! silence or when another app has the focus ([`Parts::focus`]).
 
+mod case;
 mod compose;
 pub mod dump;
 pub mod gain;
@@ -44,6 +45,7 @@ use bd_core::{Asr, AudioSegment, BoxError, Cleanup, LiveAudio, StreamingAsr, Sty
 use bd_vocab::Vocabulary;
 use crossbeam_channel::{Receiver, Sender, unbounded};
 
+pub use case::CaseMode;
 pub use compose::{Composer, join};
 pub use pad::{PadAction, PadPart, PadView};
 
@@ -184,6 +186,9 @@ pub struct PipelineConfig {
     /// capital or the recognizer's full stop, and not tidied. "bear, start
     /// a list" and "bear, end the list" switch it too ([`Event::ListMode`]).
     pub list_mode: bool,
+    /// Title case, lower case or all caps ([`CaseMode`]): until switched
+    /// back, by "bear, normal case" or [`Event::CaseMode`]'s like. Not tidied.
+    pub case_mode: CaseMode,
 }
 
 impl Default for PipelineConfig {
@@ -208,6 +213,7 @@ impl Default for PipelineConfig {
             drop_far_voices: false,
             pad: false,
             list_mode: false,
+            case_mode: CaseMode::Normal,
         }
     }
 }
@@ -270,6 +276,8 @@ pub enum Event {
     Pad(PadView),
     /// List mode switched by voice ([`PipelineConfig::list_mode`]).
     ListMode(bool),
+    /// A case mode switched by voice ([`PipelineConfig::case_mode`]).
+    CaseMode(CaseMode),
     /// With [`PipelineConfig::pad`]: "bear, send it" (or
     /// [`Feeder::pad`]`(Send)`): deliver this, the whole pad, cleaned. The
     /// pad is empty now.

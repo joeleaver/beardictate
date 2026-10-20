@@ -4,7 +4,7 @@
 use bd_core::{LiveAudio, StreamingAsr};
 
 use super::*;
-use crate::Recognizer;
+use crate::{CaseMode, Recognizer};
 
 /// Each chunk is one utterance; its first sample picks the script line.
 /// The utterance is handed out as a start, three more pieces and an end.
@@ -447,4 +447,31 @@ fn someone_elses_voice_is_neither_shown_as_spoken_nor_typed() {
     assert_eq!(page(&events), "It was late. We stayed in.");
     let shown = |e: &Event| matches!(e, Event::Partial { text, .. } if text.contains("Someone"));
     assert!(!events.iter().any(shown), "{events:?}");
+}
+
+#[test]
+fn case_modes_last_until_switched_back_and_are_not_tidied() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let p = live_rig_with(
+        vec![
+            vec!["Bear, title", "Bear, title case."],
+            vec!["The lord of", "The lord of the rings."],
+            vec!["Bear, all", "Bear, all caps."],
+            vec!["Um, watch", "Um, watch out."],
+            vec!["Bear, normal", "Bear, normal case."],
+            vec!["Um, what", "Um, what now?"],
+        ],
+        PipelineConfig::default(),
+        Some(contexts.clone()),
+        None,
+    );
+    for line in 0..6 {
+        say(&p, line);
+    }
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    // The fake tidy takes out "Um, ": only where no case mode is on.
+    assert_eq!(page(&events), "The Lord of the Rings UM, WATCH OUT. What now?");
+    for mode in [CaseMode::Title, CaseMode::Upper, CaseMode::Normal] {
+        assert!(events.contains(&Event::CaseMode(mode)), "{mode:?}");
+    }
 }

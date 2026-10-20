@@ -109,6 +109,7 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
         drop_far_voices: true,
         pad: live.pad,
         list_mode: live.list_mode,
+        case_mode: live.case_mode,
         ..PipelineConfig::default()
     }
 }

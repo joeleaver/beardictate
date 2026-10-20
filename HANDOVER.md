@@ -17,6 +17,11 @@ file is *where things stand*.
 4. **Not tried by real voice yet**: "bear, wake up / delete / undo / send it
    / clear / start a list / end the list" (Piper can't say "bear"). The bear
    and its menu are untried on Windows and X11.
+5. **After 0.1.20 (2026-10-20)**: case modes ("bear, title case /
+   lowercase / all caps / normal case", or the bear's menu; `bd-pipeline`
+   `case.rs`), like list mode: until switched back, not saved, not tidied,
+   special words keep their spelling. Proved by pipeline tests; not yet by
+   voice in the app.
 5. **Unreleased (2026-10-20), testers' asks**: special-word spellings may
    hold `<new line>`/`<paragraph>` (`\n`, `\n\n`) breaks (bd-vocab
    `breaks.rs`, typed by the command pass even with break commands off);

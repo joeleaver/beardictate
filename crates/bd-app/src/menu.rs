@@ -25,6 +25,8 @@ pub enum Act {
     Bear { on: bool },
     /// List mode: items on lines of their own, bare.
     List { on: bool },
+    /// A case mode: title case, lower case, all caps, or normal.
+    Case { to: bd_pipeline::CaseMode },
     RestartToUpdate,
     Settings,
     /// Settings, at the Microphone page.
@@ -46,6 +48,14 @@ pub enum Entry {
 fn item(label: impl Into<String>, act: Option<Act>) -> Entry {
     Entry::Item { label: label.into(), act }
 }
+
+/// The case modes, as the menu shows them.
+const CASES: [(bd_pipeline::CaseMode, &str); 4] = [
+    (bd_pipeline::CaseMode::Normal, "Normal case"),
+    (bd_pipeline::CaseMode::Title, "Title Case"),
+    (bd_pipeline::CaseMode::Lower, "lowercase"),
+    (bd_pipeline::CaseMode::Upper, "ALL CAPS"),
+];
 
 /// The menu for the current state and settings.
 pub fn entries(shared: &Shared) -> Vec<Entry> {
@@ -80,6 +90,11 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
     out.push(Entry::Check { label: "Tidy up".into(), on: settings.tidy, act: Act::Tidy { on: !settings.tidy } });
     out.push(Entry::Check { label: "Dialog".into(), on: settings.dialog, act: Act::Dialog { on: !settings.dialog } });
     out.push(Entry::Check { label: "List mode".into(), on: settings.list_mode, act: Act::List { on: !settings.list_mode } });
+    out.push(Entry::Separator);
+    for (mode, label) in CASES {
+        out.push(Entry::Radio { label: label.into(), on: settings.case_mode == mode, act: Act::Case { to: mode } });
+    }
+    out.push(Entry::Separator);
     out.push(Entry::Check { label: "Bear on screen".into(), on: settings.show_bear, act: Act::Bear { on: !settings.show_bear } });
     if let crate::update::Phase::Ready { version } = shared.updates.phase.get() {
         out.push(Entry::Separator);
@@ -99,6 +114,7 @@ pub fn perform(shared: &Shared, act: Act) {
         Act::Dialog { on } => change(shared, |st| st.dialog = on),
         Act::Bear { on } => change(shared, |st| st.show_bear = on),
         Act::List { on } => change(shared, |st| st.list_mode = on),
+        Act::Case { to } => change(shared, |st| st.case_mode = to),
         Act::RestartToUpdate => crate::update::restart_to_update(),
         // On the section it was last left on.
         Act::Settings => show_current_window(),

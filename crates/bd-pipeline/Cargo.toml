@@ -14,5 +14,6 @@ bd-cleanup.workspace = true
 bd-models.workspace = true
 anyhow.workspace = true
 bd-vocab.workspace = true
+serde.workspace = true
 crossbeam-channel.workspace = true
 tracing.workspace = true

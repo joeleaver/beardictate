@@ -192,7 +192,13 @@ impl<U: Ui> Worker<U> {
         }
         let listening = self.listening_since.is_some();
         let visible = self.settings.pad() && !self.pad.dismissed && (listening || !self.pad.view.is_empty());
-        let list = if self.settings.list_mode { "List · " } else { "" };
+        let case = match self.settings.case_mode {
+            bd_pipeline::CaseMode::Normal => "",
+            bd_pipeline::CaseMode::Title => "Title Case · ",
+            bd_pipeline::CaseMode::Lower => "lowercase · ",
+            bd_pipeline::CaseMode::Upper => "ALL CAPS · ",
+        };
+        let list = format!("{}{case}", if self.settings.list_mode { "List · " } else { "" });
         let status = if self.loading.is_some() {
             "Loading…".to_string()
         } else if listening {

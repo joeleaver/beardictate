@@ -19,6 +19,29 @@ impl Finisher {
             self.emit(Event::ListMode(on));
         }
     }
+
+    /// A case mode, by voice ("bear, all caps") or reconfigured.
+    pub(super) fn set_case(&mut self, mode: crate::CaseMode) {
+        if self.case_mode != mode {
+            tracing::info!(?mode, "case mode");
+            self.case_mode = mode;
+            self.emit(Event::CaseMode(mode));
+        }
+    }
+
+    /// One segment's commanded text in the case mode.
+    pub(super) fn in_case(&self, text: &str, actions: &[Action]) -> String {
+        let said_last = said_last_mark(text, actions);
+        crate::case::apply(text, self.case_mode, &self.vocabulary.spellings(), said_last)
+    }
+}
+
+/// Whether the speaker said the mark at the end ("…, question mark").
+fn said_last_mark(text: &str, actions: &[Action]) -> bool {
+    actions.iter().any(|a| match &a.kind {
+        ActionKind::Punctuation(mark) => a.offset + mark.len() >= text.trim_end_matches([' ', '\t']).len(),
+        _ => false,
+    })
 }
 
 /// `text`, one segment's commanded text, as a list item: on a new line
@@ -33,11 +56,7 @@ pub(super) fn item(text: &str, actions: &[Action], new_line: bool, names: &[Stri
     let mut body = body.to_string();
     // The recognizer's full stop (or ours, at a pause) comes off; a mark the
     // speaker said ("…, question mark") stays.
-    let said_last = actions.iter().any(|a| match &a.kind {
-        ActionKind::Punctuation(mark) => a.offset + mark.len() >= text.trim_end_matches([' ', '\t']).len(),
-        _ => false,
-    });
-    if !said_last {
+    if !said_last_mark(text, actions) {
         let trimmed = body.trim_end_matches(['.', '!', '?', '\u{2026}', ',', ';', ':']).len();
         body.truncate(trimmed);
     }

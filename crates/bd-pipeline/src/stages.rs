@@ -99,7 +99,7 @@ struct Pending {
     /// When it was ready to clean: when it, or the last part joined onto
     /// it, arrived.
     ready: Instant,
-    /// A list item: typed as it is, not tidied.
+    /// A list item, or said in a case mode: typed as it is, not tidied.
     list: bool,
 }
 
@@ -221,6 +221,8 @@ struct Finisher {
     list_mode: bool,
     /// A list just ended: what comes next starts on a line of its own.
     after_list: bool,
+    /// See [`PipelineConfig::case_mode`].
+    case_mode: crate::CaseMode,
 }
 
 impl Finisher {
@@ -258,6 +260,7 @@ impl Finisher {
             edits: Vec::new(),
             list_mode: config.list_mode,
             after_list: false,
+            case_mode: config.case_mode,
         };
         finisher.set_pad(pad);
         finisher
@@ -515,8 +518,12 @@ impl Finisher {
         let quote_before = self.quote_open;
         self.quote_open = out.quote_open;
         self.note_commanded(id, &heard, &text, &out, pad_action.as_ref());
-        let list = self.list_mode && out.has_words();
-        if list {
+        let cased = self.case_mode != crate::CaseMode::Normal && out.has_words();
+        let list = (self.list_mode || cased) && out.has_words();
+        if cased {
+            out.text = self.in_case(&out.text, &out.actions);
+        }
+        if self.list_mode && out.has_words() {
             out.text = list::item(&out.text, &out.actions, self.passage_has_text, &self.vocabulary.spellings());
         } else if std::mem::take(&mut self.after_list) && out.has_words() && !out.text.starts_with('\n') {
             out.text.insert(0, '\n');
@@ -540,6 +547,7 @@ impl Finisher {
         }
         match pad_action {
             Some(PadAction::List(on)) => self.set_list(on),
+            Some(PadAction::Case(mode)) => self.set_case(mode),
             Some(action) if self.pad.is_some() => self.pad_action(action),
             // In order, after what was said before it.
             Some(action) => self.queue.push_back(Item::Edit(action)),
@@ -557,6 +565,7 @@ impl Finisher {
         self.sentence_hold_speaking = config.sentence_hold_speaking;
         self.live_typing = config.live_typing;
         self.list_mode = config.list_mode;
+        self.case_mode = config.case_mode;
         if !(self.live && self.live_typing && !config.pad) {
             self.tidy_stop();
         }

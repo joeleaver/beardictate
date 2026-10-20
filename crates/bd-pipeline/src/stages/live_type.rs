@@ -93,6 +93,9 @@ impl Finisher {
         });
         // A "scratch that" takes effect when the utterance ends.
         let mut body = out.text.trim_end_matches([' ', '\t']).to_string();
+        if self.case_mode != crate::CaseMode::Normal && out.has_words() {
+            body = self.in_case(&body, &out.actions);
+        }
         if self.list_mode && out.has_words() {
             body = super::list::item(&body, &out.actions, self.passage_has_text, &self.vocabulary.spellings());
         }

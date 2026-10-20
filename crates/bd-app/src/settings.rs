@@ -165,6 +165,10 @@ pub struct Settings {
     /// only, never saved.
     #[serde(skip)]
     pub list_mode: bool,
+    /// Title case, lower case or all caps
+    /// ([`bd_pipeline::PipelineConfig::case_mode`]): for this run only.
+    #[serde(skip)]
+    pub case_mode: bd_pipeline::CaseMode,
     /// Earlier versions' modes, moved into `destination` and `tidy` on load.
     #[serde(skip_serializing)]
     mode: Option<OldMode>,
@@ -220,6 +224,7 @@ impl Default for Settings {
             tidy_device: TidyDevice::Auto,
             show_bear: true,
             list_mode: false,
+            case_mode: bd_pipeline::CaseMode::Normal,
             mode: None,
             bear_pad: false,
             auto_gain: true,
@@ -259,6 +264,7 @@ pub struct LiveSettings {
     pub mic_gain_db: f32,
     pub pad: bool,
     pub list_mode: bool,
+    pub case_mode: bd_pipeline::CaseMode,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -355,6 +361,7 @@ impl Settings {
             mic_gain_db: self.mic_gain_db,
             pad: self.pad(),
             list_mode: self.list_mode,
+            case_mode: self.case_mode,
         }
     }
 

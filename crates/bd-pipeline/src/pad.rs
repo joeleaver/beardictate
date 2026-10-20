@@ -37,6 +37,9 @@ pub enum PadAction {
     /// List mode on ("bear, start a list") or off ("bear, end the list"),
     /// in the pad or your app.
     List(bool),
+    /// A case mode ("bear, all caps", "bear, normal case"), in the pad or
+    /// your app.
+    Case(crate::CaseMode),
 }
 
 /// What the pad shows: its text in order, each part clean or still raw.

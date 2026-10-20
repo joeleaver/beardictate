@@ -3,7 +3,7 @@
 //! automatic updates on, the app restarts into a waiting update itself once
 //! nothing has gone on for [`IDLE_FOR`] (Joe, 2026-10-20): not dictating,
 //! cleaning or testing the microphone, no text in the Bear Pad, and not in
-//! list mode (which isn't saved). Asleep while always listening counts as
+//! list or a case mode (which aren't saved). Asleep while always listening counts as
 //! idle. A start normally switches dictation on; after this restart, which
 //! nobody asked for, the new version starts asleep (or idle) instead, told
 //! by a [`QUIET_START`] file in the updates folder.
@@ -42,7 +42,7 @@ impl<U: Ui> Worker<U> {
         if busy {
             self.active_at = now;
         }
-        let keep = !self.pad.view.is_empty() || self.settings.list_mode;
+        let keep = !self.pad.view.is_empty() || self.settings.list_mode || self.settings.case_mode != bd_pipeline::CaseMode::Normal;
         if !may_restart(crate::update::ready(), self.settings.auto_update, busy, keep, self.active_at, now) {
             return;
         }

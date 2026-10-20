@@ -94,6 +94,12 @@ impl<U: Ui> Worker<U> {
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
             Event::Pad(view) => self.on_pad_view(view),
+            Event::CaseMode(mode) => {
+                self.settings.case_mode = mode;
+                super::notes::settings(&self.settings);
+                self.ui.settings_changed(self.settings.clone());
+                self.sync_pad();
+            }
             Event::ListMode(on) => {
                 self.settings.list_mode = on;
                 super::notes::settings(&self.settings);

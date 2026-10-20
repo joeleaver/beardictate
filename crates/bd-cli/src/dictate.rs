@@ -251,6 +251,7 @@ impl Reporter {
             }
             Event::Pad(_) => {}
             Event::ListMode(on) => eprintln!("[list mode {}]", if *on { "on" } else { "off" }),
+            Event::CaseMode(mode) => eprintln!("[case mode {mode:?}]"),
             Event::PadSend { text } => {
                 println!("{text}");
                 return Some(Output::Type(0, text.clone()));

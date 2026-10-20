@@ -38,7 +38,18 @@ pub(super) fn heard(text: &str) -> Option<Heard> {
         let only_filler = rest.iter().all(|x| FILLER.contains(&x.2.as_str()));
         let span = |from: usize, to: usize| text[w[from].0..w[to].1].to_string();
         let says_list = rest.iter().any(|x| matches!(x.2.as_str(), "list" | "lists"));
+        let next = rest.first().map(|x| x.2.as_str());
+        let says_case = next == Some("case") && rest.len() == 1;
+        let says_caps = matches!(next, Some("caps" | "capitals")) && rest.len() == 1;
         let action = match verb {
+            "title" if says_case => PadAction::Case(crate::CaseMode::Title),
+            "lower" if says_case => PadAction::Case(crate::CaseMode::Lower),
+            "lowercase" if rest.is_empty() => PadAction::Case(crate::CaseMode::Lower),
+            "upper" if says_case => PadAction::Case(crate::CaseMode::Upper),
+            "uppercase" if rest.is_empty() => PadAction::Case(crate::CaseMode::Upper),
+            "all" if says_caps => PadAction::Case(crate::CaseMode::Upper),
+            "normal" | "sentence" if says_case => PadAction::Case(crate::CaseMode::Normal),
+            "caps" if next == Some("off") && rest.len() == 1 => PadAction::Case(crate::CaseMode::Normal),
             "start" | "begin" | "make" | "new" if says_list => PadAction::List(true),
             "list" if rest.iter().all(|x| matches!(x.2.as_str(), "mode" | "on" | "please")) => PadAction::List(true),
             "end" | "stop" | "finish" | "close" | "exit" | "leave" if says_list => PadAction::List(false),
@@ -103,6 +114,26 @@ mod tests {
         assert_eq!(h("Milk. Bear, end the list."), Some(("Milk.".into(), PadAction::List(false))));
         assert_eq!(h("Bear, stop the list."), Some((String::new(), PadAction::List(false))));
         assert_eq!(h("Bear, list the dates."), None, "a list of what, not list mode");
+    }
+
+    #[test]
+    fn case_modes_on_and_off() {
+        use crate::CaseMode::*;
+        for (said, mode) in [
+            ("Bear, all caps.", Upper),
+            ("Bear, title case.", Title),
+            ("Bear, lower case.", Lower),
+            ("Bear, lowercase.", Lower),
+            ("Bear, upper case.", Upper),
+            ("Bear, normal case.", Normal),
+            ("Bear, sentence case.", Normal),
+            ("Bear, caps off.", Normal),
+        ] {
+            assert_eq!(h(said), Some((String::new(), PadAction::Case(mode))), "{said}");
+        }
+        assert_eq!(h("Done. Bear, title case."), Some(("Done.".into(), PadAction::Case(Title))));
+        assert_eq!(h("Bear, all caps would be shouting."), None);
+        assert_eq!(h("Bear, title case law."), None);
     }
 
     #[test]

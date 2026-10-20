@@ -656,6 +656,7 @@ dependencies = [
  "bd-models",
  "bd-vocab",
  "crossbeam-channel",
+ "serde",
  "tracing",
 ]
 
