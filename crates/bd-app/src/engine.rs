@@ -144,6 +144,10 @@ impl Drop for Engine {
 struct Loaded {
     pipeline: Pipeline,
     cleanup: String,
+    /// The cleanup model's prompt template and how it runs, for the `load`
+    /// telemetry event (`None` with cleanup off; `info` too for a server).
+    template: Option<String>,
+    info: Option<bd_cleanup::ModelInfo>,
 }
 
 struct Worker<U> {

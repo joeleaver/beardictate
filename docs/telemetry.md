@@ -68,18 +68,19 @@ One JSON object per line:
 |---|---|---|
 | `system` | start | `os_version`, `arch`, `cpu`, `cores`, `ram_mb`, `features` (`["vulkan-dl","nemotron-hotwords"]`…), `gpus`: `[{name, description, backend, free_mb, total_mb}]` as llama.cpp lists them |
 | `settings` | start, and each change (list mode by voice too) | the settings file, as saved (word lists included), plus `list_mode`; since 8cff5bb `destination` (`app`/`pad`) and `tidy` (bool) instead of `mode`. **Not sent before 0.1.17** (the contract said so; the app didn't) |
-| `load` | models loaded or failed | `destination`, `tidy`, `asr`, `cleanup` (name or null), `template`, `gpu_layers`, `n_layer`, `n_ctx`, `threads`, `load_ms`, `error` |
-| `log` | a warning or error, and llama.cpp's and the cleanup loader's messages while a model loads | `level`, `target`, `message` (at most 200 a session) |
+| `load` | models loaded or failed (at start, and each reload) | `destination`, `tidy`, `asr`, `cleanup` (name, or null with tidy off), `template`, `gpu_layers`, `n_layer`, `n_ctx`, `threads` (null for a server or no cleanup), `load_ms`, `error` (null when it loaded). **Not sent before 0.1.19** |
+| `log` | a warning or error, and llama.cpp's and the loaders' other messages while a model loads | `level`, `target`, `message`. At most 200 warnings and errors a session, and 100 of the loaders' other messages, counted apart (before 0.1.19, 200 of both together, which a model load used up). llama.cpp's line per layer and per tensor is left out from 0.1.19: `load` has `gpu_layers` |
 | `state` | dictation starts, stops, wakes, sleeps; list mode switched by voice | `state` (`listening`, `idle`, `asleep`, `cleaning`…; `unspoken_to` with `minutes` when it goes to sleep or stops by itself, from 0.1.19), or `list_mode` (bool, from 0.1.13) |
 | `mic` | microphone opened, lost, or warned about | `device`, `event`, `detail` |
 | `partial` | the streaming recognizer's text so far | `text`, `since_speech_ms` |
 | `transcribed` | a segment finished | `text`, `audio_ms`, `level_dbfs`, `gain`, `pause_ms`, `asr_ms` (from the utterance's start; from 0.1.11 it includes the wait to hear whether the sentence went on), `recognizer` (`nemotron`; `parakeet` only from 0.1.9 and earlier, before 8cff5bb), `audio` (true when its FLAC is sent), `far` (from 0.1.19: someone else's voice, so `text` is empty and no audio) |
 | `commanded` | after the vocabulary and command pass | `heard`, `vocabulary` (text after special-word fixes), `commanded`, `actions` (`["new_paragraph", "open_quote", …]`), `pad_command` |
 | `cleaned` | the cleanup model ran (a sentence, or a pad paragraph) | `segments`, `context`, `raw`, `names`, `model_output`, `final`, `verdict` (`accepted`/`repaired`/`fell_back`), `reason`, `respelled` `[[heard, word]]`, `removed`, `prompt_tokens`, `reused_tokens`, `generated_tokens`, `prefill_ms`, `decode_ms`, `total_ms`, `pad` (bool) |
-| `typed` | text sent to the focused app | `text`, `take_back`, `erase` (characters taken back), `backend`, `outcome` (`typed`/`pasted`/`clipboard`/`failed`), `inject_ms`, `live` (typed while spoken: your app with tidy off) |
+| `typed` | text sent to the focused app, once it's typed (or wasn't) | `text`, `take_back` (characters taken back before it), `backend` (`windows`/`x11`/`wayland`), `outcome` (`typed`/`pasted`/`clipboard`/`failed`; `test` in a microphone test, which types nothing), `restored` (pasted: the clipboard put back), `reason` (clipboard/failed: why), `inject_ms`, `live` (typed while spoken: your app with tidy off), `pad` (the Bear Pad's text, sent; `segment` null). **Before 0.1.19 only `text`, `take_back` and `live`**, recorded before typing |
 | `scratch` | "scratch that" / pad undo | `what` (`queued`/`erased`/`too_late`/`pad`), `text` |
 | `pad` | a pad action | `action` (`send`/`clear`/`undo`/`change`/`delete`), `words`, `found`, `sent_chars` |
 | `error` | a pipeline stage failed | `stage`, `message` |
+| `update` | at start, and each check for a newer build (from 0.1.19) | `event`: `start` with `auto`, `can_update` (this copy installs updates itself), `channel`, `note` (how the last update went: "Updated to …", "Couldn't install …"), `staged` (a downloaded version waiting), `staged_failed`; or `check` with `result` (`up_to_date`/`ready`/`manual`/`failed`), `version`, `error` |
 
 `scratch` and a `pad` undo right after a segment are the strongest signs a
 segment came out wrong; keep them next to it.

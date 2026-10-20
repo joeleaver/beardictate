@@ -4,24 +4,26 @@ use std::time::Instant;
 
 use bd_pipeline::Event;
 
-use super::inject::TypeJob;
+use super::inject::{TypeJob, Typed};
 use super::{Ui, Worker};
 
 impl<U: Ui> Worker<U> {
     pub(super) fn on_pipeline(&mut self, event: Event) {
-        super::notes::note(&event, !self.settings.pad());
+        let live_typing = !self.settings.pad();
+        super::notes::note(&event, live_typing, self.testing);
         match event {
             Event::Text { id, text, .. } if self.testing => {
                 tracing::info!(segment = id, chars = text.chars().count(), "microphone test: not typed");
             }
-            Event::Text { id, take_back, text, .. } => {
+            Event::Text { id, take_back, text, cleanup, .. } => {
                 tracing::info!(segment = id, chars = text.chars().count(), "typing");
                 bd_pipeline::dump::typed(id, &text);
                 if take_back > 0 {
                     // The trailing space before a break or a closing mark.
                     let _ = self.type_text.send(TypeJob::Erase(" ".repeat(take_back)));
                 }
-                let _ = self.type_text.send(TypeJob::Type(text));
+                let typed = Typed { segment: Some(id), take_back, live: cleanup.is_none() && live_typing, pad: false };
+                let _ = self.type_text.send(TypeJob::Type(text, typed));
             }
             Event::SessionEnded => {
                 self.cleaning = false;
@@ -105,7 +107,8 @@ impl<U: Ui> Worker<U> {
             }
             Event::PadSend { text } => {
                 tracing::info!(chars = text.chars().count(), "typing the pad");
-                let _ = self.type_text.send(TypeJob::Type(text));
+                let typed = Typed { segment: None, take_back: 0, live: false, pad: true };
+                let _ = self.type_text.send(TypeJob::Type(text, typed));
             }
             Event::PadNotFound { words } if self.settings.pad() => {
                 self.notifier.notify("pad", "Not in the pad", &format!("\u{201C}{words}\u{201D} isn't in the pad, so nothing was changed."));

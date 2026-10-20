@@ -1,6 +1,9 @@
 //! A tracing layer that records warnings and errors, and what llama.cpp and
 //! the model loader say (where a GPU that isn't used shows why), as `log`
-//! events. At most [`MAX_LOGS`] a session.
+//! events. Warnings and errors get [`MAX_WARNINGS`] a session and the
+//! loaders' chatter [`MAX_CHATTER`] of its own, so a model load never uses
+//! up what's left for later warnings. llama.cpp's line per layer and per
+//! tensor is left out: the `load` event says how many layers went to the GPU.
 
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -10,9 +13,39 @@ use tracing::field::{Field, Visit};
 use tracing::{Event, Level, Subscriber};
 use tracing_subscriber::layer::Context;
 
-const MAX_LOGS: u32 = 200;
+const MAX_WARNINGS: u32 = 200;
+const MAX_CHATTER: u32 = 100;
 
-static COUNT: AtomicU32 = AtomicU32::new(0);
+static WARNINGS: AtomicU32 = AtomicU32::new(0);
+static CHATTER: AtomicU32 = AtomicU32::new(0);
+
+/// Which budget a message counts against, if it's recorded at all.
+#[derive(Debug, PartialEq)]
+enum Budget {
+    Warnings,
+    Chatter,
+}
+
+fn budget(level: &Level, target: &str, message: &str) -> Option<Budget> {
+    // Never this module's own messages: no loops.
+    if target.contains("telemetry") {
+        return None;
+    }
+    if *level <= Level::WARN {
+        return Some(Budget::Warnings);
+    }
+    let loader = target.starts_with("llama-cpp-2") || target.starts_with("bd_cleanup") || target.starts_with("beardictate::engine::load");
+    (loader && !per_layer(message)).then_some(Budget::Chatter)
+}
+
+/// llama.cpp's lines about each layer and tensor ("layer 12 assigned to
+/// device Vulkan0", "loading tensor blk.3.attn_q.weight", "- tensor …",
+/// "- kv …"): a model's worth of them is hundreds of lines.
+fn per_layer(message: &str) -> bool {
+    let m = message.trim_start();
+    let layer = m.strip_prefix("layer ").is_some_and(|rest| rest.trim_start().starts_with(|c: char| c.is_ascii_digit()) && rest.contains(" assigned to device "));
+    layer || m.starts_with("loading tensor ") || m.starts_with("- tensor ") || m.starts_with("- kv ")
+}
 
 /// Install with the app's other logging layers.
 pub struct Layer;
@@ -21,16 +54,16 @@ impl<S: Subscriber> tracing_subscriber::Layer<S> for Layer {
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
         let meta = event.metadata();
         let target = meta.target();
-        let wanted = *meta.level() <= Level::WARN
-            || target.starts_with("llama-cpp-2")
-            || target.starts_with("bd_cleanup")
-            || target.starts_with("beardictate::engine::load");
-        // Never this module's own messages: no loops.
-        if !wanted || target.contains("telemetry") || COUNT.fetch_add(1, Ordering::Relaxed) >= MAX_LOGS {
-            return;
-        }
         let mut message = Message(String::new());
         event.record(&mut message);
+        let (count, max) = match budget(meta.level(), target, &message.0) {
+            Some(Budget::Warnings) => (&WARNINGS, MAX_WARNINGS),
+            Some(Budget::Chatter) => (&CHATTER, MAX_CHATTER),
+            None => return,
+        };
+        if count.fetch_add(1, Ordering::Relaxed) >= max {
+            return;
+        }
         let level = meta.level().to_string();
         let target = target.to_string();
         super::record("log", None, move || json!({"level": level, "target": target, "message": message.0}));
@@ -54,5 +87,39 @@ impl Visit for Message {
         } else {
             let _ = write!(self.0, " {}={value}", field.name());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn warnings_and_loader_chatter_count_separately() {
+        let llama = "llama-cpp-2";
+        assert_eq!(budget(&Level::WARN, llama, "control-looking token"), Some(Budget::Warnings));
+        assert_eq!(budget(&Level::ERROR, "beardictate::engine", "x"), Some(Budget::Warnings));
+        assert_eq!(budget(&Level::INFO, llama, "n_layer = 35 module=llama.cpp::print_info"), Some(Budget::Chatter));
+        assert_eq!(budget(&Level::DEBUG, llama, "Found 2 Vulkan devices: module=ggml::ggml_vulkan"), Some(Budget::Chatter));
+        assert_eq!(budget(&Level::INFO, "beardictate::engine::load", "speech: Nemotron"), Some(Budget::Chatter));
+        assert_eq!(budget(&Level::INFO, "beardictate::update", "updates"), None);
+        assert_eq!(budget(&Level::WARN, "beardictate::telemetry::upload", "x"), None);
+    }
+
+    #[test]
+    fn per_layer_lines_are_left_out() {
+        let llama = "llama-cpp-2";
+        for m in [
+            "layer  7 assigned to device Vulkan0, is_swa = 1 module=llama.cpp::load_tensors",
+            "layer 34 assigned to device CPU, is_swa = 0 module=llama.cpp::load_tensors",
+            "loading tensor token_embd.weight module=llama.cpp::create_tensor",
+            "- tensor   12:  blk.1.attn_q.weight q4_0 [2048, 2048, 1, 1]",
+            "- kv   3: general.name str = Merged Adapter",
+        ] {
+            assert_eq!(budget(&Level::DEBUG, llama, m), None, "{m}");
+        }
+        // A warning about a layer still counts.
+        assert_eq!(budget(&Level::WARN, llama, "layer 3 assigned to device CPU"), Some(Budget::Warnings));
+        assert!(!per_layer("layers offloaded: 36/36"));
     }
 }
