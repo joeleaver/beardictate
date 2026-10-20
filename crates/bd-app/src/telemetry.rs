@@ -13,6 +13,8 @@ use serde_json::Value;
 use crate::settings::Paths;
 
 #[cfg(feature = "alpha")]
+mod crash;
+#[cfg(feature = "alpha")]
 mod logs;
 #[cfg(feature = "alpha")]
 mod spool;
@@ -59,10 +61,16 @@ pub fn record(kind: &'static str, segment: Option<u64>, data: impl FnOnce() -> V
     let _ = (kind, segment, data);
 }
 
-/// Sends what's waiting, briefly, before the app quits.
+/// Sends what's waiting, briefly, before the app quits (or after a panic).
 pub fn stop() {
     #[cfg(feature = "alpha")]
     spool::stop();
+}
+
+/// The app is quitting as asked: not a crash at the next start.
+pub fn quit() {
+    #[cfg(feature = "alpha")]
+    crash::quit();
 }
 
 #[cfg_attr(feature = "alpha", allow(dead_code))]

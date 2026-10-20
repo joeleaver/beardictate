@@ -166,6 +166,7 @@ fn main() {
 
     // Stop dictation and the model threads, then take the tray down.
     ENGINE.with(|e| e.borrow_mut().take());
+    telemetry::quit();
     telemetry::stop();
     TRAY.with(|t| t.borrow_mut().take());
     // "Restart to update": the installer takes over from here.

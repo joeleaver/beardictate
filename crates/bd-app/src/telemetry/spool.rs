@@ -71,6 +71,9 @@ pub fn start(paths: &Paths) {
         }
     }));
     tracing::info!("alpha telemetry on (install {})", recorder().map_or("", |r| r.install.as_str()));
+    if let Some(r) = recorder() {
+        super::crash::start(&super::dir(paths), &r.session);
+    }
     super::system::record_system();
 }
 

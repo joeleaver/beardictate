@@ -6,6 +6,8 @@
 //! tensor is left out: the `load` event says how many layers went to the GPU.
 
 use std::fmt::Write;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde_json::json;
@@ -18,6 +20,34 @@ const MAX_CHATTER: u32 = 100;
 
 static WARNINGS: AtomicU32 = AtomicU32::new(0);
 static CHATTER: AtomicU32 = AtomicU32::new(0);
+
+/// The same message (numbers aside) is recorded this often, then only as it
+/// reaches 10, 100, 1000… times, with the count: wgpu's "Suboptimal present
+/// of frame N", 195 times in 30 seconds, once used up a session's warnings.
+const SAME_MESSAGE: u32 = 3;
+
+static SEEN: Mutex<Option<HashMap<String, u32>>> = Mutex::new(None);
+
+/// How many times a message like this one has come, this one included.
+fn times_seen(target: &str, message: &str) -> u32 {
+    let key = format!("{target} {}", message.chars().filter(|c| !c.is_ascii_digit()).collect::<String>());
+    let mut seen = SEEN.lock().unwrap_or_else(|p| p.into_inner());
+    let n = seen.get_or_insert_with(HashMap::new).entry(key).or_insert(0);
+    *n += 1;
+    *n
+}
+
+/// Whether the `n`th sighting of a message is recorded.
+fn recorded(n: u32) -> bool {
+    n <= SAME_MESSAGE || (n >= 10 && power_of_ten(n))
+}
+
+fn power_of_ten(mut n: u32) -> bool {
+    while n >= 10 && n.is_multiple_of(10) {
+        n /= 10;
+    }
+    n == 1
+}
 
 /// Which budget a message counts against, if it's recorded at all.
 #[derive(Debug, PartialEq)]
@@ -61,6 +91,13 @@ impl<S: Subscriber> tracing_subscriber::Layer<S> for Layer {
             Some(Budget::Chatter) => (&CHATTER, MAX_CHATTER),
             None => return,
         };
+        let n = times_seen(target, &message.0);
+        if !recorded(n) {
+            return;
+        }
+        if n > SAME_MESSAGE {
+            let _ = write!(message.0, " (seen {n} times)");
+        }
         if count.fetch_add(1, Ordering::Relaxed) >= max {
             return;
         }
@@ -104,6 +141,16 @@ mod tests {
         assert_eq!(budget(&Level::INFO, "beardictate::engine::load", "speech: Nemotron"), Some(Budget::Chatter));
         assert_eq!(budget(&Level::INFO, "beardictate::update", "updates"), None);
         assert_eq!(budget(&Level::WARN, "beardictate::telemetry::upload", "x"), None);
+    }
+
+    #[test]
+    fn a_repeated_message_is_recorded_three_times_then_at_tens() {
+        let kept: Vec<u32> = (1..=1000).filter(|&n| recorded(n)).collect();
+        assert_eq!(kept, [1, 2, 3, 10, 100, 1000]);
+        let t = "wgpu_hal::vulkan::test";
+        assert_eq!(times_seen(t, "Suboptimal present of frame 1"), 1);
+        assert_eq!(times_seen(t, "Suboptimal present of frame 2"), 2, "numbers aside, the same message");
+        assert_eq!(times_seen(t, "Another message"), 1);
     }
 
     #[test]
