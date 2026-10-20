@@ -4,6 +4,7 @@
 use rinch::prelude::*;
 
 use crate::models::{self, ModelState, catalog, in_use, size};
+use crate::settings::TidyDevice;
 use crate::ui::{self, Shared, change};
 
 pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
@@ -11,6 +12,7 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
         if st.cleanup.ends_with(".gguf") { st.cleanup.clone() } else { String::new() }
     }));
     let switches = super::modes::switches(__scope, s);
+    let devices: Vec<NodeHandle> = [TidyDevice::Auto, TidyDevice::Cpu].into_iter().map(|d| device(__scope, s, d)).collect();
     let rows: Vec<NodeHandle> = catalog().into_iter().map(|m| row(__scope, s, m)).collect();
     let (s1, s2) = (s.clone(), s.clone());
     rsx! {
@@ -20,6 +22,10 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 "A small model on your computer goes over each sentence after you say it. Both switches are also in the bear\u{2019}s menu."
             }
             {switches}
+            div { style: "display: flex; flex-direction: column; gap: 8px;",
+                Text { style: "font-weight: 600;", "Runs on" }
+                {devices}
+            }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Models" }
                 Text { size: "sm", color: "dimmed", "Bigger models tidy and quote dialog more reliably but need a faster computer. Downloads continue in the background and pick up where they left off." }
@@ -38,6 +44,24 @@ pub fn cleanup_page(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 },
             }
             Text { size: "sm", color: "dimmed", {move || ui::status_line(&s2)} }
+        }
+    }
+}
+
+/// Where the model runs: the graphics card, or the processor alone.
+fn device(__scope: &mut RenderScope, s: &Shared, device: TidyDevice) -> NodeHandle {
+    let (a, b) = (s.clone(), s.clone());
+    let (label, description) = match device {
+        TidyDevice::Auto => ("Automatic", "The graphics card if there is one, else the processor."),
+        TidyDevice::Cpu => ("Processor only", "Try this if tidying lags behind your speech. On some computers the processor is faster than the graphics card. The model loads again when you change this."),
+    };
+    rsx! {
+        Radio {
+            name: "tidy-device",
+            label: label,
+            description: description,
+            checked_fn: move || a.settings.with(|st| st.tidy_device == device),
+            onchange: move || change(&b, |st| st.tidy_device = device),
         }
     }
 }

@@ -2,6 +2,7 @@
 //! without loading.
 
 use anyhow::Result;
+use bd_cleanup::GpuLayers;
 use bd_models::Store;
 use bd_pipeline::setup::{self, CleanupOptions, CleanupSource};
 use bd_pipeline::{Parts, Pipeline, PipelineConfig, Recognizer};
@@ -11,7 +12,7 @@ use std::thread;
 use crossbeam_channel::bounded;
 
 use super::{Loaded, Ui, Worker};
-use crate::settings::{Settings, vocabulary};
+use crate::settings::{Settings, TidyDevice, vocabulary};
 
 /// Why loading stopped on first run. The settings window is open with its
 /// download card then, so this needs no notification.
@@ -32,7 +33,7 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     let asr = Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &hotwords, settings.hotword_boost)?));
     tracing::info!(destination = ?settings.destination, tidy = settings.tidy, "speech: Nemotron, streaming");
     let source = if settings.tidy { CleanupSource::parse(&settings.cleanup) } else { CleanupSource::Off };
-    let cleanup = setup::load_cleanup(&source, &CleanupOptions::default(), &store)?;
+    let cleanup = setup::load_cleanup(&source, &cleanup_options(settings), &store)?;
     let name = cleanup.as_ref().map_or_else(|| "off".to_string(), |c| c.name.clone());
     if let Some(c) = &cleanup {
         tracing::info!("{}", c.description);
@@ -45,6 +46,16 @@ pub(super) fn load(settings: &Settings, gain: f32) -> Result<Loaded> {
     };
     let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
     Ok(Loaded { pipeline, cleanup: name })
+}
+
+/// How the tidying model runs: on the graphics card if there is one, unless
+/// the settings say the processor.
+fn cleanup_options(settings: &Settings) -> CleanupOptions {
+    let gpu_layers = match settings.tidy_device {
+        TidyDevice::Auto => GpuLayers::Auto,
+        TidyDevice::Cpu => GpuLayers::None,
+    };
+    CleanupOptions { gpu_layers, ..CleanupOptions::default() }
 }
 
 /// Which app has the focus, for the pipeline to start a new passage when
