@@ -291,6 +291,16 @@ fn spelling_is_made_one_way_but_special_words_keep_theirs() {
 }
 
 #[test]
+fn a_special_word_with_its_own_last_mark_gets_no_full_stop_after_it() {
+    let vocabulary = bd_vocab::Vocabulary::new(vec![bd_vocab::Word { text: "A: B:".into(), heard: vec!["a colon b colon".into()] }]);
+    let config = PipelineConfig { vocabulary, ..PipelineConfig::default() };
+    let r = rig_with(vec!["A colon B colon."], true, false, config);
+    say(&r.pipeline, 0);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "A: B:");
+}
+
+#[test]
 fn a_special_word_can_type_lines_of_its_own() {
     let vocabulary = bd_vocab::Vocabulary::parse("Best wishes,<new line>Ysolde: sign off").unwrap();
     let config = PipelineConfig { vocabulary, ..PipelineConfig::default() };

@@ -146,6 +146,14 @@ impl Vocabulary {
             out.push_str(&cased(spelling, &text[start..end], sentence_start(&text[..start])));
             out.push_str(&text[end - suffix..end]);
             copied = end;
+            // A spelling with its own last mark ("A: B:") keeps it: the
+            // recognizer's full stop or comma after it goes ("A: B:." became
+            // an em dash in the cleanup, a tester, 2026-10-20). A question
+            // or exclamation mark stays.
+            if suffix == 0 && spelling.trim_end().ends_with(|c: char| ".,;:".contains(c)) {
+                let rest = &text[end..];
+                copied += rest.len() - rest.trim_start_matches(['.', ',', ';', ':']).len();
+            }
             i += rule.pattern.len();
         }
         out.push_str(&text[copied..]);

@@ -76,3 +76,13 @@ fn break_forms_ignore_case_and_paragraphs_win() {
     assert_eq!(breaks_as_text(&v.apply("ab")), "A\nB");
     assert_eq!(breaks_as_text(&v.apply("cd")), "C\nD");
 }
+
+#[test]
+fn a_spelling_ending_in_a_mark_drops_the_recognizers() {
+    let v = Vocabulary::new(vec![Word { text: "A: B:".into(), heard: vec!["a colon b colon".into()] }]);
+    assert_eq!(v.apply("A colon B colon."), "A: B:");
+    assert_eq!(v.apply("Use the A colon B colon for this."), "Use the A: B: for this.");
+    assert_eq!(v.apply("A colon B colon?"), "A: B:?");
+    // Spellings ending in a letter keep what follows.
+    assert_eq!(vocab("wyrmstone: worm stone").apply("The worm stone."), "The wyrmstone.");
+}
