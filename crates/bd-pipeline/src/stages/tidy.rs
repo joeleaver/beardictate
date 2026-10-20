@@ -209,6 +209,14 @@ impl Finisher {
         // before, when the new sentence takes its trailing space back.
         let cut = drop_last(base, back).len();
         let later: String = self.typed[k + sent.ids.len()..].iter().map(|t| t.text.as_str()).collect();
+        // A mark said after the sentence ("…ready" and then "question
+        // mark") took the place of the one it ended with: the tidied
+        // sentence doesn't bring that back ("ready. ?").
+        let delta = if later.starts_with([',', '.', ';', ':', '!', '?', '\u{2026}']) {
+            delta.trim_end_matches(' ').trim_end_matches(['.', ',', ';', ':', '!', '?', '\u{2026}']).to_string()
+        } else {
+            delta
+        };
         let id = sent.ids[0];
         self.rewrite_from(cut, &format!("{delta}{later}"), id, &sent.raw, Some(elapsed))?;
         if back > 0

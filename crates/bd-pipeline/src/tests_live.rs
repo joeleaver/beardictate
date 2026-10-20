@@ -402,5 +402,28 @@ fn a_spoken_list_is_items_on_lines_of_their_own() {
     assert!(events.iter().any(|e| matches!(e, Event::ListMode(false))));
 }
 
+#[test]
+fn a_mark_said_while_its_sentence_is_tidied_stays_the_only_mark() {
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let (started_tx, started) = unbounded();
+    let (go, go_rx) = bounded(0);
+    let mut config = PipelineConfig::default();
+    config.commands.literal_punctuation = true;
+    let p = live_rig_gated(
+        vec![vec!["Um, we", "Um, we wonder if it's", "Um, we wonder if it's ready."], vec!["Question", "Question mark."]],
+        config,
+        Some(contexts),
+        None,
+        Some((started_tx, go_rx)),
+    );
+    say(&p, 0);
+    started.recv_timeout(Duration::from_secs(5)).unwrap();
+    say(&p, 1);
+    std::thread::sleep(Duration::from_millis(100));
+    go.send(()).unwrap();
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "We wonder if it's ready?");
+}
+
 #[path = "tests_hold.rs"]
 mod hold;
