@@ -1,8 +1,32 @@
 # beardictate — handover
 
-Last updated: 2026-10 (after the weekly-limit reset). Read this, then
+Last updated: 2026-10-19, after 0.1.17. Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
+
+## Start here (open items, 2026-10-19)
+
+1. **rinch#1597** (the bear's drag on Wayland and its see-through
+   background) is being reworked by the Rinch session: positions tagged
+   before/after the compositor applies a move, premultiplied alpha on
+   present. It said it will merge and send the merged hash. Then: repin
+   `rinch` in Cargo.toml (now `rev = "820b811a"`, the branch commit), build,
+   `scripts/install-linux.sh`, and have Joe drag the bear, open its menu and
+   check the glow is see-through. Don't push to its branch
+   `fix/1523-layer-drag-and-transparency`.
+2. **The bear's default place**: near the bottom right of the screen (Joe).
+   Needs the monitor's size from rinch; not started. `pad_window.rs`
+   `load_bear` is where a missing position falls back.
+3. **Settings telemetry**: 0.1.17 is the first build that sends a
+   "settings" event. Check one arrives (`telemetry/pull.sh export … --setting
+   dialog=true` returned nothing on release day, as expected).
+4. **Not tried by real voice yet**: "bear, wake up / delete / undo / send it
+   / clear / start a list / end the list" (Piper can't say "bear"). The bear
+   and its menu are untried on Windows and X11.
+5. Smaller: the Post-processing model is never chosen automatically; the
+   KDE portal keeps its own copy of the shortcut (documented); Nemotron
+   sometimes misses a real sentence end across a pause. Command hotwords were
+   tried and rejected (they made Nemotron hear commands in noise).
 
 ## Decisions already made (don't re-litigate)
 
@@ -10,8 +34,10 @@ file is *where things stand*.
   0.6B English, 1120 ms** (int8, sherpa-onnx, fed live; the only recognizer
   since 2026-10-19, replacing Parakeet Unified, whose code is gone) → deterministic spoken-command pass → **cleanup LLM** with a
   word-diff **guardrail** → text injection (type, else paste).
-- **No floating overlay.** Tray icon is the only live status display (Joe,
-  2026-10-14). Hotkey is a **toggle** by default; hold-to-talk is optional.
+- **The bear on screen** (Joe, 2026-10-19, replacing "no floating overlay"):
+  a small glowing bear, on by default, shows the state, starts and stops
+  dictating on a click and opens the tray's menu on a right-click; it is the
+  Bear Pad window's other shape (DESIGN.md). The tray icon stays. Hotkey is a **toggle** by default; hold-to-talk is optional.
   Bindings are **always at least two keys**, no lone modifiers, on every OS.
   Exceptions → rate-limited OS notifications. Windows first-run has a
   "pin the bear to the taskbar" step; optional start/stop click sound.
@@ -43,7 +69,7 @@ Public: https://github.com/joeleaver/beardictate (MIT). Branch `main`.
 | `eval/`, `training/` | **Committed.** ~150 original cases + UK set, `score.py`, runner, Gutenberg corpus fetch, pair generator, fine-tune recipe. |
 | `bd-pipeline` | **Committed.** Threads segment → ASR → (commands, cleanup, join), `Event` stream out, `Feeder` handle in. Scratch-that drops queued/in-cleanup segments, restores quote state; `ScratchTooLate` otherwise. The caller delivers text (so hold-to-talk can queue until key-up). |
 | `bd-vocab` | **Committed.** The user's names/invented words: a list (`Ysolde: Ussel, Isolde`) giving ASR hotwords plus a whole-word fix-up pass before the command pass. See `eval/vocab/README.md` for the measurements. |
-| `bd-app` | **Committed.** The tray app, binary `beardictate` (rinch main 422eaa56). Tray glyph states, hotkey toggle (default Ctrl+` = `Ctrl+Backquote`). Always listening by default (DESIGN.md "Always listening"): mic stays on, "bear, wake up"/"bear, go to sleep" or the hotkey switch typing; tray menu: wake/sleep, turn microphone off/on, Settings…, quit. With it off, the hotkey starts and stops mic and dictation as before. `scripts/e2e-nested.sh <wav> <secs> voice` tests it. Settings window (sidebar: General, Microphone, Cleanup, Writing, Special words, About); Cleanup page is the model manager (models.rs: catalog cleanup models, download with progress/cancel/resume, delete; `Command::ModelsChanged` reloads when on "auto"); special words live in settings.toml as `word_groups` (each group and word has an on/off; the old flat `special_words` list moves into a "My words" group on load; starter entry: beardictate ← bear dictate, bare dictate). Engine thread owns mic+pipeline; typing thread; settings file watched. Special words, hotword strength (slider), paragraph and quote options apply to the running pipeline at once (`Feeder::reconfigure`); only the cleanup model or models folder reloads. `beardictate --toggle`, single instance, window fallback with no tray, log at `~/.local/state/beardictate/beardictate.log` (the previous run's kept as `beardictate.log.1`; it records each heard segment's number and word count, joins, voice-wake drops and empty results, never the words). Install: `scripts/install-linux.sh`. E2E: `scripts/e2e-nested.sh <wav>`. UI checks: build with `--features debug` (rinch-debug) and drive it with the rinch MCP server, or set `RINCH_DEBUG_PORT` and speak its framed JSON protocol, inside a private X server and D-Bus. |
+| `bd-app` | **Committed.** The tray app, binary `beardictate` (rinch main 422eaa56). Tray glyph states, hotkey toggle (default Ctrl+` = `Ctrl+Backquote`). Always listening by default (DESIGN.md "Always listening"): mic stays on, "bear, wake up"/"bear, go to sleep" or the hotkey switch typing; tray menu: wake/sleep, turn microphone off/on, Settings…, quit. With it off, the hotkey starts and stops mic and dictation as before. `scripts/e2e-nested.sh <wav> <secs> voice` tests it. Settings window (sidebar: General, Microphone, Post-processing, Writing, Special words, About); the Post-processing page holds Tidy up, Dialog and the model manager (models.rs: catalog cleanup models, download with progress/cancel/resume, delete; `Command::ModelsChanged` reloads when on "auto"); special words live in settings.toml as `word_groups` (each group and word has an on/off; the old flat `special_words` list moves into a "My words" group on load; starter entry: beardictate ← bear dictate, bare dictate). Engine thread owns mic+pipeline; typing thread; settings file watched. Special words, hotword strength (slider), paragraph and quote options apply to the running pipeline at once (`Feeder::reconfigure`); only the cleanup model or models folder reloads. `beardictate --toggle`, single instance, window fallback with no tray, log at `~/.local/state/beardictate/beardictate.log` (the previous run's kept as `beardictate.log.1`; it records each heard segment's number and word count, joins, voice-wake drops and empty results, never the words). Install: `scripts/install-linux.sh`. E2E: `scripts/e2e-nested.sh <wav>`. UI checks: build with `--features debug` (rinch-debug) and drive it with the rinch MCP server, or set `RINCH_DEBUG_PORT` and speak its framed JSON protocol, inside a private X server and D-Bus. |
 | `bd-cli` | **Committed.** Binary `bd`: `file`, `mic` (Enter toggles, `--inject`), `models list/download/verify/import`, `devices`, `eval` (outputs.jsonl for `score.py`). Features `vulkan`, `pipewire`. |
 | `design/` | **Committed.** Design-canvas source (`.dc.html` artboards). |
 
