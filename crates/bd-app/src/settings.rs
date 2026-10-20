@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use bd_commands::{CommandConfig, NumberStyle};
-use bd_core::{PunctuationPlacement, QuoteStyle, Style};
+use bd_core::{PunctuationPlacement, QuoteStyle, Spelling, Style};
 use serde::{Deserialize, Serialize};
 
 mod words;
@@ -126,6 +126,8 @@ pub struct Settings {
     /// paragraph's end too. Off, the usual book style: only the next opens.
     pub close_continued_speech: bool,
     pub punctuation: Punctuation,
+    /// American or British spelling, or as the recognizer wrote it.
+    pub spelling: Spelling,
     /// How strongly the speech recognizer listens for the special words.
     pub hotword_boost: f32,
     /// Microphone name; empty for the system default.
@@ -208,6 +210,7 @@ impl Default for Settings {
             blank_line_paragraphs: true,
             close_continued_speech: false,
             punctuation: Punctuation::Inside,
+            spelling: Spelling::American,
             hotword_boost: 2.0,
             microphone: String::new(),
             keep_mic_open: false,
@@ -318,6 +321,7 @@ impl Settings {
             dialog_paragraphs: self.dialog && self.paragraph_on_speaker,
             topic_paragraphs: self.paragraph_on_topic,
             close_continued_speech: self.close_continued_speech,
+            spelling: self.spelling,
         }
     }
 

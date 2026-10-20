@@ -37,7 +37,7 @@ impl Finisher {
             return;
         }
         if self.pad.is_some() {
-            let shown = bd_vocab::breaks_as_text(&self.vocabulary.apply(text));
+            let shown = bd_vocab::breaks_as_text(&self.own_words(text));
             return self.pad_live(&shown);
         }
         let Some(body) = self.stable(text, settled) else { return };
@@ -87,7 +87,7 @@ impl Finisher {
         if n == 0 {
             return None;
         }
-        let out = self.pass.apply(&self.vocabulary.apply(&words[..n].join(" ")), self.quote_open);
+        let out = self.pass.apply(&self.own_words(&words[..n].join(" ")), self.quote_open);
         let scratches = out.actions.iter().any(|a| {
             matches!(a.kind, ActionKind::ScratchPreviousSegment | ActionKind::ScratchWithinSegment { .. })
         });

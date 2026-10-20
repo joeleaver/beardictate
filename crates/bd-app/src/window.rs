@@ -18,6 +18,7 @@ mod mic_page;
 mod modes;
 mod old_models;
 mod setup;
+mod spelling;
 mod updates;
 mod words;
 use cleanup::cleanup_page;
@@ -25,6 +26,7 @@ use mic_page::microphone;
 use modes::modes;
 use old_models::old_models;
 use setup::setup_card;
+use spelling::spelling;
 use updates::updates;
 use words::words;
 
@@ -320,6 +322,7 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let b1 = breaks(__scope, s, "A blank line (two returns)", true);
     let b2 = breaks(__scope, s, "One return, for editors that space paragraphs themselves", false);
     let (s1, s2, s3) = (s.clone(), s.clone(), s.clone());
+    let sp = spelling(__scope, s);
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Writing" }
@@ -343,6 +346,7 @@ fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 Text { style: "font-weight: 600;", "Punctuation" }
                 {t5}
             }
+            {sp}
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Numbers" }
                 {n1} {n2}

@@ -30,7 +30,10 @@ impl Cleaner {
                 for (context, raw, style, names) in job_rx {
                     let started = Instant::now();
                     let request = CleanupRequest { context: &context, raw: &raw, style: &style, names: &names };
-                    let result = engine.clean(&request).map_err(|e| e.to_string());
+                    let result = engine
+                        .clean(&request)
+                        .map(|text| bd_vocab::respell(&text, style.spelling, &names))
+                        .map_err(|e| e.to_string());
                     let _ = result_tx.send((result, started.elapsed(), engine.last_report()));
                 }
                 engine

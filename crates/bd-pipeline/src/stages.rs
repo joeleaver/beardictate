@@ -397,6 +397,12 @@ impl Finisher {
         }
     }
 
+    /// What the recognizer heard in the user's spelling, then with their
+    /// special words.
+    pub(super) fn own_words(&self, heard: &str) -> String {
+        self.vocabulary.apply(&bd_vocab::respell(heard, self.style.spelling, &self.vocabulary.spellings()))
+    }
+
     fn clean(&mut self, id: u64, commanded: &str) -> (String, Option<Duration>) {
         let Some(cleanup) = self.cleanup.as_mut() else {
             return (commanded.to_string(), None);
@@ -410,7 +416,7 @@ impl Finisher {
         let elapsed = started.elapsed();
         let report = cleanup.last_report();
         let context = context.to_string();
-        match result {
+        match result.map(|text| bd_vocab::respell(&text, self.style.spelling, &names)) {
             Ok(text) => {
                 self.note_cleaned(vec![id], context, commanded, &text, elapsed, report, false);
                 (text, Some(elapsed))
@@ -486,7 +492,7 @@ impl Finisher {
         if self.pad.is_none() {
             self.new_passage_if_moved_on();
         }
-        let text = self.vocabulary.apply(&heard);
+        let text = self.own_words(&heard);
         let (text, pad_action) = self.pad_command(text);
         let mut out = self.pass.apply(&text, self.quote_open);
         let scratches = out.scratch_previous();

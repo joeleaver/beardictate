@@ -26,10 +26,12 @@
 //! See [`breaks`].
 
 mod breaks;
+mod spelling;
 #[cfg(test)]
 mod tests;
 
 pub use breaks::breaks_as_text;
+pub use spelling::respell;
 
 /// One of the user's words.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

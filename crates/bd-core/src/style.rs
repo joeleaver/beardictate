@@ -45,6 +45,18 @@ pub enum PunctuationPlacement {
     Logical,
 }
 
+/// Whose spelling to write: colour or color, centre or center. The speech
+/// recognizer learned both and writes either, even in one sentence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Spelling {
+    /// As the recognizer and the cleanup model wrote it.
+    #[default]
+    AsHeard,
+    American,
+    British,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Style {
@@ -65,6 +77,9 @@ pub struct Style {
     /// style), the paragraph ends with no closing mark and only the next one
     /// opens: “…the river.¶“And then…
     pub close_continued_speech: bool,
+    /// Spelling, made consistent after the recognizer and the cleanup
+    /// model (`bd_vocab::respell`); special words keep theirs.
+    pub spelling: Spelling,
 }
 
 impl Style {
@@ -83,6 +98,7 @@ impl Default for Style {
             dialog_paragraphs: true,
             topic_paragraphs: false,
             close_continued_speech: false,
+            spelling: Spelling::AsHeard,
         }
     }
 }

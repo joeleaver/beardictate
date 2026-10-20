@@ -8,7 +8,7 @@
 
 pub mod style;
 
-pub use style::{PunctuationPlacement, QuoteStyle, Style};
+pub use style::{PunctuationPlacement, QuoteStyle, Spelling, Style};
 
 /// Errors crossing a trait boundary. Each backend crate has its own concrete
 /// error type and boxes it here, so callers can report it without knowing the

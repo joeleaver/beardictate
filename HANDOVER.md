@@ -17,14 +17,21 @@ file is *where things stand*.
 4. **Not tried by real voice yet**: "bear, wake up / delete / undo / send it
    / clear / start a list / end the list" (Piper can't say "bear"). The bear
    and its menu are untried on Windows and X11.
-5. **0.1.19 (2026-10-20)**: with automatic updates on, the app restarts
+5. **Unreleased (2026-10-20), testers' asks**: special-word spellings may
+   hold `<new line>`/`<paragraph>` (`\n`, `\n\n`) breaks (bd-vocab
+   `breaks.rs`, typed by the command pass even with break commands off);
+   Writing › Spelling, American by default, British or as heard
+   (bd-vocab `spelling.rs`, a fixed word list; applied before the special
+   words and to the tidy-up's output; British-only twins like cheque/tyre
+   only ever become American). Nemotron writes both spellings.
+6. **0.1.19 (2026-10-20)**: with automatic updates on, the app restarts
    into a waiting update after 30 minutes with nothing going on
    (`engine/idle_update.rs`; the next start stays asleep, told by a
    `quiet-start` file; a build that failed to install never triggers it).
    Settings › General: how long until it stops listening (5–60 min,
    never); Post-processing: where the tidying model runs (automatic or
    processor only). Proved by tests; the restart not yet seen happen.
-6. **Also in 0.1.19**, from the Windows tester's telemetry**: other
+7. **Also in 0.1.19**, from the Windows tester's telemetry**: other
    voices in the room aren't typed or sent (more than 15 dB below the
    user's learned level, `bd-pipeline` `voice.rs`), it goes back to sleep
    after 10 minutes unspoken to (Settings › General: 5–60 min or never), and "microphone is quiet" shows on the

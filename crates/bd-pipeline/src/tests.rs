@@ -280,6 +280,17 @@ fn the_vocabulary_fixes_words_before_commands_and_cleanup() {
 }
 
 #[test]
+fn spelling_is_made_one_way_but_special_words_keep_theirs() {
+    let vocabulary = bd_vocab::Vocabulary::parse("Colour Sergeant").unwrap();
+    let style = bd_core::Style { spelling: bd_core::Spelling::American, ..bd_core::Style::default() };
+    let config = PipelineConfig { vocabulary, style, ..PipelineConfig::default() };
+    let r = rig_with(vec!["The Colour Sergeant liked the colour of the centre."], true, false, config);
+    say(&r.pipeline, 0);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "The Colour Sergeant liked the color of the center.");
+}
+
+#[test]
 fn a_special_word_can_type_lines_of_its_own() {
     let vocabulary = bd_vocab::Vocabulary::parse("Best wishes,<new line>Ysolde: sign off").unwrap();
     let config = PipelineConfig { vocabulary, ..PipelineConfig::default() };
