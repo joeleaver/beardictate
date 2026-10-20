@@ -80,6 +80,17 @@ pub enum TrayTheme {
     Dark,
 }
 
+/// Where the tidying model runs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TidyDevice {
+    /// The graphics card when there is one, else the processor.
+    #[default]
+    Auto,
+    /// The processor only. Faster than a slow graphics card or driver.
+    Cpu,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -143,6 +154,8 @@ pub struct Settings {
     /// marks and a different character's line starts a paragraph. Off,
     /// only dictated quote marks stay.
     pub dialog: bool,
+    /// Where the model that tidies runs. A change loads the model again.
+    pub tidy_device: TidyDevice,
     /// The bear on screen: a small floating window showing the state, with
     /// the tray's menu on a right-click.
     pub show_bear: bool,
@@ -201,6 +214,7 @@ impl Default for Settings {
             destination: Destination::App,
             tidy: true,
             dialog: false,
+            tidy_device: TidyDevice::Auto,
             show_bear: true,
             list_mode: false,
             mode: None,
@@ -225,6 +239,7 @@ pub struct ModelSettings {
     cleanup: String,
     models_dir: String,
     tidy: bool,
+    tidy_device: TidyDevice,
 }
 
 /// The settings a running pipeline takes without reloading.
@@ -319,6 +334,7 @@ impl Settings {
             cleanup: self.cleanup.clone(),
             models_dir: self.models_dir.clone(),
             tidy: self.tidy,
+            tidy_device: self.tidy_device,
         }
     }
 
@@ -492,6 +508,8 @@ const SETTINGS_HEADER: &str = "\
 # dialog: with tidy, true to put speech in quote marks (fiction); false keeps only dictated quotes.
 # tidy: true to post-process with the model: words are typed as you say them, and each
 #   sentence (in the pad, the paragraph) is tidied in place when you pause; false leaves them be.
+# tidy_device: where the model that tidies runs: \"auto\" (the graphics card if there is one) or \"cpu\"
+#   (the processor only; try it if tidying is slow).
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";
@@ -511,6 +529,15 @@ mod tests {
         assert!(!partial.style().dialog_paragraphs);
         assert!(partial.commands().break_commands);
         assert_eq!(partial.pause_paragraph(), None);
+    }
+
+    #[test]
+    fn tidy_device_defaults_to_auto_and_changing_it_reloads() {
+        let s: Settings = toml::from_str("").unwrap();
+        assert_eq!(s.tidy_device, TidyDevice::Auto);
+        let cpu: Settings = toml::from_str("tidy_device = \"cpu\"\n").unwrap();
+        assert_eq!(cpu.tidy_device, TidyDevice::Cpu);
+        assert_ne!(s.models(), cpu.models());
     }
 
     #[test]
