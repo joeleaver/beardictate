@@ -376,6 +376,8 @@ pub struct Paths {
     pub pad_window: PathBuf,
     /// Where the bear on screen was left.
     pub bear_window: PathBuf,
+    /// The Settings window's section when it was last left.
+    pub settings_section: PathBuf,
     /// This run's log (replaced each start).
     pub log: PathBuf,
     /// Downloaded updates waiting to install (see [`crate::update`]).
@@ -399,6 +401,7 @@ impl Paths {
             gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
             pad_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("pad-window"),
             bear_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("bear-window"),
+            settings_section: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("settings-section"),
             updates: dirs.data_local_dir().join("updates"),
             autostart: base.config_dir().join("autostart").join("beardictate.desktop"),
         })

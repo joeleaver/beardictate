@@ -100,10 +100,8 @@ pub fn perform(shared: &Shared, act: Act) {
         Act::Bear { on } => change(shared, |st| st.show_bear = on),
         Act::List { on } => change(shared, |st| st.list_mode = on),
         Act::RestartToUpdate => crate::update::restart_to_update(),
-        Act::Settings => {
-            shared.section.set(Section::General);
-            show_current_window();
-        }
+        // On the section it was last left on.
+        Act::Settings => show_current_window(),
         Act::MicrophoneSettings => {
             shared.section.set(Section::Microphone);
             show_current_window();

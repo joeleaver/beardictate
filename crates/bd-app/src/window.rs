@@ -93,7 +93,10 @@ fn nav(__scope: &mut RenderScope, s: &Shared, section: Section, label: &'static 
         NavLink {
             label: label,
             active_fn: move || a.section.get() == section,
-            onclick: move || b.section.set(section),
+            onclick: move || {
+                b.section.set(section);
+                section.save(&b.paths);
+            },
         }
     }
 }

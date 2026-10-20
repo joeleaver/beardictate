@@ -59,6 +59,37 @@ pub enum Section {
     About,
 }
 
+impl Section {
+    const ALL: [(Section, &'static str); 6] = [
+        (Section::General, "general"),
+        (Section::Microphone, "microphone"),
+        (Section::Cleanup, "post-processing"),
+        (Section::Writing, "writing"),
+        (Section::Words, "special-words"),
+        (Section::About, "about"),
+    ];
+
+    fn key(self) -> &'static str {
+        Self::ALL.iter().find(|(s, _)| *s == self).map_or("general", |(_, k)| k)
+    }
+
+    /// The section the window was last left on (General the first time).
+    pub fn load(paths: &Paths) -> Section {
+        let saved = std::fs::read_to_string(&paths.settings_section).unwrap_or_default();
+        Self::ALL.iter().find(|(_, k)| *k == saved.trim()).map_or(Section::General, |(s, _)| *s)
+    }
+
+    /// Remembers it for the next time the window opens, this run or the next.
+    pub fn save(self, paths: &Paths) {
+        if let Some(dir) = paths.settings_section.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Err(e) = std::fs::write(&paths.settings_section, self.key()) {
+            tracing::warn!("remembering the settings section: {e}");
+        }
+    }
+}
+
 /// Changes the settings: saved at once, and sent to the engine.
 pub fn change(s: &Shared, edit: impl FnOnce(&mut Settings)) {
     let current = untracked(|| s.settings.get());
@@ -78,8 +109,8 @@ impl Shared {
     pub fn new(paths: Paths, settings: Settings, updates: crate::update::Updates) -> Shared {
         let models = Models::new(models::store(&settings.models_dir).as_ref());
         Shared {
+            section: Signal::new(Section::load(&paths)),
             paths,
-            section: Signal::new(Section::General),
             hotkey_text: Signal::new(readable(&settings.hotkey)),
             hotkey_note: Signal::new(String::new()),
             status: Signal::new(Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false, warning: None }),
