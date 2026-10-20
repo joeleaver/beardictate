@@ -55,6 +55,9 @@ const PHRASES: &[Phrase] = &[
     // As the recognizer writes "em dash" more often than not.
     punct(&["m", "dash"], "\u{2014}", false),
     punct(&["emdash"], "\u{2014}", false),
+    punct(&["en", "dash"], "\u{2013}", false),
+    punct(&["n", "dash"], "\u{2013}", false),
+    punct(&["endash"], "\u{2013}", false),
     punct(&["period"], ".", true),
     punct(&["comma"], ",", false),
     punct(&["colon"], ":", false),
@@ -118,6 +121,10 @@ const NOUN_FOLLOWERS: &[&str] = &[
     "break", "breaks", "drama", "dramas", "piece", "pieces", "key", "keys",
 ];
 
+/// Words that, directly after "new line" or "new paragraph", show someone
+/// is talking about the command ("new line is working pretty well").
+const ABOUT_A_COMMAND: &[&str] = &["is", "was", "isn't", "wasn't", "works", "worked", "working", "command", "commands", "feature", "doesn't", "didn't"];
+
 /// Words that keep a bare `quote` from opening a `quote … end quote` pair
 /// ("to quote him", "a quote").
 const BARE_QUOTE_BLOCKERS: &[&str] = &[
@@ -167,7 +174,11 @@ fn context_ok(toks: &[Token], i: usize, ph: &Phrase, after_command: bool) -> boo
                 .any(|w| QUOTE_BLOCKERS.contains(&w.as_str()));
             !blocked && !next_is_noun && !(ph.words == ["unquote"] && preceded_by_bare_quote(toks, i))
         }
-        Cmd::NewParagraph | Cmd::NewLine => !noun_blocked(toks, i) && !next_is_noun,
+        Cmd::NewParagraph | Cmd::NewLine => {
+            // "new line is working": talk about the command, not the command.
+            let talked_about = next.is_some_and(|n| ABOUT_A_COMMAND.contains(&n.lower.as_str()));
+            !noun_blocked(toks, i) && !next_is_noun && !talked_about
+        }
         Cmd::Scratch => {
             // A clause starts here: the segment's start, a sentence's end
             // before it, or a capital the recognizer gave it mid-sentence

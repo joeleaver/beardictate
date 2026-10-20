@@ -112,15 +112,20 @@ pub(crate) fn render(items: &[Item], style: &Style, quote_open: bool) -> (String
                         trim_trailing_spaces(&mut out);
                         actions.push(Action { kind: ActionKind::Punctuation(mark), offset: out.len() });
                         out.push_str(mark);
-                        // An em dash joins the words on both sides.
-                        space = mark != "\u{2014}";
+                        // An em or en dash joins the words on both sides.
+                        space = !matches!(mark, "\u{2014}" | "\u{2013}");
                         capitalize |= ends;
                         None
                     }
                     Cmd::Scratch => unreachable!("scratch is resolved before rendering"),
                 };
                 if let Some((kind, brk)) = kind {
-                    if let (Some(t), true) = (terminal, last_was_word) {
+                    // The recognizer's full stop after "new line" ends a bare
+                    // sentence, but a comma the speaker said stays ("Dear
+                    // John, new line.").
+                    if let (Some(t), true) = (terminal, last_was_word)
+                        && !out.trim_end().ends_with([',', ';', ':'])
+                    {
                         end_sentence(&mut out, t);
                     }
                     trim_trailing_spaces(&mut out);

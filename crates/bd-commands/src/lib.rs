@@ -193,7 +193,11 @@ impl CommandPass {
     fn number_at(&self, toks: &[token::Token], i: usize) -> Option<(token::Token, usize)> {
         let numeral = toks[i].lower == "numeral" && toks[i].trail.is_empty();
         let from = if numeral { i + 1 } else { i };
-        if !numeral && self.config.numbers != NumberStyle::StyleGuide {
+        // "four colon zero zero", said with spoken marks on: a time.
+        let colon_time = !numeral
+            && self.config.literal_punctuation
+            && toks.get(i + 1).is_some_and(|t| t.lower == "colon" && toks[i].trail.is_empty());
+        if !numeral && !colon_time && self.config.numbers != NumberStyle::StyleGuide {
             return None;
         }
         let rest = toks.get(from..)?;
@@ -205,7 +209,11 @@ impl CommandPass {
             .map(|(k, t)| !t.trail.is_empty() || rest.get(k + 1).is_some_and(|n| !n.lead.is_empty()))
             .collect();
         let spoken = numbers::read(&words, &stops)?;
-        let (text, took) = if numeral {
+        let timed = matches!(spoken.value, numbers::Value::Time { .. }) && words.get(1) == Some(&"colon");
+        if colon_time && self.config.numbers != NumberStyle::StyleGuide && !timed {
+            return None;
+        }
+        let (text, took) = if numeral || timed {
             (numbers::digits(&spoken.value), false)
         } else {
             let before = (i > 0 && token::joined(&toks[i - 1], &toks[i])).then(|| toks[i - 1].lower.as_str());

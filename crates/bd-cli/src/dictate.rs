@@ -79,6 +79,10 @@ pub struct DictateArgs {
     /// paragraph per speaker (the app's Dialog off).
     #[arg(long)]
     pub no_dialog: bool,
+    /// Always listening's commands: "bear, go to sleep" stops typing and
+    /// "bear, wake up" starts it again. Starts awake.
+    #[arg(long)]
+    pub voice_wake: bool,
 }
 
 #[derive(Debug, Args)]
@@ -143,9 +147,13 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         .then(|| Duration::try_from_secs_f32(args.pause_paragraph))
         .transpose()
         .context("--pause-paragraph must be a positive number of seconds")?;
-    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, live_typing, ..PipelineConfig::default() };
+    let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, live_typing, voice_wake: args.voice_wake, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
-    Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))
+    let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
+    if args.voice_wake {
+        pipeline.set_awake(true);
+    }
+    Ok(pipeline)
 }
 
 /// Prints delivered text on stdout and everything else on stderr.

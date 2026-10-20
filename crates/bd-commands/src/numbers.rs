@@ -187,6 +187,16 @@ pub(crate) fn read(words: &[&str], stops: &[bool]) -> Option<Spoken> {
     let stopped = used > 0 && stops[used - 1];
     if !ordinal && !stopped {
         // A time: an hour, then minutes or "o'clock", then perhaps a.m./p.m.
+        // "four colon zero zero": a time said with its colon.
+        if n <= 23
+            && used == 1
+            && rest.first() == Some(&"colon")
+            && let Some((minute, mlen, false)) = minutes(&rest[1..], &stops[used + 1..])
+        {
+            let after = used + 1 + mlen;
+            let (meridiem, mer_len) = meridiem(&words[after..]);
+            return Some(Spoken { value: Value::Time { hour: n, minute, meridiem, oclock: false }, len: after + mer_len });
+        }
         if (1..=12).contains(&n) && used == 1 {
             if let Some((minute, mlen, oclock)) = minutes(rest, &stops[used..]) {
                 let after = used + mlen;
@@ -222,6 +232,8 @@ pub(crate) fn read(words: &[&str], stops: &[bool]) -> Option<Spoken> {
 fn minutes(words: &[&str], stops: &[bool]) -> Option<(u64, usize, bool)> {
     match *words.first()? {
         "o'clock" | "oclock" => Some((0, 1, true)),
+        "zero" | "oh" | "o" if matches!(words.get(1), Some(&("zero" | "oh" | "o"))) => Some((0, 2, false)),
+        "hundred" => Some((0, 1, false)),
         "oh" | "o" => {
             let (m, ord, used) = integer(&words[1..], &stops[1..])?;
             (!ord && m < 10).then_some((m, used + 1, false))
@@ -370,6 +382,9 @@ mod tests {
         assert_eq!(d("seven a m"), "7 a.m.");
         assert_eq!(d("seven am"), "7 a.m.");
         assert_eq!(d("three point five"), "3.5");
+        assert_eq!(d("four colon zero zero"), "4:00");
+        assert_eq!(d("sixteen colon thirty"), "16:30");
+        assert_eq!(d("nine colon fifteen a.m."), "9:15 a.m.");
     }
 
     #[test]

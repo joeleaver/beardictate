@@ -306,3 +306,15 @@ fn commands_as_the_recognizer_writes_them_mid_sentence() {
     // A comma before a break stays: "Dear John, new line".
     assert_eq!(out("First line comma new line second line."), "First line,\nSecond line.");
 }
+
+#[test]
+fn what_testers_said_comes_out_as_they_meant() {
+    let config = CommandConfig { literal_punctuation: true, ..CommandConfig::default() };
+    let pass = CommandPass::new(config, Style::default());
+    let out = |s: &str| pass.apply(s, false).text;
+    assert_eq!(out("Four colon zero zero."), "4:00.");
+    assert_eq!(out("Charlie colon pickup meds."), "Charlie: pickup meds.");
+    assert_eq!(out("Also, new line."), "Also,\n");
+    assert_eq!(out("New line is working pretty well."), "New line is working pretty well.");
+    assert_eq!(out("Pages ten en dash twelve."), "Pages ten\u{2013}twelve.");
+}
