@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.17"
+version = "0.1.18"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/joeleaver/beardictate"
@@ -52,8 +52,8 @@ windows-sys = "0.61"
 # and set (rinch#1546), and window levels shown on every workspace
 # (rinch#1549), and overlays as Wayland layer-shell surfaces (rinch#1523),
 # with their drag kept steady and transparent windows composited with alpha
-# (rinch#1597, not yet merged: its branch's commit).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "820b811a", default-features = false }
+# (rinch#1597's merge commit).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "a3de4b99", default-features = false }
 
 # rinch's own patches (its wgpu/winit forks), required to build it.
 [patch.crates-io]
