@@ -537,7 +537,12 @@ Rough sizes: Parakeet Unified int8 ≈ 0.65 GB, Silero VAD ≈ 2 MB, cleanup 0.6
 | Linux | AppImage + Flatpak | Flatpak needs portals anyway (GlobalShortcuts, RemoteDesktop) — which is the Wayland path we're using. `.deb` for convenience. |
 | macOS | signed + notarized `.app` in a DMG | |
 
-Updates: check a release feed, offer download; no silent self-update in v1.
+Updates: check a release feed every six hours, download and verify the
+newest build, and install it at the next start, from "Restart to update", or
+by restarting itself after 30 minutes with nothing going on (not dictating,
+no Bear Pad text, not in list mode; Joe, 2026-10-20: testers left it in the
+tray for days). That restart starts the new version asleep, not dictating.
+Off in Settings › General, it only checks when asked.
 
 ## Windows install and first run
 

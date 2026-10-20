@@ -23,6 +23,8 @@ use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
 
 mod events;
+mod idle_update;
+pub use idle_update::QUIET_START;
 mod notes;
 mod inject;
 mod mic_check;
@@ -179,6 +181,8 @@ struct Worker<U> {
     /// When the user last said something to it, or started dictating
     /// (see `standby.rs`: it goes to sleep after a long silence).
     last_heard: Instant,
+    /// When it last dictated, cleaned or tested: see [`idle_update`].
+    active_at: Instant,
     /// Learned microphone gains by microphone, and the gain in use.
     gains: std::collections::BTreeMap<String, f32>,
     gain: f32,
@@ -206,6 +210,7 @@ impl<U: Ui> Worker<U> {
         notes::settings(&settings);
         let (type_text, injected) = spawn_injector(&paths);
         let gains = paths.load_gains();
+        let quiet_start = idle_update::take_quiet_start(&paths.updates);
         Worker {
             notifier: Notifier::new(settings.notifications),
             settings_mtime: mtime(&paths.settings),
@@ -221,12 +226,13 @@ impl<U: Ui> Worker<U> {
             capture: None,
             listening_since: None,
             standby: false,
-            start_on_load: true,
+            start_on_load: !quiet_start,
             mic_check: None,
             reopen_mic: false,
             reload_after_load: false,
             quiet: mic_check::Quiet::default(),
             last_heard: Instant::now(),
+            active_at: Instant::now(),
             gains,
             gain: 1.0,
             meter_peak: 0.0,
@@ -282,6 +288,7 @@ impl<U: Ui> Worker<U> {
                     self.watch_files();
                     self.check_mic_level();
                     self.sleep_if_unspoken_to();
+                    self.restart_if_idle_for_update();
                 }
             }
         }

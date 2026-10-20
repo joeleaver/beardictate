@@ -81,7 +81,7 @@ One JSON object per line:
 | `scratch` | "scratch that" / pad undo | `what` (`queued`/`erased`/`too_late`/`pad`), `text` |
 | `pad` | a pad action | `action` (`send`/`clear`/`undo`/`change`/`delete`), `words`, `found`, `sent_chars` |
 | `error` | a pipeline stage failed | `stage`, `message` |
-| `update` | at start, and each check for a newer build (from 0.1.19) | `event`: `start` with `auto`, `can_update` (this copy installs updates itself), `channel`, `note` (how the last update went: "Updated to …", "Couldn't install …"), `staged` (a downloaded version waiting), `staged_failed`; or `check` with `result` (`up_to_date`/`ready`/`manual`/`failed`), `version`, `error` |
+| `update` | at start, and each check for a newer build (from 0.1.19) | `event`: `start` with `auto`, `can_update` (this copy installs updates itself), `channel`, `note` (how the last update went: "Updated to …", "Couldn't install …"), `staged` (a downloaded version waiting), `staged_failed`; or `check` with `result` (`up_to_date`/`ready`/`manual`/`failed`), `version`, `error`; or `idle_restart` (restarting itself into a waiting update after 30 minutes idle) |
 
 `scratch` and a `pad` undo right after a segment are the strongest signs a
 segment came out wrong; keep them next to it.

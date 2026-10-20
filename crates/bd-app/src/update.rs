@@ -1,8 +1,9 @@
 //! Updates: the app looks for a newer build on the site every few hours,
 //! downloads it in the background, checks it (size, SHA-256 and the release
-//! signature), and installs it the next time it starts, or at once from
-//! "Restart to update". Nothing runs mid-dictation: installing means a
-//! restart, which only happens at start or when asked.
+//! signature), and installs it the next time it starts, at once from
+//! "Restart to update", or by restarting itself after half an hour with
+//! nothing going on (`engine::idle_update`). Nothing runs mid-dictation:
+//! installing means a restart.
 //!
 //! The list of builds is the download page's own `releases.json`
 //! (`site/publish.sh`); `BD_UPDATE_URL` points the app at another site
@@ -116,7 +117,7 @@ fn clear(dir: &Path) {
         return;
     };
     for e in entries.flatten() {
-        if e.file_name() == "install.log" {
+        if e.file_name() == "install.log" || e.file_name() == crate::engine::QUIET_START {
             continue;
         }
         let path = e.path();
@@ -194,6 +195,13 @@ fn install_now(dir: &Path, staged: &mut Staged) -> Result<()> {
 }
 
 static INSTALL_ON_EXIT: AtomicBool = AtomicBool::new(false);
+static READY: AtomicBool = AtomicBool::new(false);
+
+/// A downloaded, checked update is waiting to be installed, and installing
+/// it hasn't failed before.
+pub fn ready() -> bool {
+    READY.load(Ordering::SeqCst)
+}
 
 /// "Restart to update": the app quits, and installs on the way out.
 pub fn restart_to_update() {
@@ -284,6 +292,10 @@ struct Checker {
 
 impl Checker {
     fn show(&self, phase: Phase) {
+        // One that failed to install isn't restarted for again (it would
+        // fail again, every half hour).
+        let ready = matches!(phase, Phase::Ready { .. }) && read_staged(&self.dir).is_some_and(|s| !s.failed);
+        READY.store(ready, Ordering::SeqCst);
         *self.last.borrow_mut() = phase.clone();
         self.phase.send(phase);
     }
