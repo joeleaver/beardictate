@@ -51,6 +51,10 @@ pub struct DictateArgs {
     /// the ASR hears instead: `wyrmstone: worm stone, wormstone`.
     #[arg(long, value_name = "FILE")]
     pub words: Option<PathBuf>,
+    /// More words or phrases for the recognizer to listen for, one per
+    /// line, boosted only (no spelling fixes): for trying command phrases.
+    #[arg(long, value_name = "FILE")]
+    pub hotwords: Option<PathBuf>,
     /// How strongly the ASR listens for --words (score per matching token).
     /// 0 keeps only the fix-up list. Higher finds more names but starts
     /// changing ordinary words (2.5 turned "whispered" into "whisper").
@@ -127,7 +131,12 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
     };
     let store = bd_models::Store::from_env()?;
     let segmenter = setup::load_segmenter(&store)?;
-    let asr = bd_pipeline::Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &vocabulary.hotwords(), args.hotword_boost)?));
+    let mut hotwords = vocabulary.hotwords();
+    if let Some(path) = &args.hotwords {
+        let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        hotwords.extend(text.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from));
+    }
+    let asr = bd_pipeline::Recognizer::Live(Box::new(setup::load_streaming_asr(&store, &hotwords, args.hotword_boost)?));
     let cleanup = setup::load_cleanup(&args.cleanup, &store)?;
     let live_typing = !(args.type_once && cleanup.is_some());
     match &cleanup {

@@ -12,7 +12,7 @@ pub(super) const NAMES: &[&str] = &["bear", "bare", "bair", "baer", "behr"];
 /// What it sometimes hears instead ("Where? Go to sleep."). Counted only
 /// when the phrase is the whole segment, where prose rarely says it; a
 /// hotword boost doesn't fix these.
-pub(super) const SOUND_ALIKES: &[&str] = &["where", "wear", "ware", "bar", "beer", "bears", "bert"];
+pub(super) const SOUND_ALIKES: &[&str] = &["where", "wear", "ware", "bar", "beer", "bears", "bert", "vera", "bearer", "bayer"];
 const WAKE: &[&[&str]] = &[&["wake", "up"], &["wakeup"], &["wake"]];
 const SLEEP: &[&[&str]] = &[&["go", "to", "sleep"], &["sleep"]];
 
@@ -107,6 +107,12 @@ mod tests {
         assert_eq!(h("Wear, wake up."), Some((Switch::Wake, "", "")));
         assert_eq!(h("I asked her where go to sleep"), None);
         assert_eq!(h("Hey, wake up."), None);
+    }
+
+    #[test]
+    fn what_alpha_testers_were_heard_as() {
+        assert!(matches!(h("Vera go to sleep."), Some((Switch::Sleep, _, _))));
+        assert!(h("Vera went to sleep early.").is_none());
     }
 
     #[test]
