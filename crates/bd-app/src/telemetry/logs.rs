@@ -70,11 +70,18 @@ fn budget(level: &Level, target: &str, message: &str) -> Option<Budget> {
 
 /// llama.cpp's lines about each layer and tensor ("layer 12 assigned to
 /// device Vulkan0", "loading tensor blk.3.attn_q.weight", "- tensor …",
-/// "- kv …"): a model's worth of them is hundreds of lines.
+/// "- kv …"), and its dump of the model's settings and tokens
+/// (`print_info`, the metadata, "control token: …"): hundreds of lines that
+/// used up the budget before the ones that say where the work runs (buffer
+/// sizes per device, graph splits).
 fn per_layer(message: &str) -> bool {
     let m = message.trim_start();
     let layer = m.strip_prefix("layer ").is_some_and(|rest| rest.trim_start().starts_with(|c: char| c.is_ascii_digit()) && rest.contains(" assigned to device "));
-    layer || m.starts_with("loading tensor ") || m.starts_with("- tensor ") || m.starts_with("- kv ")
+    let dump = m.contains("module=llama.cpp::print_info")
+        || m.starts_with("control token:")
+        || m.starts_with("Dumping metadata")
+        || (m.starts_with("- ") && m.contains("module=llama.cpp::load"));
+    layer || dump || m.starts_with("loading tensor ") || m.starts_with("- tensor ") || m.starts_with("- kv ")
 }
 
 /// Install with the app's other logging layers.
@@ -136,7 +143,8 @@ mod tests {
         let llama = "llama-cpp-2";
         assert_eq!(budget(&Level::WARN, llama, "control-looking token"), Some(Budget::Warnings));
         assert_eq!(budget(&Level::ERROR, "beardictate::engine", "x"), Some(Budget::Warnings));
-        assert_eq!(budget(&Level::INFO, llama, "n_layer = 35 module=llama.cpp::print_info"), Some(Budget::Chatter));
+        assert_eq!(budget(&Level::INFO, llama, "Vulkan0 model buffer size =  2140.00 MiB module=llama.cpp::load_tensors"), Some(Budget::Chatter));
+        assert_eq!(budget(&Level::INFO, llama, "graph splits = 2 module=llama.cpp::llama_context"), Some(Budget::Chatter));
         assert_eq!(budget(&Level::DEBUG, llama, "Found 2 Vulkan devices: module=ggml::ggml_vulkan"), Some(Budget::Chatter));
         assert_eq!(budget(&Level::INFO, "beardictate::engine::load", "speech: Nemotron"), Some(Budget::Chatter));
         assert_eq!(budget(&Level::INFO, "beardictate::update", "updates"), None);
@@ -162,6 +170,9 @@ mod tests {
             "loading tensor token_embd.weight module=llama.cpp::create_tensor",
             "- tensor   12:  blk.1.attn_q.weight q4_0 [2048, 2048, 1, 1]",
             "- kv   3: general.name str = Merged Adapter",
+            "n_layer               = 35 module=llama.cpp::print_info",
+            "control token:      0 '<pad>' is not marked as EOG module=llama.cpp::load",
+            "  - 1 ('<eos>') module=llama.cpp::load",
         ] {
             assert_eq!(budget(&Level::DEBUG, llama, m), None, "{m}");
         }
