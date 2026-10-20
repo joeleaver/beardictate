@@ -1,158 +1,42 @@
-//! American or British spelling, made consistent: the recognizer learned
-//! both and writes either, even in one sentence ("colouring … coloring",
-//! a tester, 2026-10-20). Whole words from a fixed list, with their usual
-//! endings; nothing is guessed from a pattern, so "promise" and "advertise"
-//! are left alone.
+//! American or British spelling, made consistent: the recognizer writes
+//! either, even in one sentence ("colouring … coloring", a tester,
+//! 2026-10-20). Whole words, from VarCon's table of variant spellings (about
+//! 12,000 words with their endings); nothing is guessed from a pattern, so
+//! "promise" and "advertise" are left alone.
 //!
-//! Some British words are another word in American English: a cheque is a
-//! check, but a check is not a cheque. Those only ever become American.
+//! A word only becomes the other spelling when that spelling never uses it
+//! for any meaning: "check" (verify) is British too, so it never becomes
+//! "cheque", while "cheque" always becomes "check".
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use bd_core::Spelling;
 
-/// -or / -our: color, colour.
-const OUR: &[&str] = &[
-    "col", "discol", "flav", "hon", "dishon", "hum", "lab", "neighb", "behavi", "misbehavi", "fav", "disfav", "harb",
-    "rum", "vap", "vig", "val", "savi", "sav", "splend", "arm", "od", "parl", "endeav", "tum", "clam", "ranc", "cand",
-    "ard", "ferv", "rig", "demean", "arb",
-];
-const OUR_ENDINGS: &[&str] =
-    &["", "s", "ed", "ing", "ful", "fully", "less", "able", "ably", "ite", "ites", "er", "ers", "hood", "hoods", "ly", "y"];
-
-/// -er / -re: center, centre.
-const RE: &[&str] = &["cent", "theat", "fib", "calib", "sab", "somb", "spect", "lust", "meag", "sepulch", "scept", "lit", "mit"];
-/// (American, British) endings after the stem.
-const RE_ENDINGS: &[(&str, &str)] = &[("er", "re"), ("ers", "res"), ("ered", "red"), ("ering", "ring")];
-
-/// -ize / -ise: realize, realise.
-const IZE: &[&str] = &[
-    "real", "organ", "recogn", "apolog", "critic", "emphas", "priorit", "summar", "memor", "final", "special", "minim",
-    "maxim", "util", "character", "author", "civil", "sympath", "legal", "normal", "stabil", "visual", "symbol",
-    "standard", "modern", "categor", "custom", "harmon", "idol", "jeopard", "mobil", "neutral", "optim", "patron",
-    "penal", "public", "scrutin", "terror", "theor", "vandal", "verbal", "agon", "antagon", "capital", "central",
-    "colon", "fantas", "fertil", "hospital", "hypnot", "immun", "item", "local", "monopol", "moral", "popular", "privat",
-    "rational", "revolution", "steril", "subsid", "synchron", "tantal", "traumat", "material", "energ", "equal",
-    "familiar", "general", "global", "human", "initial", "internal", "italic", "legitim", "marginal", "metabol", "sanit",
-    "urban", "vocal", "western", "actual", "alphabet", "bapt", "brutal", "canon", "caramel", "carbon", "cauter",
-    "commercial", "computer", "democrat", "demon", "deodor", "dramat", "econom", "empath", "eulog", "evangel",
-    "external", "factor", "fossil", "fratern", "galvan", "homogen", "hybrid", "ideal", "immortal", "individual",
-    "industrial", "ion", "journal", "liberal", "lion", "magnet", "martyr", "mechan", "mesmer", "militar", "miniatur",
-    "mineral", "moistur", "motor", "natural", "national", "ostrac", "oxid", "particular", "pasteur", "personal",
-    "philosoph", "plagiar", "polar", "politic", "pressur", "professional", "pulver", "radical", "random", "regular",
-    "romantic", "satir", "scandal", "secular", "sensational", "sensit", "serial", "sermon", "sexual", "social",
-    "solemn", "spiritual", "stigmat", "systemat", "trivial", "tyrann", "union", "victim", "vulcan", "colonial",
-];
-const IZE_ENDINGS: &[&str] = &["e", "es", "ed", "ing", "ation", "ations", "er", "ers", "able"];
-
-/// -yze / -yse: analyze, analyse.
-const YZE: &[&str] = &["anal", "paral", "catal", "breathal", "electrol", "dial"];
-const YZE_ENDINGS: &[&str] = &["e", "es", "ed", "ing", "er", "ers"];
-
-/// One l before an ending in American English, two in British: traveled,
-/// travelled.
-const LL: &[&str] = &[
-    "travel", "cancel", "label", "model", "level", "signal", "total", "fuel", "marvel", "quarrel", "tunnel", "channel",
-    "shovel", "grovel", "revel", "dial", "duel", "equal", "funnel", "pedal", "pencil", "panel", "refuel", "unravel",
-    "ravel", "yodel", "bevel", "chisel", "enamel", "libel", "spiral", "counsel", "jewel", "barrel", "cudgel", "drivel",
-    "gravel", "marshal", "parcel", "rival", "snivel", "swivel", "towel", "shrivel", "stencil", "pummel", "carol",
-    "dishevel", "remodel", "relabel",
-];
-const LL_ENDINGS: &[&str] = &["ed", "ing", "er", "ers"];
-
-/// (American, British), either way.
-const PAIRS: &[(&str, &str)] = &[
-    ("gray", "grey"), ("grays", "greys"), ("grayed", "greyed"), ("graying", "greying"), ("grayish", "greyish"),
-    ("grayer", "greyer"), ("grayest", "greyest"), ("grayness", "greyness"),
-    ("plow", "plough"), ("plows", "ploughs"), ("plowed", "ploughed"), ("plowing", "ploughing"),
-    ("mold", "mould"), ("molds", "moulds"), ("molded", "moulded"), ("molding", "moulding"), ("moldy", "mouldy"),
-    ("molder", "moulder"), ("molt", "moult"), ("molted", "moulted"), ("molting", "moulting"),
-    ("smolder", "smoulder"), ("smolders", "smoulders"), ("smoldered", "smouldered"), ("smoldering", "smouldering"),
-    ("aluminum", "aluminium"), ("mustache", "moustache"), ("mustaches", "moustaches"), ("pajamas", "pyjamas"),
-    ("jewelry", "jewellery"), ("cozy", "cosy"), ("cozier", "cosier"), ("coziest", "cosiest"), ("coziness", "cosiness"),
-    ("skeptic", "sceptic"), ("skeptics", "sceptics"), ("skeptical", "sceptical"), ("skeptically", "sceptically"),
-    ("skepticism", "scepticism"), ("aging", "ageing"), ("artifact", "artefact"), ("artifacts", "artefacts"),
-    ("catalog", "catalogue"), ("catalogs", "catalogues"), ("cataloged", "catalogued"), ("cataloging", "cataloguing"),
-    ("defense", "defence"), ("defenses", "defences"), ("defenseless", "defenceless"), ("offense", "offence"),
-    ("offenses", "offences"), ("pretense", "pretence"), ("pretenses", "pretences"),
-    ("anemia", "anaemia"), ("anemic", "anaemic"), ("anesthesia", "anaesthesia"), ("anesthetic", "anaesthetic"),
-    ("anesthetics", "anaesthetics"), ("anesthetist", "anaesthetist"), ("encyclopedia", "encyclopaedia"),
-    ("encyclopedias", "encyclopaedias"), ("pediatric", "paediatric"), ("pediatrician", "paediatrician"),
-    ("esophagus", "oesophagus"), ("estrogen", "oestrogen"), ("fetus", "foetus"), ("fetuses", "foetuses"),
-    ("fetal", "foetal"), ("hemorrhage", "haemorrhage"), ("hemoglobin", "haemoglobin"), ("leukemia", "leukaemia"),
-    ("orthopedic", "orthopaedic"), ("diarrhea", "diarrhoea"), ("sulfur", "sulphur"), ("behoove", "behove"),
-    ("behooves", "behoves"), ("mollusk", "mollusc"), ("mollusks", "molluscs"), ("omelet", "omelette"),
-    ("omelets", "omelettes"), ("carburetor", "carburettor"), ("tidbit", "titbit"), ("tidbits", "titbits"),
-    ("yogurt", "yoghurt"), ("maneuver", "manoeuvre"), ("maneuvers", "manoeuvres"), ("maneuvered", "manoeuvred"),
-    ("maneuvering", "manoeuvring"), ("maneuverable", "manoeuvrable"), ("kilometer", "kilometre"),
-    ("kilometers", "kilometres"), ("centimeter", "centimetre"), ("centimeters", "centimetres"),
-    ("millimeter", "millimetre"), ("millimeters", "millimetres"), ("enroll", "enrol"), ("enrolls", "enrols"),
-    ("enrollment", "enrolment"), ("enrollments", "enrolments"), ("fulfill", "fulfil"), ("fulfills", "fulfils"),
-    ("fulfillment", "fulfilment"), ("instill", "instil"), ("instills", "instils"), ("distill", "distil"),
-    ("distills", "distils"), ("installment", "instalment"), ("installments", "instalments"), ("skillful", "skilful"),
-    ("skillfully", "skilfully"), ("willful", "wilful"), ("willfully", "wilfully"), ("enthrall", "enthral"),
-    ("enthralls", "enthrals"), ("counselor", "counsellor"), ("counselors", "counsellors"), ("panelist", "panellist"),
-    ("panelists", "panellists"), ("medalist", "medallist"), ("medalists", "medallists"), ("duelist", "duellist"),
-    ("crueler", "crueller"), ("cruelest", "cruellest"), ("woolen", "woollen"), ("woolens", "woollens"),
-];
-
-/// (British, American): only ever made American. In American English the
-/// British spelling's twin is another word (check, tire, curb, meter,
-/// program, license the verb, practice the noun).
-const TO_AMERICAN_ONLY: &[(&str, &str)] = &[
-    ("cheque", "check"), ("cheques", "checks"), ("chequebook", "checkbook"), ("tyre", "tire"), ("tyres", "tires"),
-    ("kerb", "curb"), ("kerbs", "curbs"), ("metre", "meter"), ("metres", "meters"), ("programme", "program"),
-    ("programmes", "programs"), ("licence", "license"), ("licences", "licenses"), ("practise", "practice"),
-    ("practises", "practices"), ("practised", "practiced"), ("practising", "practicing"), ("learnt", "learned"),
-    ("storeys", "stories"), ("pyjama", "pajama"), ("aeroplane", "airplane"), ("aeroplanes", "airplanes"),
-];
-
-/// (American, British) for every word the list knows.
-fn pairs() -> Vec<(String, String)> {
-    let mut out = Vec::new();
-    for stem in OUR {
-        for e in OUR_ENDINGS {
-            out.push((format!("{stem}or{e}"), format!("{stem}our{e}")));
-        }
-    }
-    for stem in RE {
-        for (us, uk) in RE_ENDINGS {
-            out.push((format!("{stem}{us}"), format!("{stem}{uk}")));
-        }
-    }
-    for stem in IZE {
-        for e in IZE_ENDINGS {
-            out.push((format!("{stem}iz{e}"), format!("{stem}is{e}")));
-        }
-    }
-    for stem in YZE {
-        for e in YZE_ENDINGS {
-            out.push((format!("{stem}yz{e}"), format!("{stem}ys{e}")));
-        }
-    }
-    for stem in LL {
-        for e in LL_ENDINGS {
-            out.push((format!("{stem}{e}"), format!("{stem}l{e}")));
-        }
-    }
-    out.extend(PAIRS.iter().map(|(us, uk)| (us.to_string(), uk.to_string())));
-    out
-}
+/// From VarCon (`data/make_spelling.py`): a word, then how American and
+/// British spell it (empty where it stays).
+const TABLE: &str = include_str!("../data/spelling.tsv");
 
 struct Tables {
-    to_american: HashMap<String, String>,
-    to_british: HashMap<String, String>,
+    to_american: HashMap<&'static str, &'static str>,
+    to_british: HashMap<&'static str, &'static str>,
 }
 
 fn tables() -> &'static Tables {
     static TABLES: OnceLock<Tables> = OnceLock::new();
     TABLES.get_or_init(|| {
-        let pairs = pairs();
-        let mut to_american: HashMap<String, String> = pairs.iter().map(|(us, uk)| (uk.clone(), us.clone())).collect();
-        to_american.extend(TO_AMERICAN_ONLY.iter().map(|(uk, us)| (uk.to_string(), us.to_string())));
-        let to_british = pairs.into_iter().collect();
-        Tables { to_american, to_british }
+        let mut t = Tables { to_american: HashMap::new(), to_british: HashMap::new() };
+        for line in TABLE.lines().filter(|l| !l.starts_with('#')) {
+            let mut cols = line.split('\t');
+            let (Some(word), Some(us), Some(uk)) = (cols.next(), cols.next(), cols.next()) else { continue };
+            if !us.is_empty() {
+                t.to_american.insert(word, us);
+            }
+            if !uk.is_empty() {
+                t.to_british.insert(word, uk);
+            }
+        }
+        t
     })
 }
 
@@ -199,8 +83,8 @@ pub fn respell(text: &str, spelling: Spelling, keep: &[String]) -> String {
     out
 }
 
-fn respell_word(word: &str, table: &HashMap<String, String>) -> String {
-    let Some(new) = table.get(&word.to_lowercase()) else {
+fn respell_word(word: &str, table: &HashMap<&'static str, &'static str>) -> String {
+    let Some(&new) = table.get(word.to_lowercase().as_str()) else {
         return word.to_string();
     };
     let mut chars = word.chars();
@@ -212,7 +96,7 @@ fn respell_word(word: &str, table: &HashMap<String, String>) -> String {
         let mut c = new.chars();
         return c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default();
     }
-    new.clone()
+    new.to_string()
 }
 
 #[cfg(test)]
@@ -259,10 +143,15 @@ mod tests {
     }
 
     #[test]
-    fn no_word_is_both_spellings() {
-        // A word spelled the same either way would flip-flop.
-        for (us, uk) in pairs() {
-            assert_ne!(us, uk);
+    fn the_table_never_maps_a_word_to_itself_or_back_and_forth() {
+        let t = tables();
+        assert!(t.to_american.len() > 5000 && t.to_british.len() > 5000);
+        for (from, to) in t.to_american.iter().chain(&t.to_british) {
+            assert_ne!(from, to);
+        }
+        // Converting and converting back is stable: no word flip-flops.
+        for (uk, us) in &t.to_american {
+            assert!(!t.to_american.contains_key(us), "{uk} -> {us} -> again");
         }
     }
 }
