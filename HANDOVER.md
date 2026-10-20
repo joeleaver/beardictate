@@ -1,19 +1,13 @@
 # beardictate — handover
 
-Last updated: 2026-10-19, after 0.1.17. Read this, then
+Last updated: 2026-10-20, after 0.1.18. Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
 ## Start here (open items, 2026-10-19)
 
-1. **rinch#1597** (the bear's drag on Wayland and its see-through
-   background) is being reworked by the Rinch session: positions tagged
-   before/after the compositor applies a move, premultiplied alpha on
-   present. It said it will merge and send the merged hash. Then: repin
-   `rinch` in Cargo.toml (now `rev = "820b811a"`, the branch commit), build,
-   `scripts/install-linux.sh`, and have Joe drag the bear, open its menu and
-   check the glow is see-through. Don't push to its branch
-   `fix/1523-layer-drag-and-transparency`.
+1. **rinch#1597** merged (a3de4b99) and is pinned since 0.1.18; Joe tried
+   the bear's drag, menu and see-through glow on KDE Wayland (2026-10-20).
 2. **The bear's default place**: near the bottom right of the screen (Joe).
    Needs the monitor's size from rinch; not started. `pad_window.rs`
    `load_bear` is where a missing position falls back.
@@ -352,9 +346,10 @@ one. A page-only change is the same `./publish.sh deploy`. The project was
 created with `jkbase project create beardictate`. Details: that folder's
 README.md.
 
-**Released:** 0.1.17, published 2026-10-19 (site v20; 0.1.16 pruned), from main `c49a607`: the app sends its settings at start and on each change, so `pull.sh export --setting dialog=true` (telemetry server v3, deployed the same day) finds dictation by mode; data from before 0.1.17 has none. Still built against rinch#1597's commit 820b811a. Windows packed on NICO-TOP, installed silently, dictated the paused recording, uninstalled cleanly. Every build is an alpha build for now (Joe, 2026-10-19): telemetry on, with what's sent stated in `packaging/ALPHA-NOTICE.txt` (installer's first page, tarball, download page, About; an alpha's first start opens on About). Nothing heard while always listening is asleep is recorded.
-- Windows: `beardictate-0.1.17-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
-- Linux: `beardictate-0.1.17-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
+**Released:** 0.1.18, published 2026-10-20 (site v21; 0.1.17 pruned), from main `d7a7d84`: rinch pinned to rinch#1597's merge a3de4b99 (the bear's drag and see-through glow). Windows packed and smoke-tested on NICO-TOP over SSH (install, `bd file paused.wav` with `BD_MODELS_DIR=D:\beardictate\sherpa-bd\store`, which has Nemotron 1120 ms and Bear; `cli-models` has no Nemotron; uninstall). Joe's rules for that machine: scratch on D: only, compile here, never touch WSL or the oxidegen runner's tasks.
+- 0.1.17 (2026-10-19, site v20, main `c49a607`): the app sends its settings at start and on each change, so `pull.sh export --setting dialog=true` (telemetry server v3) finds dictation by mode; data from before 0.1.17 has none.
+- Windows: `beardictate-0.1.18-windows-x64-setup.exe` and a `.zip`, cross-built here (`scripts/cross-build-windows.sh`) and packed with Inno Setup on NICO-TOP; unsigned; cleanup on the GPU through Vulkan (backends loaded at run time, CPU fallback), ships the VC++ runtime app-local.
+- Linux: `beardictate-0.1.18-linux-x86_64.tar.gz` from `scripts/package-linux.sh`; needs glibc 2.43+.
 - Telemetry server: jkbase project `beardictate-telemetry` (v3, 2026-10-19: read endpoints, settings filter), https://beardictate-telemetry.jkbase.app, code in `telemetry/` (README: deploy, `export.js`, stats). Secrets `ALPHA_KEY` (also `~/.config/beardictate-release/telemetry-key`, which the build scripts compile in) and `S3_ACCESS_KEY`/`S3_SECRET_KEY` (object-store key JKBA5E4618E888AAAFE6, bucket `telemetry`). The install `0badc0ffee…` (app `test`) is the deploy check.
 - Updates: installed copies (the Windows installer, Linux install.sh) check `downloads/releases.json` every 6 h, download the newest build for their platform (Windows `Installer`, Linux `Archive`), check its SHA-256 and Ed25519 signature, and install at the next start or from "Restart to update" (`crates/bd-app/src/update.rs`). `publish.sh add` signs with `~/.config/beardictate-release/update-signing.pem` (made 2026-10-18; **back it up**: without it no installed copy accepts an update). A build updates only to builds of its channel: `stable` unless built with `BD_UPDATE_CHANNEL` (then publish with `--channel NAME`; the page hides those). Tested 2026-10-18 on Linux (nested KWin) and NICO-TOP; versions before 0.1.8 have no updater, so testers install 0.1.8 by hand once.
 - New release: bump `version` in Cargo.toml, `scripts/package-linux.sh`, ask the Windows session to build the same commit, `site/publish.sh add …`, `prune <platform> 1`, deploy (Joe's OK), commit `releases.json`.
