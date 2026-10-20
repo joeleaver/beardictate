@@ -88,6 +88,7 @@ impl<U: Ui> Worker<U> {
             Event::Pad(view) => self.on_pad_view(view),
             Event::ListMode(on) => {
                 self.settings.list_mode = on;
+                super::notes::settings(&self.settings);
                 self.ui.settings_changed(self.settings.clone());
                 self.sync_pad();
             }

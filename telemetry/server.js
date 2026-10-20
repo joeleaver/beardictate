@@ -183,8 +183,15 @@ async function read(req, res, url) {
     if (since && Number.isNaN(Date.parse(since))) return send(res, 400, { error: "since: a date" });
     const install = url.searchParams.get("install") ?? undefined;
     if (install && !/^[0-9a-f-]{8,64}$/.test(install)) return send(res, 400, { error: "install: an id" });
+    // setting=dialog=true, repeatable: only what was dictated with those.
+    const settings = {};
+    for (const s of url.searchParams.getAll("setting")) {
+      const m = s.match(/^([a-z_]{1,40})[=:](.{0,80})$/);
+      if (!m) return send(res, 400, { error: "setting: key=value" });
+      settings[m[1]] = m[2];
+    }
     res.writeHead(200, { "content-type": "application/x-ndjson" });
-    for await (const line of exportLines({ install, since })) {
+    for await (const line of exportLines({ install, since, settings })) {
       if (!res.write(`${line}\n`)) await new Promise((r) => res.once("drain", r));
     }
     return res.end();

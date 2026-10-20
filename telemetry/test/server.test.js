@@ -169,3 +169,27 @@ test("the read key exports and fetches audio; the app's key can't read", { skip 
   assert.equal(Buffer.from(await clip.arrayBuffer()).subarray(0, 4).toString(), "fLaC");
   assert.equal((await fetch(`${base}/v1/audio/${install}/${session}/1.flac`, { headers: readAuth })).status, 404);
 });
+
+test("each segment carries its settings, and the export keeps only those asked for", { skip }, async () => {
+  const other = "0e1d2c3b4a5968778695a4b3c2d1e0f1";
+  const at = (seq, kind, data, segment = null) =>
+    JSON.stringify({ v: 1, install: other, session: other, seq, ts: `2026-10-19T10:00:0${seq}.000Z`, app: "0.1.17-alpha", os: "linux", kind, segment, data });
+  const body = [
+    at(0, "settings", { dialog: false, tidy: true, destination: "app", word_groups: [{ name: "Book", words: [] }] }),
+    at(1, "transcribed", { text: "plain narration" }, 1),
+    at(2, "settings", { dialog: true, tidy: true, destination: "app", word_groups: [] }),
+    at(3, "transcribed", { text: "she said run" }, 2),
+  ].join("\n");
+  assert.equal((await fetch(`${base}/v1/events`, { method: "POST", headers: { ...auth, "content-type": "application/x-ndjson" }, body })).status, 200);
+  const get = async (q) => (await (await fetch(`${base}/v1/export?install=${other}${q}`, { headers: readAuth })).text()).trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  const all = await get("");
+  assert.deepEqual(all.find((l) => l.segment === 1).settings, { dialog: false, tidy: true, destination: "app" }, "word lists left out");
+  assert.equal(all.find((l) => l.segment === 2).settings.dialog, true);
+  const dialog = await get("&setting=dialog%3Dtrue");
+  assert.deepEqual(dialog.map((l) => l.segment), [null, 2], "the dialog segment and its session's own line");
+  assert.deepEqual((await get("&setting=dialog%3Dtrue&setting=tidy%3Dfalse")).length, 0);
+  // Settings from before `since` still say what a later segment was dictated with.
+  const later = await get("&since=2026-10-19T10:00:01Z&setting=dialog%3Dfalse");
+  assert.deepEqual(later.map((l) => l.segment).sort(), [1, null]);
+  assert.equal((await fetch(`${base}/v1/export?setting=nonsense`, { headers: readAuth })).status, 400);
+});

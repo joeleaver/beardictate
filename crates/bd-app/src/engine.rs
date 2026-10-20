@@ -193,6 +193,7 @@ struct Worker<U> {
 
 impl<U: Ui> Worker<U> {
     fn new(paths: Paths, settings: Settings, ui: U, commands: Receiver<Command>, to_self: Sender<Command>) -> Self {
+        notes::settings(&settings);
         let (type_text, injected) = spawn_injector(&paths);
         let gains = paths.load_gains();
         Worker {
@@ -409,6 +410,9 @@ impl<U: Ui> Worker<U> {
     }
 
     fn apply(&mut self, new: Settings) {
+        if new != self.settings {
+            notes::settings(&new);
+        }
         let old = std::mem::replace(&mut self.settings, new);
         let s = &self.settings;
         self.notifier.set_enabled(s.notifications);

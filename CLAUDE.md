@@ -10,7 +10,7 @@ Every build sends what happens in each dictation to the telemetry server
 
 ```
 telemetry/pull.sh stats                                  # installs, versions, counts
-telemetry/pull.sh export <out.jsonl> [--install <id>] [--since 2026-10-19]
+telemetry/pull.sh export <out.jsonl> [--install <id>] [--since 2026-10-19] [--setting dialog=true]
 telemetry/pull.sh audio <audio key from the export> <out.flac>
 ```
 
@@ -18,7 +18,9 @@ The export is a JSON line per dictated segment: what was heard, the
 commands, the cleanup's before and after, what was typed, "scratch that",
 and the audio's key. Each session also gets a line with `segment: null`,
 holding its system, load, settings and log events; GPU and setup problems
-start there. The read key is `~/.config/beardictate-release/telemetry-read-key`.
+start there. Each segment line has the `settings` it was dictated with
+(from 0.1.17), and `--setting key=value` (repeatable) keeps only those:
+everything said with Dialog on is `--setting dialog=true`. The read key is `~/.config/beardictate-release/telemetry-read-key`.
 Never copy it into the repo, a command line or a message.
 
 Exports hold testers' own words and recordings, so write them to your

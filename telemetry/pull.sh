@@ -5,12 +5,16 @@
 #   telemetry/pull.sh stats
 #       installs, most recent first: app version, OS, events, audio sent
 #   telemetry/pull.sh export <out.jsonl> [--install <id>] [--since 2026-10-19]
+#                            [--setting dialog=true]...
 #       a line per dictated segment, with everything that happened to it
 #       (what was heard, the commands, the cleanup's before and after, what
-#       was typed, "scratch that"), and its audio's key; plus a line per
-#       session (segment null) with its system, load, settings and log
-#       events (GPU problems start there). Format: lib/export.js and
-#       docs/telemetry.md.
+#       was typed, "scratch that"), its audio's key, and the settings it was
+#       dictated with (`settings`, from 0.1.17); plus a line per session
+#       (segment null) with its system, settings and log events (GPU
+#       problems start there). --setting keeps only segments dictated with
+#       those settings: dialog=true, tidy=false, destination=pad,
+#       list_mode=true, numbers=style-guide, … (any key of the settings
+#       file). Format: lib/export.js and docs/telemetry.md.
 #   telemetry/pull.sh audio <audio key from the export> <out.flac>
 #       one segment's recording (16 kHz mono FLAC)
 #
@@ -30,7 +34,7 @@ get() {
         curl --config - --silent --show-error --fail-with-body --compressed "$@"
 }
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 case "${1:-}" in
     stats)
@@ -45,6 +49,7 @@ case "${1:-}" in
             case "$1" in
                 --install) query="$query&install=${2:?--install needs an id}"; shift 2 ;;
                 --since) query="$query&since=${2:?--since needs a date}"; shift 2 ;;
+                --setting) query="$query&setting=$(printf %s "${2:?--setting needs key=value}" | sed 's/=/%3D/')"; shift 2 ;;
                 *) usage ;;
             esac
         done

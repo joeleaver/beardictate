@@ -71,3 +71,16 @@ pub(super) fn note(event: &Event, live_typing: bool) {
         Event::Pad(_) => {}
     }
 }
+
+/// The settings in effect, at start and after each change, so a session's
+/// dictation can be found by them ("everything with Dialog on"). List mode,
+/// which the file never holds, is in it too.
+pub(super) fn settings(settings: &crate::settings::Settings) {
+    record("settings", None, || {
+        let mut v = serde_json::to_value(settings).unwrap_or_default();
+        if let Some(map) = v.as_object_mut() {
+            map.insert("list_mode".into(), settings.list_mode.into());
+        }
+        v
+    });
+}

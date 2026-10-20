@@ -59,7 +59,7 @@ One JSON object per line:
 | `kind` | When | `data` |
 |---|---|---|
 | `system` | start | `os_version`, `arch`, `cpu`, `cores`, `ram_mb`, `features` (`["vulkan-dl","nemotron-hotwords"]`…), `gpus`: `[{name, description, backend, free_mb, total_mb}]` as llama.cpp lists them |
-| `settings` | start, and each change | the settings file, as saved (word lists included); since 8cff5bb `destination` (`app`/`pad`) and `tidy` (bool) instead of `mode` |
+| `settings` | start, and each change (list mode by voice too) | the settings file, as saved (word lists included), plus `list_mode`; since 8cff5bb `destination` (`app`/`pad`) and `tidy` (bool) instead of `mode`. **Not sent before 0.1.17** (the contract said so; the app didn't) |
 | `load` | models loaded or failed | `destination`, `tidy`, `asr`, `cleanup` (name or null), `template`, `gpu_layers`, `n_layer`, `n_ctx`, `threads`, `load_ms`, `error` |
 | `log` | a warning or error, and llama.cpp's and the cleanup loader's messages while a model loads | `level`, `target`, `message` (at most 200 a session) |
 | `state` | dictation starts, stops, wakes, sleeps; list mode switched by voice | `state` (`listening`, `idle`, `asleep`, `cleaning`…), or `list_mode` (bool, from 0.1.13) |
@@ -111,3 +111,10 @@ jkbase project `beardictate-telemetry`. Its README has the deploy steps.
 - `telemetry/export.js` dumps everything as JSONL, one line per segment with
   its events in order and its audio key, plus one line per session for the
   events about no segment (`system`, `load`, `settings`, `log`).
+
+Each segment's line also carries `settings`: the session's last `settings`
+event before it, word lists left out (null before 0.1.17). `GET
+/v1/export?setting=dialog=true` (repeatable; `pull.sh export --setting
+dialog=true`) keeps only the segments dictated with those settings, and
+their sessions' own lines; values compare as text, so any settings key
+works (`tidy=false`, `destination=pad`, `list_mode=true`).
