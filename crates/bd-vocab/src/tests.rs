@@ -51,3 +51,28 @@ fn hyphens_and_apostrophes_stay_inside_words() {
     let v = vocab("Fenmere: Fen-mere\nO'Dara: O'Darra");
     assert_eq!(v.apply("Fen-mere and O'Darra met."), "Fenmere and O'Dara met.");
 }
+
+#[test]
+fn a_spelling_can_ask_for_breaks() {
+    use bd_core::{LINE_BREAK as L, PARAGRAPH_BREAK as P};
+    let v = Vocabulary::new(vec![
+        Word { text: "Best wishes,<new line>Ysolde".into(), heard: vec!["sign off".into()] },
+        Word { text: "Yours,\\n\\nJoe".into(), heard: vec!["letter end".into()] },
+    ]);
+    assert_eq!(v.apply("Thanks again. Sign off."), format!("Thanks again. Best wishes, {L} Ysolde."));
+    assert_eq!(v.apply("letter end"), format!("Yours, {P} Joe"));
+    // What the recognizer listens for and the cleanup keeps has no breaks.
+    assert_eq!(v.spellings(), ["Best wishes, Ysolde", "Yours, Joe"]);
+    assert_eq!(v.hotwords(), v.spellings());
+    // Saying the words themselves gives the breaks too.
+    assert_eq!(v.apply("best wishes Ysolde"), format!("Best wishes, {L} Ysolde"));
+    assert_eq!(breaks_as_text(&v.apply("Thanks. Sign off.")), "Thanks. Best wishes,\nYsolde.");
+}
+
+#[test]
+fn break_forms_ignore_case_and_paragraphs_win() {
+    let v = vocab("Regards,<PARAGRAPH>Ann: regards ann\nA<Line>B: ab\nC\\nD: cd");
+    assert_eq!(breaks_as_text(&v.apply("regards ann")), "Regards,\n\nAnn");
+    assert_eq!(breaks_as_text(&v.apply("ab")), "A\nB");
+    assert_eq!(breaks_as_text(&v.apply("cd")), "C\nD");
+}

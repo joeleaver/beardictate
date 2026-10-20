@@ -131,6 +131,18 @@ pub struct CommandPass {
     pub style: Style,
 }
 
+/// The break a token stands for, when it is [`bd_core::LINE_BREAK`] or
+/// [`bd_core::PARAGRAPH_BREAK`] alone.
+fn spelled_break(tok: &token::Token) -> Option<rules::Cmd> {
+    let mut c = tok.lead.chars();
+    let (Some(mark), None) = (c.next(), c.next()) else { return None };
+    match mark {
+        bd_core::LINE_BREAK if tok.core.is_empty() && tok.trail.is_empty() => Some(rules::Cmd::NewLine),
+        bd_core::PARAGRAPH_BREAK if tok.core.is_empty() && tok.trail.is_empty() => Some(rules::Cmd::NewParagraph),
+        _ => None,
+    }
+}
+
 impl CommandPass {
     pub fn new(config: CommandConfig, style: Style) -> Self {
         Self { config, style }
@@ -149,6 +161,13 @@ impl CommandPass {
         let mut leading: Vec<Action> = Vec::new();
         let mut i = 0;
         while i < toks.len() {
+            // A break a special word's spelling asked for (bd_vocab): obeyed
+            // whatever the command settings, as the user wrote it.
+            if let Some(cmd) = spelled_break(&toks[i]) {
+                items.push(render::Item::Cmd { cmd, trail: String::new() });
+                i += 1;
+                continue;
+            }
             let after_command = matches!(items.last(), Some(render::Item::Cmd { .. }));
             let matched = rules::match_at(&toks, i, self.config.literal_punctuation, after_command)
                 .filter(|m| self.config.break_commands || !matches!(m.cmd, rules::Cmd::NewParagraph | rules::Cmd::NewLine));

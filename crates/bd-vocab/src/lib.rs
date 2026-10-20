@@ -20,9 +20,16 @@
 //! Left of the colon is the spelling; right of it, comma-separated, what the
 //! ASR writes instead. A heard form that is an ordinary word ("train" for
 //! *Thrane*) is replaced everywhere, so list only real mishearings.
+//!
+//! A spelling may ask for breaks: `Best wishes,<new line>Ysolde` types two
+//! lines (`<paragraph>` for a new paragraph; `\n` and `\n\n` work too).
+//! See [`breaks`].
 
+mod breaks;
 #[cfg(test)]
 mod tests;
+
+pub use breaks::breaks_as_text;
 
 /// One of the user's words.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -40,6 +47,8 @@ pub struct Vocabulary {
     words: Vec<Word>,
     /// Longest pattern first, so "Port Varrow" wins over "Varrow".
     rules: Vec<Rule>,
+    /// Each word's spelling as typed: its breaks as marks.
+    out: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,7 +71,8 @@ impl Vocabulary {
     pub fn new(words: Vec<Word>) -> Self {
         let mut rules = Vec::new();
         for (i, w) in words.iter().enumerate() {
-            for form in std::iter::once(&w.text).chain(&w.heard) {
+            let spelled = breaks::plain(&w.text);
+            for form in std::iter::once(&spelled).chain(&w.heard) {
                 let pattern: Vec<String> = tokens(form).map(|t| form[t].to_lowercase()).collect();
                 if !pattern.is_empty() && !rules.iter().any(|r: &Rule| r.pattern == pattern) {
                     rules.push(Rule { pattern, word: i });
@@ -70,7 +80,8 @@ impl Vocabulary {
             }
         }
         rules.sort_by_key(|r| std::cmp::Reverse(r.pattern.len()));
-        Self { words, rules }
+        let out = words.iter().map(|w| breaks::marked(&w.text)).collect();
+        Self { words, rules, out }
     }
 
     /// Reads the list format described in the crate docs.
@@ -83,7 +94,7 @@ impl Vocabulary {
             }
             let (text, heard) = line.split_once(':').unwrap_or((line, ""));
             let text = text.trim();
-            if tokens(text).next().is_none() {
+            if tokens(&breaks::plain(text)).next().is_none() {
                 return Err(ParseError { line: n + 1, message: format!("no word in {line:?}") });
             }
             let heard = heard.split(',').map(str::trim).filter(|h| !h.is_empty()).map(String::from).collect();
@@ -92,9 +103,9 @@ impl Vocabulary {
         Ok(Self::new(words))
     }
 
-    /// Each word as it should be spelled, in list order.
+    /// Each word as it should be spelled, in list order (breaks taken out).
     pub fn spellings(&self) -> Vec<String> {
-        self.words.iter().map(|w| w.text.clone()).collect()
+        self.words.iter().map(|w| breaks::plain(&w.text)).collect()
     }
 
     pub fn words(&self) -> &[Word] {
@@ -105,9 +116,9 @@ impl Vocabulary {
         self.words.is_empty()
     }
 
-    /// The spellings, for the ASR's hotword list.
+    /// The spellings, for the ASR's hotword list (breaks taken out).
     pub fn hotwords(&self) -> Vec<String> {
-        self.words.iter().map(|w| w.text.clone()).collect()
+        self.spellings()
     }
 
     /// Replaces heard forms with the user's spellings in `text`.
@@ -129,7 +140,7 @@ impl Vocabulary {
             let start = toks[i].start;
             let end = toks[i + rule.pattern.len() - 1].end;
             out.push_str(&text[copied..start]);
-            let spelling = &self.words[rule.word].text;
+            let spelling = &self.out[rule.word];
             out.push_str(&cased(spelling, &text[start..end], sentence_start(&text[..start])));
             out.push_str(&text[end - suffix..end]);
             copied = end;

@@ -318,3 +318,14 @@ fn what_testers_said_comes_out_as_they_meant() {
     assert_eq!(out("New line is working pretty well."), "New line is working pretty well.");
     assert_eq!(out("Pages ten en dash twelve."), "Pages ten\u{2013}twelve.");
 }
+
+#[test]
+fn breaks_a_spelling_asked_for_are_typed_even_with_break_commands_off() {
+    let (l, p) = (bd_core::LINE_BREAK, bd_core::PARAGRAPH_BREAK);
+    let on = CommandPass::new(CommandConfig::default(), Style::default());
+    let off = CommandPass::new(CommandConfig { break_commands: false, ..CommandConfig::default() }, Style::default());
+    for pass in [&on, &off] {
+        assert_eq!(pass.apply(&format!("Thanks again. Best wishes, {l} Ysolde."), false).text, "Thanks again. Best wishes,\nYsolde.");
+        assert_eq!(pass.apply(&format!("Yours, {p} Joe"), false).text, "Yours,\n\nJoe");
+    }
+}

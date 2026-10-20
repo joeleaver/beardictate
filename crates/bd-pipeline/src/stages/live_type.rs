@@ -37,7 +37,7 @@ impl Finisher {
             return;
         }
         if self.pad.is_some() {
-            let shown = self.vocabulary.apply(text);
+            let shown = bd_vocab::breaks_as_text(&self.vocabulary.apply(text));
             return self.pad_live(&shown);
         }
         let Some(body) = self.stable(text, settled) else { return };

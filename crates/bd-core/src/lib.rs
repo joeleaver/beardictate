@@ -15,6 +15,14 @@ pub use style::{PunctuationPlacement, QuoteStyle, Style};
 /// backend.
 pub type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
+/// A line break a special word's spelling asks for (`<new line>`), carried
+/// from the vocabulary pass to the command pass as this character (Unicode
+/// private use), a whitespace-separated word of its own. The command pass
+/// types it as "new line" would be, whatever the command settings.
+pub const LINE_BREAK: char = '\u{E000}';
+/// A paragraph break a spelling asks for (`<paragraph>`), likewise.
+pub const PARAGRAPH_BREAK: char = '\u{E001}';
+
 /// Sample rate every stage after capture works in.
 pub const SAMPLE_RATE: u32 = 16_000;
 

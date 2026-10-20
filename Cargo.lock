@@ -681,6 +681,7 @@ dependencies = [
 name = "bd-vocab"
 version = "0.1.19"
 dependencies = [
+ "bd-core",
  "serde",
  "thiserror 2.0.21",
 ]

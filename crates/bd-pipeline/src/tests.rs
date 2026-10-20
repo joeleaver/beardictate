@@ -279,6 +279,16 @@ fn the_vocabulary_fixes_words_before_commands_and_cleanup() {
     assert_eq!(texts(&events), "\u{201C}Ysolde, take the wyrmstone.\u{201D}");
 }
 
+#[test]
+fn a_special_word_can_type_lines_of_its_own() {
+    let vocabulary = bd_vocab::Vocabulary::parse("Best wishes,<new line>Ysolde: sign off").unwrap();
+    let config = PipelineConfig { vocabulary, ..PipelineConfig::default() };
+    let r = rig_with(vec!["Thanks for the help. Sign off."], true, false, config);
+    say(&r.pipeline, 0);
+    let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+    assert_eq!(texts(&events), "Thanks for the help. Best wishes,\nYsolde.");
+}
+
 fn pause(p: &Pipeline, secs: f32) {
     p.push_audio(vec![-1.0; (secs * bd_core::SAMPLE_RATE as f32) as usize]);
 }
