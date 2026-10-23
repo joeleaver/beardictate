@@ -252,11 +252,13 @@ pub enum Event {
     },
     /// A spoken "scratch that" dropped this segment before delivery.
     Scratched { id: u64 },
-    /// "scratch that" for a segment already delivered in this dictation
-    /// session: take `text` back (with Backspace, one per character typed;
-    /// the cursor is still right after it, since the user is talking, not
-    /// typing). Repeated, it reaches further back within the session.
-    Erase { id: u64, text: String },
+    /// Take `text` back (with Backspace, one per character typed; the
+    /// cursor is still right after it, since the user is talking, not
+    /// typing). `scratch`: "scratch that" (or an undo) for a segment already
+    /// delivered in this dictation session, which, repeated, reaches further
+    /// back within the session; otherwise the pipeline retyping its own
+    /// text (live words corrected, a tidied sentence swapped in).
+    Erase { id: u64, text: String, scratch: bool },
     /// "scratch that" with nothing left to take back in this session (the
     /// text it meant was typed in an earlier dictation, where the cursor
     /// may have moved).

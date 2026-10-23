@@ -63,7 +63,8 @@ pub(super) fn note(event: &Event, live_typing: bool, testing: bool) {
             json!({"text": text, "take_back": take_back, "live": cleanup.is_none() && live_typing, "outcome": "test"})
         }),
         Event::Text { .. } => {}
-        Event::Erase { id, text } => record("scratch", Some(*id), || json!({"what": "erased", "text": text})),
+        Event::Erase { id, text, scratch: true } => record("scratch", Some(*id), || json!({"what": "erased", "text": text})),
+        Event::Erase { id, text, scratch: false } => record("retyped", Some(*id), || json!({"erased": text})),
         Event::Scratched { id } => record("scratch", Some(*id), || json!({"what": "queued"})),
         Event::ScratchTooLate => record("scratch", None, || json!({"what": "too_late"})),
         Event::PadSend { text } => record("pad", None, || json!({"action": "send", "sent_chars": text.chars().count(), "text": text})),

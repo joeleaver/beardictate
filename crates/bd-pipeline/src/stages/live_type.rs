@@ -118,7 +118,7 @@ impl Finisher {
         let (gone, added) = (&on_page[common..], &want[common..]);
         if !gone.is_empty() {
             tracing::info!(segment = id, chars = gone.chars().count(), "retyping live text");
-            self.emit(Event::Erase { id, text: gone.to_string() });
+            self.emit(Event::Erase { id, text: gone.to_string(), scratch: false });
         }
         if !added.is_empty() {
             self.emit(Event::Text { id, take_back: 0, text: added.to_string(), commanded: added.to_string(), cleanup: None });

@@ -37,7 +37,7 @@ impl Finisher {
         }
         tracing::info!(segment = id, erased = gone.chars().count(), typed = added.chars().count(), "rewriting typed text");
         if !gone.is_empty() {
-            self.emit(Event::Erase { id, text: gone.to_string() });
+            self.emit(Event::Erase { id, text: gone.to_string(), scratch: false });
         }
         if !added.is_empty() {
             self.emit(Event::Text { id, take_back: 0, text: added.to_string(), commanded: commanded.to_string(), cleanup });

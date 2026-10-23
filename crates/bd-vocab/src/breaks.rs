@@ -1,6 +1,8 @@
-//! Breaks in a spelling: `<new line>` (also `<newline>`, `<line>`, `\n`) and
-//! `<paragraph>` (also `<new paragraph>`, `\n\n`), so a special word can
-//! stand for a sign-off on lines of its own. Testers asked (2026-10-20).
+//! Breaks in a spelling: `<new line>` (also `<newline>`, `<line>`, `<enter>`,
+//! `<return>`, `<br>`, `\n`, `\r`, `\r\n`) and `<paragraph>` (also
+//! `<new paragraph>`, `\n\n`, `\r\n\r\n`), so a special word can stand
+//! for a sign-off on lines of its own. Testers asked (2026-10-20); one wrote
+//! `\r`, Windows' return, and got it typed as is (2026-10-22).
 //!
 //! In the vocabulary pass's output a break is a word of its own,
 //! [`bd_core::LINE_BREAK`] or [`bd_core::PARAGRAPH_BREAK`], which the
@@ -8,8 +10,9 @@
 
 use bd_core::{LINE_BREAK, PARAGRAPH_BREAK};
 
-const PARAGRAPH: [&str; 3] = ["<paragraph>", "<new paragraph>", "\\n\\n"];
-const LINE: [&str; 4] = ["<new line>", "<newline>", "<line>", "\\n"];
+// Longest first: `\r\n` is one break, not two.
+const PARAGRAPH: [&str; 4] = ["<paragraph>", "<new paragraph>", "\\r\\n\\r\\n", "\\n\\n"];
+const LINE: [&str; 9] = ["<new line>", "<newline>", "<line>", "<enter>", "<return>", "<br>", "\\r\\n", "\\n", "\\r"];
 
 /// The spelling with each break as its mark, set apart by spaces.
 pub(crate) fn marked(spelling: &str) -> String {

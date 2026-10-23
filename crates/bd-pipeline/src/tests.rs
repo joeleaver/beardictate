@@ -191,10 +191,10 @@ fn scratch_that_after_delivery_erases_within_the_session() {
     until(&rx, |e| matches!(e, Event::Text { id: 1, .. }));
     say(&r.pipeline, 2);
     let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
-    assert_eq!(events.last(), Some(&Event::Erase { id: 1, text: "Second. ".into() }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 1, text: "Second. ".into(), scratch: true }));
     say(&r.pipeline, 3);
     let events = until(&rx, |e| matches!(e, Event::Erase { .. }));
-    assert_eq!(events.last(), Some(&Event::Erase { id: 0, text: "First. ".into() }));
+    assert_eq!(events.last(), Some(&Event::Erase { id: 0, text: "First. ".into(), scratch: true }));
     say(&r.pipeline, 4);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     // Everything was taken back, so the next sentence starts the text.

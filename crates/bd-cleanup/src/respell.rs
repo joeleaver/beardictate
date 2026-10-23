@@ -215,6 +215,37 @@ pub fn respell(text: &str, answer: &str, names: &[String]) -> (String, Vec<Respe
     (out, chosen)
 }
 
+/// `answer` with each listed word spelled as listed wherever `dictated`
+/// has it so: the model lower-cased a respelled "Guldor" (a tester,
+/// 2026-10-22), and the guardrail, comparing words in any case, let it by.
+/// Words the dictation itself has in another case are left alone.
+pub fn keep_casing(answer: &str, dictated: &str, names: &[String]) -> String {
+    let mut out = answer.to_string();
+    for name in names.iter().filter(|n| n.chars().any(char::is_uppercase) && count_exact(dictated, n) > 0) {
+        let lower = out.to_lowercase();
+        let letter = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+        let found: Vec<usize> = lower
+            .match_indices(&name.to_lowercase())
+            .map(|(at, _)| at)
+            .filter(|&at| !letter(lower[..at].chars().next_back()) && !letter(lower[at + name.len()..].chars().next()))
+            .collect();
+        for at in found.into_iter().rev() {
+            // Only where lower-casing kept the byte lengths (ASCII names
+            // and the like), so the offsets hold.
+            if out.is_char_boundary(at) && out.get(at..at + name.len()).is_some_and(|w| w.to_lowercase() == name.to_lowercase()) {
+                out.replace_range(at..at + name.len(), name);
+            }
+        }
+    }
+    out
+}
+
+/// How many times `word` appears in `text` as whole words, in its case.
+fn count_exact(text: &str, word: &str) -> usize {
+    let letter = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+    text.match_indices(word).filter(|(at, _)| !letter(text[..*at].chars().next_back()) && !letter(text[at + word.len()..].chars().next())).count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,5 +295,14 @@ mod tests {
         assert_eq!(respell("The desk car.", "The desk car.", &n).1, []);
         // A span across punctuation is never one name.
         assert_eq!(respell("The desk, car.", "The Teskar.", &n).1, []);
+    }
+
+    #[test]
+    fn listed_words_keep_their_capitals() {
+        let n = names(&["Guldor", "Books", "beardictate"]);
+        assert_eq!(keep_casing("Well, it got guldor.", "Well, it got Guldor.", &n), "Well, it got Guldor.");
+        // Only where the dictation had the listed spelling.
+        assert_eq!(keep_casing("The books are here.", "The books are here.", &n), "The books are here.");
+        assert_eq!(keep_casing("Guldor's books.", "Guldor's Books.", &n), "Guldor's Books.");
     }
 }

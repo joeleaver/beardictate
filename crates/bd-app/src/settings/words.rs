@@ -47,7 +47,7 @@ pub const FIRST_GROUP: &str = "My words";
 /// The list a new user starts with: a real entry, which also shows how.
 pub fn starter_groups() -> Vec<WordGroup> {
     vec![WordGroup {
-        words: vec![SpecialWord::new("beardictate", &["bear dictate", "bare dictate"])],
+        words: vec![SpecialWord::new("beardictate", &["bear dictate", "bare dictate", "fair dictate", "er dictate"])],
         ..WordGroup::new(FIRST_GROUP)
     }]
 }

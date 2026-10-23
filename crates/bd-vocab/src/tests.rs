@@ -78,6 +78,18 @@ fn break_forms_ignore_case_and_paragraphs_win() {
 }
 
 #[test]
+fn windows_returns_and_other_spellings_of_a_break() {
+    // A tester's word, typed with a literal "\r" (2026-10-22).
+    let v = Vocabulary::new(vec![Word { text: "A:\\r B:".into(), heard: vec!["a colon b colon".into()] }]);
+    assert_eq!(breaks_as_text(&v.apply("A colon B colon.")), "A:\nB:");
+    let v = vocab("E<Enter>F: ef\nG<br>H: gh\nI\\r\\nJ: ij\nK\\r\\n\\r\\nL: kl");
+    assert_eq!(breaks_as_text(&v.apply("ef")), "E\nF");
+    assert_eq!(breaks_as_text(&v.apply("gh")), "G\nH");
+    assert_eq!(breaks_as_text(&v.apply("ij")), "I\nJ");
+    assert_eq!(breaks_as_text(&v.apply("kl")), "K\n\nL");
+}
+
+#[test]
 fn a_spelling_ending_in_a_mark_drops_the_recognizers() {
     let v = Vocabulary::new(vec![Word { text: "A: B:".into(), heard: vec!["a colon b colon".into()] }]);
     assert_eq!(v.apply("A colon B colon."), "A: B:");

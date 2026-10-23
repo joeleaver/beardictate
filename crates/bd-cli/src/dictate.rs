@@ -230,7 +230,7 @@ impl Reporter {
                 let _ = std::io::stdout().flush();
                 return Some(Output::Type(*take_back, text.clone()));
             }
-            Event::Erase { id, text } => {
+            Event::Erase { id, text, .. } => {
                 // Stdout can't take text back; say what went (scratched, or
                 // to be typed again: live text that changed, a tidied sentence).
                 eprintln!("\n[{id}] taken back: {text:?}");

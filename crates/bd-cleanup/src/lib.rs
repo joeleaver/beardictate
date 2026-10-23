@@ -219,6 +219,7 @@ impl<B: ChatBackend> GuardedCleanup<B> {
         } else {
             guardrail::keep_dictated_breaks(request.context, dictated, &text)
         };
+        let text = respell::keep_casing(&text, dictated, request.names);
         Ok(CleanupOutcome {
             text,
             model_output: Some(output),

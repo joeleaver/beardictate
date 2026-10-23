@@ -89,6 +89,7 @@ impl Finisher {
         let Some(sent) = self.tidy.as_mut().and_then(|t| t.in_flight.take()) else { return };
         match result {
             Ok(text) => {
+                let text = keep_open_end(&sent.raw, &text);
                 self.note_cleaned(sent.ids.clone(), sent.context.clone(), &sent.raw, &text, elapsed, report, false);
                 let swapped = if sent.void { Err("edited since") } else { self.rewrite(&sent, &text, elapsed) };
                 if let Err(why) = swapped {
@@ -230,5 +231,44 @@ impl Finisher {
         let merged = Typed { id, text: delta, quote_before: first.quote_before, at: first.at };
         self.typed.splice(k..k + sent.ids.len(), (!merged.text.is_empty()).then_some(merged));
         Ok(())
+    }
+}
+
+/// Marks that end a sentence.
+const ENDS: &[char] = &['.', '!', '?', '\u{2026}'];
+
+/// A piece that went to the model before its sentence ended (it waited too
+/// long, the speaker still talking) keeps its own last mark: the model
+/// takes it for a whole sentence and ends it ("…in my life," came back
+/// "…in my life." with "but it's improving" still to come, a tester,
+/// 2026-10-22).
+fn keep_open_end(raw: &str, cleaned: &str) -> String {
+    let raw = raw.trim_end();
+    let body = cleaned.trim_end();
+    let quotes = |c: char| "\"\u{201D}\u{2019}'".contains(c);
+    if raw.ends_with(ENDS) || raw.ends_with(quotes) || body.ends_with(quotes) {
+        return cleaned.to_string();
+    }
+    let marks = |c: char| ENDS.contains(&c) || ",;:".contains(c);
+    let open = &raw[raw.trim_end_matches(marks).len()..];
+    let words = body.trim_end_matches(marks);
+    format!("{words}{open}{}", &cleaned[body.len()..])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::keep_open_end;
+
+    #[test]
+    fn an_unfinished_piece_stays_open() {
+        let raw = "Had the worst sore throat I ever had in my life,";
+        assert_eq!(keep_open_end(raw, "Had the worst sore throat I ever had in my life."), raw);
+        assert_eq!(keep_open_end("a new message from Hendrick for the pod,", "A new message from Hendrick for the pod?"), "A new message from Hendrick for the pod,");
+        assert_eq!(keep_open_end("But little by little", "But little by little."), "But little by little");
+        // A finished sentence is the model's to punctuate.
+        assert_eq!(keep_open_end("Oh yeah.", "Oh yeah!"), "Oh yeah!");
+        assert_eq!(keep_open_end("Direct email is:", "Direct email is:"), "Direct email is:");
+        // Quotes are left to the quote rules.
+        assert_eq!(keep_open_end("he said hi", "He said \u{201C}hi.\u{201D}"), "He said \u{201C}hi.\u{201D}");
     }
 }

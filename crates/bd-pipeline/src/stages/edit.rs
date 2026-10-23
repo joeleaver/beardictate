@@ -69,7 +69,7 @@ impl Finisher {
         self.composer.retract(&last.text);
         self.tidy_void(&[last.id]);
         self.quote_open = last.quote_before;
-        self.emit(Event::Erase { id: last.id, text: last.text });
+        self.emit(Event::Erase { id: last.id, text: last.text, scratch: true });
     }
 
     /// Replaces the last typed pieces, `old` (which must be what's there),
