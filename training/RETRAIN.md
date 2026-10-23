@@ -39,3 +39,28 @@ the generator makes cases like them.
    "A: B:—" (a tester's special word, 7 of 7 times). The app no longer sends
    ":." (b9b386e), but doubled or odd marks should come back cleaned to
    one sensible mark, never a new dash.
+6. **Closing a sentence the speaker hadn't finished.** Given a piece that
+   ends in a comma because more is coming, Bear ends it: "Had the worst sore
+   throat I ever had in my life," → "…life." (next: "but it's improving"),
+   "…a new message from Hendrick for the pod," → "…pod?" (next: "in the
+   pod"). The next piece then starts in lower case after the new full stop
+   (a Windows tester, 2026-10-22). Train pieces ending in a comma, "and",
+   "the"… to come back still open.
+7. **Lower-casing a special word.** "Well, it got golder." with Guldor
+   listed came back "Well, it got guldor." (respelled, accepted, typed lower
+   case); the tester: "we don't have a feature for all these capitalizing
+   yet" (2026-10-22). Respelled words should be written as listed in every
+   case. (The app could also force the listed casing after the guardrail.)
+8. **A filler that is part of a mishearing.** "send him the link to er
+   dictate" (beardictate) came back "the link to dictate": the "er" was
+   dropped as a filler and the name lost. Sound-alike spans that start with
+   "er"/"uh" should be respelled, not trimmed.
+9. **Spoken email addresses.** "Charlie at Charlie Lever dot com." was left
+   as words; Bear tried "CharlieLever", which the guardrail refused
+   (2026-10-22). Train "<name> at <domain> dot com" → an address, as a
+   formatting rewrite the guardrail allows.
+
+Evidence for 3, 2026-10-22, Dialog off: 15 of 109 answers came back wrapped
+in curly quotes (“Pick up some deli.”). The guardrail took them all out,
+including the one real line of dialog ("Callut said to Guldor, Oh there you
+go."), which the tester expected quoted.
