@@ -513,7 +513,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bd-app"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "bd-asr",
@@ -548,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "bd-asr"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bd-audio",
  "bd-core",
@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "bd-audio"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bd-core",
  "cpal",
@@ -573,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "bd-cleanup"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bd-commands",
  "bd-core",
@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "bd-cli"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "bd-asr",
@@ -612,7 +612,7 @@ dependencies = [
 
 [[package]]
 name = "bd-commands"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bd-core",
  "serde",
@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "bd-core"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "crossbeam-channel",
  "serde",
@@ -629,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "bd-models"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bzip2 0.6.1",
  "directories",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "bd-pipeline"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "bd-asr",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "bd-platform"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "arboard",
  "ashpd",
@@ -680,7 +680,7 @@ dependencies = [
 
 [[package]]
 name = "bd-vocab"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "bd-core",
  "serde",
