@@ -16,6 +16,18 @@ stage="${1:?usage: cross-build-windows.sh <stage-dir>}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 target="${CARGO_TARGET_DIR:-$repo/target}"
 triple=x86_64-pc-windows-msvc
+# LLVM's unversioned names come from the `llvm` package, which a reinstall
+# can drop while clang keeps llvm-21 itself (2026-10-22): fall back to the
+# newest versioned LLVM.
+if ! command -v llvm-lib >/dev/null; then
+    llvm_bin="$(ls -d /usr/lib/llvm-*/bin 2>/dev/null | sort -V | tail -1)"
+    [ -n "$llvm_bin" ] && export PATH="$PATH:$llvm_bin"
+fi
+# Missing, these fail deep in llama.cpp's build, and CMake caches the
+# failure: a later run with the tool still says it can't find it.
+for tool in cargo-xwin clang-cl lld-link llvm-lib llvm-dlltool llvm-readobj ninja cmake; do
+    command -v "$tool" >/dev/null || { echo "cross-build-windows.sh: $tool is not on PATH" >&2; exit 1; }
+done
 if [ -z "${VULKAN_SDK:-}" ]; then
     export VULKAN_SDK="$target/vulkan-sdk-windows"
     "$repo/scripts/windows-vulkan-sdk.sh" "$VULKAN_SDK"
