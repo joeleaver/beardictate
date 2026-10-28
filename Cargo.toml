@@ -52,19 +52,6 @@ windows-sys = "0.61"
 # and set (rinch#1546), and window levels shown on every workspace
 # (rinch#1549), and overlays as Wayland layer-shell surfaces (rinch#1523),
 # with their drag kept steady and transparent windows composited with alpha
-# (rinch#1597's merge commit).
-rinch = { git = "https://github.com/joeleaver/rinch", rev = "a3de4b99", default-features = false }
-
-# rinch's own patches (its wgpu/winit forks), required to build it.
-[patch.crates-io]
-wgpu = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
-wgpu-core = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
-wgpu-hal = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
-wgpu-types = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
-naga = { git = "https://github.com/joeleaver/wgpu-fork", branch = "rinch-patch" }
-winit = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
-winit-core = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
-winit-common = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
-winit-wayland = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
-winit-x11 = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
-dpi = { git = "https://github.com/joeleaver/winit-fork", branch = "rinch-patch" }
+# (rinch#1597), on wgpu 30, Vello 0.11 and winit 0.31 with no patches of
+# ours (rinch#1960, #1965; main 57bc511d).
+rinch = { git = "https://github.com/joeleaver/rinch", rev = "57bc511d", default-features = false }
