@@ -6,8 +6,10 @@ file is *where things stand*.
 
 ## Start here (open items, 2026-10-19)
 
-1. **rinch#1597** merged (a3de4b99) and is pinned since 0.1.18; Joe tried
-   the bear's drag, menu and see-through glow on KDE Wayland (2026-10-20).
+1. **rinch 57bc511d** (wgpu 30, Vello 0.11, winit 0.31 beta 4) is pinned
+   since 08db3d8, with no `[patch.crates-io]` left. Joe checked the bear
+   on KDE Wayland (2026-10-28); the Windows GUI on it is untested, so try
+   it on NICO-TOP before the next release goes out.
 2. **The bear's default place**: near the bottom right of the screen (Joe).
    Needs the monitor's size from rinch; not started. `pad_window.rs`
    `load_bear` is where a missing position falls back.
@@ -191,8 +193,7 @@ they wondered if it worked, and cleanup quoted lines that weren't dialog.
   Piper can't say "bear" well enough for Nemotron to hear it, so the list
   commands are proved by a pipeline test, not by audio.
 - rinch: the bear's drag and its see-through background are rinch#1597
-  (layer-shell drag waits for the frame; GPU alpha mode). beardictate pins
-  its branch commit 820b811a until it's merged; then pin the merge.
+  (layer-shell drag waits for the frame; GPU alpha mode), merged.
 - Upgrading installs download Nemotron 1120 ms (464 MB archive) through the
   first-run card at the next start. Not yet tried in the app itself: only
   the pipeline tests and `bd file --stream` here and on NICO-TOP.
