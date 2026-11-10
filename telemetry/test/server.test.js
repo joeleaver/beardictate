@@ -191,5 +191,17 @@ test("each segment carries its settings, and the export keeps only those asked f
   // Settings from before `since` still say what a later segment was dictated with.
   const later = await get("&since=2026-10-19T10:00:01Z&setting=dialog%3Dfalse");
   assert.deepEqual(later.map((l) => l.segment).sort(), [1, null]);
+  // `since` keeps what's at or after it, as an instant or a bare date.
+  assert.deepEqual((await get("&since=2026-10-19T10:00:02Z")).map((l) => l.segment).sort(), [2, null]);
+  assert.equal((await get("&since=2026-10-19")).length, 3);
+  assert.equal((await get("&since=2026-10-20")).length, 0);
   assert.equal((await fetch(`${base}/v1/export?setting=nonsense`, { headers: readAuth })).status, 400);
+});
+
+// Last: it stops the database.
+test("an export the database fails is an error, not an empty 200", { skip }, async () => {
+  db.kill();
+  await exited(db);
+  const r = await fetch(`${base}/v1/export?install=${install}&since=2026-10-01`, { headers: readAuth });
+  assert.equal(r.status, 503, `got ${r.status} with ${(await r.text()).length} bytes`);
 });

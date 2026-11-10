@@ -190,9 +190,16 @@ async function read(req, res, url) {
       if (!m) return send(res, 400, { error: "setting: key=value" });
       settings[m[1]] = m[2];
     }
+    // The export reads everything before its first line, so a database
+    // error surfaces here, before the 200: never an empty "success".
+    const lines = exportLines({ install, since, settings });
+    const first = await lines.next();
     res.writeHead(200, { "content-type": "application/x-ndjson" });
-    for await (const line of exportLines({ install, since, settings })) {
-      if (!res.write(`${line}\n`)) await new Promise((r) => res.once("drain", r));
+    if (!first.done) {
+      res.write(`${first.value}\n`);
+      for await (const line of lines) {
+        if (!res.write(`${line}\n`)) await new Promise((r) => res.once("drain", r));
+      }
     }
     return res.end();
   }
@@ -213,7 +220,8 @@ const server = createServer((req, res) => {
   handle(req, res).catch((e) => {
     console.error(`${req.method} ${req.url}: ${e.stack ?? e}`);
     if (!res.headersSent) send(res, 503, { error: "try later" });
-    else res.end();
+    // Cut short, not ended: a clean end would pass a partial export as whole.
+    else res.destroy();
   });
 });
 
