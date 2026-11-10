@@ -4,14 +4,15 @@ Last updated: 2026-11-10 (unreleased fixes after 0.1.22). Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
-## Start here (2026-11-10: 0.1.23 built, not yet published)
+## Start here (2026-11-10: 0.1.23 published, site v26)
 
-0.1.23 (`8b59bf7`) is built: `dist/beardictate-0.1.23-linux-x86_64.tar.gz`
+0.1.23 (`8b59bf7`) is published (site v26, 0.1.22 pruned): `dist/beardictate-0.1.23-linux-x86_64.tar.gz`
 and `/mnt/data/beardictate-targets/win-dist/beardictate-0.1.23-windows-x64{-setup.exe,.zip}`,
 packed on NICO-TOP, silent-installed, `bd file paused.wav --realtime`
 transcribed and tidied right (Bear on the GPU), uninstalled cleanly. Not yet:
-`site/publish.sh add` both, prune, deploy the site, deploy the telemetry
-server, tell the testers (draft reply in that session's scratchpad).
+deploy the telemetry server, tell the testers (draft reply in that
+session's scratchpad). After the testers update, check telemetry for
+`mic_reconnecting`/`mic_back`, clipboard fallbacks and "what's new".
 
 
 From the Windows tester's notes (10-26 to 11-08) and their telemetry; all
