@@ -16,6 +16,7 @@ mod bear;
 mod bear_view;
 mod control;
 mod engine;
+mod hotkey_wiring;
 mod icon;
 mod menu;
 mod mic;
@@ -26,6 +27,7 @@ mod settings;
 mod telemetry;
 mod ui;
 mod update;
+mod whats_new;
 mod window;
 
 use std::cell::RefCell;
@@ -100,6 +102,8 @@ fn main() {
         tracing::info!("saving heard segments to {}", dir.display());
         bd_pipeline::dump::save_to(dir);
     }
+    // Settings already there: not a fresh install (for "what's new").
+    let installed_before = paths.settings.exists();
     let settings = match paths.load() {
         Ok(s) => s,
         Err(e) => {
@@ -123,6 +127,10 @@ fn main() {
     if alpha_notice && !first_run {
         shared.section.set(ui::Section::About);
     }
+    // The first start of a new version: what changed (whats_new.rs).
+    let news = paths_state(&shared.paths).map(|dir| whats_new::at_start(&dir, installed_before)).unwrap_or_default();
+    let show_news = !news.is_empty();
+    shared.news.set(news);
     SHARED.with(|s| *s.borrow_mut() = Some(shared.clone()));
 
     let starting = Status { state: State::Loading, detail: "Starting…".into(), since: None, voice: false, warning: None };
@@ -147,12 +155,13 @@ fn main() {
         }
     };
 
+    shared.news_opened_window.set(show_news && has_tray && !first_run && !alpha_notice);
     let props = WindowProps {
         title: "beardictate settings".into(),
         width: 780,
         height: 600,
         // On first run the window opens to download the speech models.
-        visible: !has_tray || first_run || alpha_notice,
+        visible: !has_tray || first_run || alpha_notice || show_news,
         // With a tray, closing hides the window; without one it quits.
         on_close_requested: has_tray.then(|| {
             std::sync::Arc::new(|| {
@@ -174,6 +183,11 @@ fn main() {
     if let Some(dir) = updates {
         update::at_exit(&dir);
     }
+}
+
+/// The state folder (where the log is).
+fn paths_state(paths: &Paths) -> Option<std::path::PathBuf> {
+    paths.log.parent().map(std::path::Path::to_path_buf)
 }
 
 /// Logs to stderr and to `log` (started fresh each run), so a run started

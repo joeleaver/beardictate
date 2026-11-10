@@ -168,6 +168,9 @@ case "$cmd" in
         done
         [ -f "$src" ] || die "no such file: $src"
         [[ "$version" =~ ^[0-9]+(\.[0-9]+)*([-.][A-Za-z0-9.]+)?$ ]] || die "version '$version' should look like 0.1.0"
+        # The app shows these at the first start of a version (whats_new.rs).
+        grep -qx "## ${version%%-*}" "$here/../crates/bd-app/WHATS_NEW.md" ||
+            die "crates/bd-app/WHATS_NEW.md has no '## ${version%%-*}' section: write what's new first (it's built into the app)"
         dest="$downloads/$name"
         if [ "$(realpath "$src")" != "$(realpath -m "$dest")" ]; then
             cp --reflink=auto "$src" "$dest.part" && mv "$dest.part" "$dest"

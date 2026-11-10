@@ -5,7 +5,7 @@
 use rinch::prelude::*;
 use rinch::reactive::Effect;
 
-use crate::engine::Command;
+use crate::engine::{Command, Warning};
 use crate::ui::{Section, Shared, change};
 
 /// The Select value standing for "no particular microphone".
@@ -46,8 +46,8 @@ pub fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Microphone" }
             // Also on the bear and in the tray: Windows may silence the notification.
-            div { style: {move || if status.with(|st| st.warning.is_some()) { WARNING_STYLE.to_string() } else { "display: none;".to_string() }},
-                Text { size: "sm", {move || status.with(|st| st.warning.clone().map(|w| format!("\u{26A0} {w}.")).unwrap_or_default())} }
+            div { style: {move || if status.with(|st| st.warning == Some(Warning::Quiet)) { WARNING_STYLE.to_string() } else { "display: none;".to_string() }},
+                Text { size: "sm", {format!("\u{26A0} {}.", Warning::Quiet.text())} }
             }
             Select {
                 label: "Microphone",

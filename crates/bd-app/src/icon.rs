@@ -74,6 +74,8 @@ fn look(state: State, taskbar: Taskbar) -> Look {
         // Microphone on, not typing: a quiet slate dot.
         State::Asleep => (quiet_snout, Some([0x7D, 0x8C, 0xA6])),
         State::MicOff => (paused_snout, None),
+        // The microphone went away; trying to get it back.
+        State::Reconnecting => (paused_snout, Some([0xE0, 0xA8, 0x00])),
         State::Listening => (COBALT, Some([0xD1, 0x45, 0x2F])),
         State::Cleaning => (COBALT, Some([0x1F, 0xA3, 0x8A])),
         // Nothing to do but wait: a violet dot, unlike every state that
@@ -202,7 +204,7 @@ mod tests {
 fn dump() {
     let dir = std::path::PathBuf::from(std::env::var_os("BD_ICON_DUMP").expect("set BD_ICON_DUMP"));
     std::fs::create_dir_all(&dir).unwrap();
-    for state in [State::Idle, State::Asleep, State::MicOff, State::Listening, State::Cleaning, State::Loading, State::NeedsYou] {
+    for state in [State::Idle, State::Asleep, State::MicOff, State::Reconnecting, State::Listening, State::Cleaning, State::Loading, State::NeedsYou] {
         for taskbar in [Taskbar::Light, Taskbar::Dark] {
             let name = format!("{state:?}-{taskbar:?}.rgba").to_lowercase();
             std::fs::write(dir.join(name), render(state, taskbar)).unwrap();

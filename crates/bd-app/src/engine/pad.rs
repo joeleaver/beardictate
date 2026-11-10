@@ -209,7 +209,7 @@ impl<U: Ui> Worker<U> {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
         let status = format!("{list}{status}");
-        let marks = (self.settings.list_mode, self.quiet.showing);
+        let marks = (self.settings.list_mode, self.quiet.showing || self.on_clipboard.is_some() || self.shortcut_taken.is_some());
         host.sync(bear, look_name(self.pad.look.get()), marks, &self.pad.menu, visible, status, &self.pad.view);
     }
 }
@@ -220,6 +220,7 @@ fn look_name(state: State) -> &'static str {
         State::Idle => "idle",
         State::Asleep => "asleep",
         State::MicOff => "mic-off",
+        State::Reconnecting => "reconnecting",
         State::Listening => "listening",
         State::Cleaning => "cleaning",
         State::NeedsYou => "needs-you",

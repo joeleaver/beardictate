@@ -1,7 +1,8 @@
 //! Always listening ("voice wake"): the microphone stays on and the
 //! pipeline's gate decides what is typed. "Bear, wake up", "bear, go to
 //! sleep" and the hotkey switch typing on and off; only the tray menu turns
-//! the microphone itself off and on (`Settings::microphone_on`).
+//! the microphone itself off and on (`Settings::microphone_on`); when it
+//! goes away by itself, `mic_recover.rs` gets it back.
 //!
 //! Awake, it goes back to sleep after `Settings::sleep_after_mins` (10 by
 //! default) with nothing said to it (someone else's voice doesn't count: `bd_pipeline::FAR_BELOW_DB`), as
@@ -55,22 +56,32 @@ impl<U: Ui> Worker<U> {
         if self.standby {
             return;
         }
-        let started = self
-            .open_mic()
-            .and_then(|()| self.capture.as_mut().expect("opened above").start().context("starting the microphone"));
-        match started {
-            Ok(()) => {
-                tracing::info!(wake, "always listening: microphone on");
-                self.standby = true;
-            }
+        match self.open_standby() {
+            Ok(()) => tracing::info!(wake, "always listening: microphone on"),
             Err(e) => {
-                self.notifier.notify("mic", "Microphone problem", &format!("{e:#}"));
-                self.capture = None;
-                // Off in the settings too, so the menu offers to try again.
-                return self.record_mic(false);
+                tracing::warn!("opening the microphone: {e:#}");
+                // Not off in the settings: it keeps trying (mic_recover.rs),
+                // and says so on the bear meanwhile.
+                self.lose_mic_as("open_failed", wake);
+                return;
             }
         }
         self.publish();
+    }
+
+    /// Opens and starts the microphone for always listening.
+    pub(super) fn open_standby(&mut self) -> anyhow::Result<()> {
+        let started = self
+            .open_mic()
+            .and_then(|()| self.capture.as_mut().expect("opened above").start().context("starting the microphone"));
+        if let Err(e) = started {
+            self.capture = None;
+            return Err(e);
+        }
+        self.standby = true;
+        self.recover = None;
+        self.last_chunk = Instant::now();
+        Ok(())
     }
 
     /// Turns the microphone off: what was said so far is still typed.
@@ -97,6 +108,15 @@ impl<U: Ui> Worker<U> {
     /// The hotkey: wake up or go to sleep. With the microphone off it says
     /// where to turn it on, rather than turning it on itself.
     pub(super) fn voice_toggle(&mut self) {
+        if self.reconnecting() {
+            // Try now rather than at the next retry; once it's back, the
+            // hotkey wakes it as usual.
+            self.retry_mic(true);
+            if self.reconnecting() {
+                self.notifier.notify("mic", "The microphone isn't back yet", "beardictate keeps trying. Check that it's plugged in, or pick another in Settings › Microphone.");
+                return;
+            }
+        }
         if self.standby {
             let awake = self.listening_since.is_some();
             self.pipeline.as_ref().expect("standing by").set_awake(!awake);
@@ -120,6 +140,7 @@ impl<U: Ui> Worker<U> {
             }
             self.stand_by(wake);
         } else {
+            self.recover = None;
             self.leave_standby();
         }
         self.publish();

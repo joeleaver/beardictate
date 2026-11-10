@@ -46,6 +46,11 @@ impl Mic {
         }
     }
 
+    /// A real microphone, rather than a file played as one.
+    pub fn is_device(&self) -> bool {
+        matches!(self, Mic::Device(_))
+    }
+
     pub fn is_alive(&self) -> bool {
         match self {
             Mic::Device(c) => c.is_alive(),

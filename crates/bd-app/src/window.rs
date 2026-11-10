@@ -16,6 +16,7 @@ use crate::ui::{self, Section, Shared, change, check_hotkey};
 mod cleanup;
 mod mic_page;
 mod modes;
+mod news;
 mod old_models;
 mod setup;
 mod spelling;
@@ -46,6 +47,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let (general, mic, cleanup, writing, words, about) =
         (general(__scope, s), microphone(__scope, s), cleanup_page(__scope, s), writing(__scope, s), words(__scope, s), about(__scope, s));
     let setup = setup_card(__scope, s);
+    let news = news::news(__scope, s);
     rsx! {
         div { style: "display: flex; height: 100%; font-size: 14px;",
             div { style: "width: 190px; flex: none; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--rinch-color-default-border);",
@@ -78,6 +80,7 @@ pub fn view(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 div { style: {move || shown(section.get() == Section::Words)}, {words} }
                 div { style: {move || shown(section.get() == Section::About)}, {about} }
             }
+            {news}
         }
     }
 }
@@ -487,10 +490,16 @@ fn about(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     ];
     let log = s.paths.log.clone();
     let updates = updates(__scope, s);
+    let notes = s.news;
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 14px;",
             Title { order: 3, "About beardictate" }
-            Text { {format!("Version {}", env!("CARGO_PKG_VERSION"))} }
+            Group {
+                Text { {format!("Version {}", env!("CARGO_PKG_VERSION"))} }
+                if crate::whats_new::current().is_some() {
+                    Button { variant: "subtle", size: "xs", onclick: move || news::show_current(notes), "What\u{2019}s new" }
+                }
+            }
             {updates}
             if cfg!(feature = "alpha") {
                 Text { size: "sm",

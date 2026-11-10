@@ -16,6 +16,10 @@ stage="${1:?usage: cross-build-windows.sh <stage-dir>}"
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 target="${CARGO_TARGET_DIR:-$repo/target}"
 triple=x86_64-pc-windows-msvc
+# The app shows WHATS_NEW.md's section for its version at first start.
+version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/Cargo.toml" | head -1)"
+grep -qx "## ${version%%-*}" "$repo/crates/bd-app/WHATS_NEW.md" ||
+    { echo "crates/bd-app/WHATS_NEW.md has no '## ${version%%-*}' section: write what's new first" >&2; exit 1; }
 # LLVM's unversioned names come from the `llvm` package, which a reinstall
 # can drop while clang keeps llvm-21 itself (2026-10-22): fall back to the
 # newest versioned LLVM.

@@ -6,7 +6,7 @@ use rinch::menu::{Menu, MenuItem};
 use rinch::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::engine::{self, State};
+use crate::engine::{self, State, Warning};
 use crate::settings::Destination;
 use crate::engine_send;
 use crate::ui::{Section, Shared, change};
@@ -31,6 +31,8 @@ pub enum Act {
     Settings,
     /// Settings, at the Microphone page.
     MicrophoneSettings,
+    /// Settings, at General (where the shortcut is).
+    ShortcutSettings,
     Quit,
 }
 
@@ -67,6 +69,7 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
         State::Listening if status.voice => item(format!("Go to sleep   ({hotkey})"), Some(Act::Toggle)),
         State::Asleep => item(format!("Wake up   ({hotkey})"), Some(Act::Toggle)),
         State::MicOff => item("Microphone off", None),
+        State::Reconnecting => item("Microphone reconnecting\u{2026} try now", Some(Act::Toggle)),
         State::Listening => item(format!("Stop dictating   ({hotkey})"), Some(Act::Toggle)),
         State::NeedsYou if status.detail.starts_with("Can't type") => item("Start dictating", None),
         State::NeedsYou => item("Try again", Some(Act::Toggle)),
@@ -75,8 +78,13 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
     if status.state == State::NeedsYou {
         out.push(item(capitalized(&shorten(&status.detail, 70)), None));
     }
-    if status.warning.is_some() {
-        out.push(item("\u{26A0} Your microphone is quiet\u{2026}", Some(Act::MicrophoneSettings)));
+    match &status.warning {
+        Some(Warning::Clipboard(_)) => out.push(item("\u{26A0} Your last words are on the clipboard (Ctrl+V)", None)),
+        Some(Warning::ShortcutTaken(sc)) => {
+            out.push(item(format!("\u{26A0} Another program is using {sc}: choose another\u{2026}"), Some(Act::ShortcutSettings)));
+        }
+        Some(Warning::Quiet) => out.push(item("\u{26A0} Your microphone is quiet\u{2026}", Some(Act::MicrophoneSettings))),
+        None => {}
     }
     if status.voice && status.state != State::Loading {
         let on = status.state != State::MicOff;
@@ -120,6 +128,10 @@ pub fn perform(shared: &Shared, act: Act) {
         Act::Settings => show_current_window(),
         Act::MicrophoneSettings => {
             shared.section.set(Section::Microphone);
+            show_current_window();
+        }
+        Act::ShortcutSettings => {
+            shared.section.set(Section::General);
             show_current_window();
         }
         Act::Quit => close_current_window(),

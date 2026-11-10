@@ -28,6 +28,7 @@ pub use idle_update::QUIET_START;
 mod notes;
 mod inject;
 mod mic_check;
+mod mic_recover;
 mod pad;
 mod standby;
 use inject::{Injected, TypeJob, spawn_injector};
@@ -57,6 +58,9 @@ pub enum Command {
     BearMenu(Vec<crate::menu::Entry>),
     /// A choice from the bear's menu on screen, for the UI to carry out.
     Act(crate::menu::Act),
+    /// Another program holds the shortcut (`Some`, as people write it), or
+    /// it's registered now (`None`).
+    ShortcutTaken(Option<String>),
     Shutdown,
 }
 
@@ -69,6 +73,9 @@ pub enum State {
     Asleep,
     /// Always listening, with the microphone turned off from the menu.
     MicOff,
+    /// Always listening, but the microphone went away: trying to reopen it
+    /// (see `engine/mic_recover.rs`).
+    Reconnecting,
     Listening,
     /// Stopped listening; the last sentences are still being cleaned.
     Cleaning,
@@ -87,7 +94,31 @@ pub struct Status {
     /// Something the user should fix, shown on the bear, in the tray's
     /// tooltip and menu and in Settings (a notification alone can be
     /// silenced by the system).
-    pub warning: Option<String>,
+    pub warning: Option<Warning>,
+}
+
+/// Something the user should know and fix, besides the state.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Warning {
+    /// Speech keeps arriving quiet (`mic_check.rs`).
+    Quiet,
+    /// Words couldn't be typed: this many characters are on the clipboard
+    /// (`inject.rs`).
+    Clipboard(usize),
+    /// Another program holds the shortcut (as people write it); it's being
+    /// tried again (`hotkey_wiring.rs`).
+    ShortcutTaken(String),
+}
+
+impl Warning {
+    /// What the tooltip and Settings say.
+    pub fn text(&self) -> String {
+        match self {
+            Warning::Quiet => mic_check::QUIET_WARNING.to_string(),
+            Warning::Clipboard(chars) => inject::clipboard_warning(*chars),
+            Warning::ShortcutTaken(sc) => format!("Another program is using {sc}, so it won\u{2019}t work here: beardictate keeps trying, or choose another shortcut in Settings \u{203A} General"),
+        }
+    }
 }
 
 /// What the engine tells the UI. Called on the engine's thread.
@@ -172,6 +203,11 @@ struct Worker<U> {
     start_on_load: bool,
     /// Measuring a just-opened microphone (see `mic_check.rs`).
     mic_check: Option<mic_check::MicCheck>,
+    /// Always listening, waiting for a microphone that went away to come
+    /// back (see `mic_recover.rs`).
+    recover: Option<mic_recover::Recover>,
+    /// When the microphone last delivered audio.
+    last_chunk: Instant,
     /// A different microphone was chosen mid-dictation: reopen after.
     reopen_mic: bool,
     /// The settings changed while models were loading: load again.
@@ -201,6 +237,11 @@ struct Worker<U> {
     type_text: Sender<TypeJob>,
     injected: Receiver<Injected>,
     injector_error: Option<String>,
+    /// Text left on the clipboard for want of typing: how many characters,
+    /// and when (see `inject.rs`).
+    on_clipboard: Option<(usize, Instant)>,
+    /// Another program holds the shortcut (as people write it).
+    shortcut_taken: Option<String>,
     settings_mtime: Option<SystemTime>,
     pad: pad::PadState,
 }
@@ -228,6 +269,8 @@ impl<U: Ui> Worker<U> {
             standby: false,
             start_on_load: !quiet_start,
             mic_check: None,
+            recover: None,
+            last_chunk: Instant::now(),
             reopen_mic: false,
             reload_after_load: false,
             quiet: mic_check::Quiet::default(),
@@ -246,6 +289,8 @@ impl<U: Ui> Worker<U> {
             type_text,
             injected,
             injector_error: None,
+            on_clipboard: None,
+            shortcut_taken: None,
             pad: pad::PadState::new(to_self),
         }
     }
@@ -278,6 +323,7 @@ impl<U: Ui> Worker<U> {
                         self.sync_pad();
                     }
                     Ok(Command::Act(act)) => self.ui.act(act),
+                    Ok(Command::ShortcutTaken(taken)) => self.shortcut_taken(taken),
                     Ok(Command::Shutdown) | Err(_) => break,
                 },
                 recv(audio) -> ev => if let Ok(ev) = ev { self.on_audio(ev) },
@@ -287,6 +333,9 @@ impl<U: Ui> Worker<U> {
                 recv(ticks) -> _ => {
                     self.watch_files();
                     self.check_mic_level();
+                    self.check_stalled();
+                    self.retry_mic(false);
+                    self.expire_clipboard_warning();
                     self.sleep_if_unspoken_to();
                     self.restart_if_idle_for_update();
                 }
@@ -313,6 +362,8 @@ impl<U: Ui> Worker<U> {
             (State::Listening, detail)
         } else if self.cleaning {
             (State::Cleaning, self.cleanup_name.clone())
+        } else if self.recover.is_some() {
+            (State::Reconnecting, mic_recover::RECONNECTING.to_string())
         } else if self.standby {
             (State::Asleep, self.cleanup_name.clone())
         } else if self.settings.voice_wake {
@@ -321,10 +372,26 @@ impl<U: Ui> Worker<U> {
             (State::Idle, self.cleanup_name.clone())
         };
         crate::telemetry::set_dictating(matches!(state, State::Listening | State::Cleaning));
-        let warning = self.quiet.showing.then(|| mic_check::QUIET_WARNING.to_string());
+        let warning = match (self.on_clipboard, &self.shortcut_taken) {
+            (Some((chars, _)), _) => Some(Warning::Clipboard(chars)),
+            (None, Some(sc)) => Some(Warning::ShortcutTaken(sc.clone())),
+            (None, None) => self.quiet.showing.then_some(Warning::Quiet),
+        };
         self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake, warning });
         self.pad.look.set(state);
         self.sync_pad();
+    }
+
+    /// The UI says the shortcut is taken, or works again.
+    fn shortcut_taken(&mut self, taken: Option<String>) {
+        if taken == self.shortcut_taken {
+            return;
+        }
+        if let Some(sc) = &taken {
+            self.notifier.notify("hotkey", &format!("{sc} is taken"), &Warning::ShortcutTaken(sc.clone()).text());
+        }
+        self.shortcut_taken = taken;
+        self.publish();
     }
 
     fn busy(&self) -> bool {
@@ -394,6 +461,10 @@ impl<U: Ui> Worker<U> {
     }
 
     fn on_audio(&mut self, event: CaptureEvent) {
+        if matches!(event, CaptureEvent::Chunk(_)) {
+            // Also while models load: the stream is alive (mic_recover.rs).
+            self.last_chunk = Instant::now();
+        }
         let Some(pipeline) = self.pipeline.as_ref() else { return };
         match event {
             CaptureEvent::Chunk(chunk) => {
@@ -410,12 +481,8 @@ impl<U: Ui> Worker<U> {
             CaptureEvent::Error(e @ AudioError::DeviceLost(_)) => {
                 self.notifier.notify("mic", "Microphone lost", &e.to_string());
                 if self.standby {
-                    self.standby = false;
-                    pipeline.set_awake(false);
-                    pipeline.end_session();
-                    self.listening_since = None;
-                    self.capture = None;
-                    return self.record_mic(false);
+                    // It keeps trying to get it back (mic_recover.rs).
+                    return self.lose_mic("lost");
                 }
                 if self.listening_since.is_some() {
                     self.listening_since = None;

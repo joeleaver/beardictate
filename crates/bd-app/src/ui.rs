@@ -1,11 +1,8 @@
 //! The tray menu, the hotkey, and keeping both in step with the engine.
 
-use std::cell::RefCell;
 use std::path::Path;
-use std::rc::Rc;
 
 use crate::models::{self, Models};
-use rinch::hotkey::{self, Binding, HotkeySpec, HotkeyState};
 use rinch::menu::Menu;
 use rinch::prelude::*;
 use rinch::reactive::{Effect, untracked};
@@ -34,6 +31,11 @@ pub struct Shared {
     /// The Microphone page: live level, gain in use, and the test.
     pub mic: MicView,
     pub updates: crate::update::Updates,
+    /// "What's new" to show (see `whats_new.rs`); empty when not showing.
+    pub news: Signal<Vec<crate::whats_new::Release>>,
+    /// The window opened only to show "what's new": closing it hides the
+    /// window again.
+    pub news_opened_window: Signal<bool>,
 }
 
 /// What the engine reports about the microphone, for the Microphone page.
@@ -123,6 +125,8 @@ impl Shared {
                 heard: Signal::new(Vec::new()),
             },
             updates,
+            news: Signal::new(Vec::new()),
+            news_opened_window: Signal::new(false),
         }
     }
 
@@ -183,7 +187,7 @@ pub fn tray_image(status: &Status, theme: TrayTheme) -> TrayIconImage {
 fn tooltip(status: &Status, hotkey: &str) -> String {
     let line = state_line(status, hotkey);
     match &status.warning {
-        Some(warning) => format!("{line}\n\u{26A0} {warning}"),
+        Some(warning) => format!("{line}\n\u{26A0} {}", warning.text()),
         None => line,
     }
 }
@@ -195,6 +199,7 @@ fn state_line(status: &Status, hotkey: &str) -> String {
         State::Idle => format!("{hotkey} to dictate\n{}", status.detail),
         State::Asleep => format!("Asleep · say \u{201C}bear, wake up\u{201D} or press {hotkey}\n{}", status.detail),
         State::MicOff => "Microphone off · turn it on from this menu".into(),
+        State::Reconnecting => format!("{} · press {hotkey} to try now", status.detail),
         State::Listening if status.voice => {
             let secs = status.since.map_or(0, |t| t.elapsed().as_secs());
             format!("Listening {}:{:02} · say \u{201C}bear, go to sleep\u{201D} or press {hotkey}\n{}", secs / 60, secs % 60, status.detail)
@@ -292,76 +297,7 @@ pub fn wire(shared: &Shared) {
         s.updates.set_auto(auto);
     });
 
-    wire_hotkey(shared);
-}
-
-/// Registers the dictation hotkey and rebinds it when the setting changes.
-fn wire_hotkey(shared: &Shared) {
-    let text = shared.hotkey_text;
-    let note = shared.hotkey_note;
-    // The desktop (a Wayland portal) keeps its own shortcut: say where to
-    // change it when it isn't the one chosen here.
-    let explain = move |b: &Binding, wanted: &str| match b {
-        Binding::SystemChosen { description: Some(d) } if !d.eq_ignore_ascii_case(&readable(wanted)) => {
-            note.set(format!("Your desktop keeps its own shortcut for beardictate ({d}): change it in your desktop\u{2019}s shortcut settings."));
-        }
-        _ => note.set(String::new()),
-    };
-    let describe = move |b: &Binding, wanted: &str| match b {
-        Binding::Exact(sc) => readable(&sc.to_string()),
-        Binding::SystemChosen { description } => description.clone().unwrap_or_else(|| readable(wanted)),
-        Binding::Pending => format!("{} (waiting for your approval)", readable(wanted)),
-        Binding::Declined => "no hotkey (declined; click the bear)".into(),
-        _ => readable(wanted),
-    };
-    let handle: Rc<RefCell<Option<hotkey::Hotkey>>> = Rc::new(RefCell::new(None));
-    let s = shared.clone();
-    Effect::new(move || {
-        let wanted = s.settings.with(|st| st.hotkey.clone());
-        untracked(|| {
-            if let Err(why) = check_hotkey(&wanted) {
-                text.set(format!("no hotkey ({why})"));
-                return;
-            }
-            let mut slot = handle.borrow_mut();
-            if let Some(hk) = slot.as_ref() {
-                match hk.rebind(&wanted) {
-                    Ok(()) => {
-                        text.set(describe(&hk.binding(), &wanted));
-                        explain(&hk.binding(), &wanted);
-                    }
-                    Err(e) => text.set(format!("{wanted} unavailable: {e}")),
-                }
-                return;
-            }
-            let spec = HotkeySpec::new(wanted.clone()).id("dictate").description("Start or stop dictating");
-            match hotkey::register(spec, |ev| {
-                // A toggle: act on the press. Bindings are always two keys or
-                // more, so a release never needs telling apart from a chord.
-                tracing::info!(state = ?ev.state, "hotkey");
-                if ev.state == HotkeyState::Pressed {
-                    engine_send(engine::Command::Toggle);
-                }
-            }) {
-                Ok(hk) => {
-                    tracing::info!(backend = ?hotkey::backend(), binding = ?hk.binding(), "hotkey registered");
-                    text.set(describe(&hk.binding(), &wanted));
-                    explain(&hk.binding(), &wanted);
-                    let settings = s.settings;
-                    hk.on_binding_change(move |b| {
-                        let wanted = settings.with(|st| st.hotkey.clone());
-                        text.set(describe(b, &wanted));
-                        explain(b, &wanted);
-                    });
-                    *slot = Some(hk);
-                }
-                Err(e) => {
-                    tracing::warn!("hotkey {wanted}: {e}");
-                    text.set(format!("{wanted} unavailable: {e}"));
-                }
-            }
-        });
-    });
+    crate::hotkey_wiring::wire_hotkey(shared);
 }
 
 /// A shortcut as people write it: `Ctrl+Backquote` is `Ctrl+\``.
@@ -386,6 +322,7 @@ pub fn main_button(shared: &Shared) -> (&'static str, bool) {
     match (status.state, status.voice) {
         (State::Loading, _) => ("Loading…", false),
         (State::MicOff, _) => ("Turn microphone on", true),
+        (State::Reconnecting, _) => ("Try the microphone now", false),
         (State::Listening, true) => ("Go to sleep", false),
         (State::Asleep, _) => ("Wake up", false),
         (State::Listening, false) => ("Stop dictating", false),
@@ -415,8 +352,10 @@ mod tests {
     fn tooltips_say_what_to_do() {
         let idle = Status { state: State::Idle, detail: "Post-processing: Qwen3 4B".into(), since: None, voice: false, warning: None };
         assert_eq!(tooltip(&idle, "Ctrl+Alt+Space"), "Ctrl+Alt+Space to dictate\nPost-processing: Qwen3 4B");
-        let quiet = Status { warning: Some("Your microphone is quiet".into()), ..idle };
-        assert!(tooltip(&quiet, "Ctrl+Alt+Space").ends_with("\n\u{26A0} Your microphone is quiet"));
+        let quiet = Status { warning: Some(engine::Warning::Quiet), ..idle.clone() };
+        assert!(tooltip(&quiet, "Ctrl+Alt+Space").contains("\n\u{26A0} Your microphone is quiet"));
+        let taken = Status { warning: Some(engine::Warning::ShortcutTaken("Ctrl+Space".into())), ..idle };
+        assert!(tooltip(&taken, "Ctrl+Space").contains("Another program is using Ctrl+Space"));
         assert_eq!(crate::menu::shorten("abcdef", 4), "abc…");
     }
 }

@@ -138,6 +138,13 @@ impl PlatformInjector {
     pub fn erase(&mut self, typed: &str) -> Result<Erased, PlatformError> {
         driver::erase(&mut self.backend, &self.config, typed)
     }
+
+    /// Puts `text` on the clipboard, as [`InjectOutcome::LeftOnClipboard`]
+    /// does: for gathering several pieces that couldn't be typed, so a
+    /// later one doesn't replace the ones before.
+    pub fn set_clipboard(&mut self, text: &str) -> Result<(), PlatformError> {
+        driver::Backend::clipboard_set(&mut self.backend, text, false)
+    }
 }
 
 impl Injector for PlatformInjector {

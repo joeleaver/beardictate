@@ -12,6 +12,9 @@ repo="$(cd "$(dirname "$0")/.." && pwd)"
 target="${CARGO_TARGET_DIR:-$repo/target}"
 features="${BD_FEATURES:-vulkan,pipewire}"
 version="$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/Cargo.toml" | head -1)"
+# The app shows WHATS_NEW.md's section for its version at first start.
+grep -qx "## ${version%%-*}" "$repo/crates/bd-app/WHATS_NEW.md" ||
+    { echo "crates/bd-app/WHATS_NEW.md has no '## ${version%%-*}' section: write what's new first" >&2; exit 1; }
 name="beardictate-$version-linux-x86_64"
 # Every build is an alpha build for now (Joe, 2026-10-19): telemetry on,
 # with the shared key (docs/telemetry.md), which isn't in the repo.

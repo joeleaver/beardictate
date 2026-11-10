@@ -4,8 +4,9 @@
 //!
 //! The bear glows in the tray dot's colours for what the app is doing,
 //! pulsing while it listens, and its snout turns cobalt at work. A small
-//! amber "!" at its upper left says the microphone is too quiet (its menu
-//! says so too), and a list mark at its lower right that list mode is on. A click
+//! amber "!" at its upper left says the microphone is too quiet, or that
+//! words couldn't be typed and are on the clipboard (its menu says so too),
+//! and a list mark at its lower right that list mode is on. A click
 //! starts or stops dictating, a drag moves it, a right-click opens the
 //! tray's menu ([`crate::menu`]).
 
@@ -30,7 +31,7 @@ fn glow(state: &str) -> Option<&'static str> {
         "listening" => "#D1452F",
         "cleaning" => "#1FA38A",
         "loading" => "#8B6CD9",
-        "needs-you" => "#E0A800",
+        "needs-you" | "reconnecting" => "#E0A800",
         "asleep" => "#7D8CA6",
         _ => return None,
     })
@@ -40,7 +41,7 @@ fn glow(state: &str) -> Option<&'static str> {
 fn snout(state: &str) -> &'static str {
     match state.split(' ').next().unwrap_or("") {
         "listening" | "cleaning" => "#2F6FDB",
-        "mic-off" | "loading" => "#B9AFA3",
+        "mic-off" | "loading" | "reconnecting" => "#B9AFA3",
         _ => "#E9E4DC",
     }
 }

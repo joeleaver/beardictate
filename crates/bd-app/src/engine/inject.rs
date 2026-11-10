@@ -4,7 +4,7 @@
 use std::fs;
 use std::sync::Arc;
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bd_core::InjectOutcome;
 use bd_platform::{Erased, InjectorConfig, PlatformInjector};
@@ -33,11 +33,29 @@ pub(super) struct Typed {
     pub pad: bool,
 }
 
+/// How long to wait for Shift/Ctrl/Alt/Super to be let go before leaving
+/// the text on the clipboard. Two seconds (bd-platform's default) sent a
+/// Windows tester's words to the clipboard whenever they came while the
+/// hotkey (Ctrl+Space) was being pressed to wake or sleep, 30 times in two
+/// weeks; the typing just waits meanwhile, and what comes after waits in
+/// line.
+const MODIFIER_WAIT: Duration = Duration::from_secs(8);
+
+/// Pieces left on the clipboard within this long of each other are
+/// gathered there, rather than each replacing the one before (live typing
+/// sends a few words at a time: a tester's 30 seconds with no window
+/// focused left only the last two characters).
+const GATHER_FOR: Duration = Duration::from_secs(120);
+
 /// What the typing thread reports.
 pub(super) enum Injected {
     /// Typing works; the backend's name.
     Ready(&'static str),
-    LeftOnClipboard(String),
+    /// Text couldn't be typed and is on the clipboard (why, and how many
+    /// characters are there now).
+    LeftOnClipboard(String, usize),
+    /// Text typed again after some was left on the clipboard.
+    TypingAgain,
     /// "Scratch that" couldn't take the text back.
     NotErased(String),
     Failed(String),
@@ -63,6 +81,7 @@ pub(super) fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Inject
                 }
             });
             let config = InjectorConfig {
+                modifier_release_timeout: MODIFIER_WAIT,
                 portal_restore_token: token,
                 on_portal_restore_token: Some(save),
                 ..InjectorConfig::default()
@@ -76,6 +95,8 @@ pub(super) fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Inject
             };
             let backend = injector.backend_name();
             let _ = report_tx.send(Injected::Ready(backend));
+            // What's on the clipboard for want of typing, and when it was put there.
+            let mut gathered: Option<(String, Instant)> = None;
             for job in text_rx {
                 let report = match job {
                     TypeJob::Type(text, typed) => {
@@ -83,8 +104,22 @@ pub(super) fn spawn_injector(paths: &Paths) -> (Sender<TypeJob>, Receiver<Inject
                         let outcome = injector.inject_text(&text);
                         note_typed(&text, &typed, backend, &outcome, started);
                         match outcome {
-                            Ok(InjectOutcome::LeftOnClipboard { reason }) => Some(Injected::LeftOnClipboard(reason)),
-                            Ok(_) => None,
+                            Ok(InjectOutcome::LeftOnClipboard { reason }) => {
+                                let all = match gathered.take() {
+                                    Some((before, at)) if at.elapsed() < GATHER_FOR => {
+                                        let all = format!("{before}{text}");
+                                        if let Err(e) = injector.set_clipboard(&all) {
+                                            tracing::warn!("gathering text on the clipboard: {e}");
+                                        }
+                                        all
+                                    }
+                                    _ => text,
+                                };
+                                let chars = all.trim().chars().count();
+                                gathered = Some((all, Instant::now()));
+                                Some(Injected::LeftOnClipboard(reason, chars))
+                            }
+                            Ok(_) => gathered.take().map(|_| Injected::TypingAgain),
                             Err(e) => Some(Injected::Failed(e.to_string())),
                         }
                     }
@@ -127,12 +162,30 @@ fn note_typed<E: std::fmt::Display>(text: &str, typed: &Typed, backend: &str, ou
     });
 }
 
+/// How long the bear says words are on the clipboard, unless typing works
+/// again first.
+const CLIPBOARD_WARNING_FOR: Duration = Duration::from_secs(120);
+
+/// What the bear, the tray and Settings say about `chars` characters left
+/// on the clipboard.
+pub(super) fn clipboard_warning(chars: usize) -> String {
+    format!("Couldn't type your last words ({chars} characters): they're on the clipboard, press Ctrl+V to paste them")
+}
+
 impl<U: Ui> Worker<U> {
+    /// On the engine's tick: the clipboard warning goes after a while.
+    pub(super) fn expire_clipboard_warning(&mut self) {
+        if self.on_clipboard.is_some_and(|(_, at)| at.elapsed() >= CLIPBOARD_WARNING_FOR) {
+            self.on_clipboard = None;
+            self.publish();
+        }
+    }
+
     pub(super) fn on_injected(&mut self, report: Injected) {
         // Text that didn't reach the page: what was typed before it can't be
         // found by counting back from the cursor any more, so nothing typed
         // earlier is tidied in place or scratched across it.
-        if matches!(report, Injected::LeftOnClipboard(_) | Injected::NotErased(_) | Injected::Failed(_))
+        if matches!(report, Injected::LeftOnClipboard(..) | Injected::NotErased(_) | Injected::Failed(_))
             && let Some(p) = &self.pipeline
         {
             p.new_passage();
@@ -144,8 +197,17 @@ impl<U: Ui> Worker<U> {
                     self.publish();
                 }
             }
-            Injected::LeftOnClipboard(reason) => {
+            Injected::LeftOnClipboard(reason, chars) => {
                 self.notifier.notify("clipboard", "Text is on the clipboard", &format!("Couldn't type it ({reason}). Press Ctrl+V to paste."));
+                // Notifications can be silenced (Windows did for a tester):
+                // the bear, the tray and Settings say so too.
+                self.on_clipboard = Some((chars, Instant::now()));
+                self.publish();
+            }
+            Injected::TypingAgain => {
+                if self.on_clipboard.take().is_some() {
+                    self.publish();
+                }
             }
             Injected::NotErased(reason) => {
                 self.notifier.notify("erase", "Couldn't scratch that", &format!("The text is still there ({reason})."));
