@@ -12,6 +12,7 @@
 //! | `new paragraph` / `new line` | `"\n\n"` / `"\n"` |
 //! | `scratch that` | drops what came before it (see [`ActionKind`]) |
 //! | `comma`, `period`, `question mark`, … | literal marks, only with [`CommandConfig::literal_punctuation`] |
+//! | `hyphen`, `dash` | `-`, joining the words on both sides ("well-known"); also opt-in |
 //!
 //! The recognizer punctuates and capitalizes what it hears, so a command often
 //! arrives as `Open quote.` or `, new paragraph,`. The pass strips the marks
@@ -24,6 +25,7 @@
 //! checks: no article or possessive just before it, no noun continuation
 //! after it, and, for `scratch that`, a clause of its own.
 
+mod dates;
 mod numbers;
 mod render;
 mod rules;
@@ -47,7 +49,8 @@ pub struct CommandConfig {
     /// are typed as the words they are.
     pub break_commands: bool,
     /// Treat spoken `comma`, `period`, `question mark`, `exclamation point`,
-    /// `colon`, `semicolon`, `em dash` and `ellipsis` as marks. Off by
+    /// `colon`, `semicolon`, `em dash`, `en dash`, `hyphen`, `dash` and
+    /// `ellipsis` as marks. Off by
     /// default: the ASR already punctuates, and these words are common in
     /// prose ("a period of calm", "a question mark hung over it").
     pub literal_punctuation: bool,
@@ -181,6 +184,13 @@ impl CommandPass {
                 i += m.len;
                 continue;
             }
+            // "nineteen twenty three" outside a date: perhaps a year,
+            // perhaps chapter and verse; as said, not "nineteen twenty-three".
+            if let Some(used) = self.year_as_said(&toks, i) {
+                items.extend(toks[i..i + used].iter().cloned().map(render::Item::Word));
+                i += used;
+                continue;
+            }
             if let Some((word, used)) = self.number_at(&toks, i) {
                 items.push(render::Item::Word(word));
                 i += used;
@@ -220,35 +230,48 @@ impl CommandPass {
             return None;
         }
         let rest = toks.get(from..)?;
-        let words: Vec<&str> = rest.iter().map(|t| t.lower.as_str()).collect();
-        // A mark between two words ends the number there.
-        let stops: Vec<bool> = rest
-            .iter()
-            .enumerate()
-            .map(|(k, t)| !t.trail.is_empty() || rest.get(k + 1).is_some_and(|n| !n.lead.is_empty()))
-            .collect();
+        let (words, stops, commas) = number_words(rest);
         let spoken = numbers::read(&words, &stops)?;
         let timed = matches!(spoken.value, numbers::Value::Time { .. }) && words.get(1) == Some(&"colon");
         if colon_time && self.config.numbers != NumberStyle::StyleGuide && !timed {
             return None;
         }
-        let (text, took) = if numeral || timed {
-            (numbers::digits(&spoken.value), false)
+        let after_month = !numeral && i > 0 && token::joined(&toks[i - 1], &toks[i]) && dates::is_month(&toks[i - 1]);
+        let dated = if after_month { dates::after_month(&words, &stops, &commas) } else { None };
+        let (text, len, took) = if numeral || timed {
+            // "numeral nineteen ninety seven": a year, unless it's a time.
+            let clock = matches!(spoken.value, numbers::Value::Time { .. });
+            let (text, len) = match dates::year(&words, &stops).filter(|&(_, n)| !clock && n > spoken.len) {
+                Some((year, n)) => (year.to_string(), n),
+                None => (numbers::digits(&spoken.value), spoken.len),
+            };
+            // "numeral one nine nine seven": digits one at a time, when
+            // that reads more of them ("four oh five" stays 4:05).
+            match numbers::digit_run(&words, &stops).filter(|&(_, n)| numeral && n > len) {
+                Some((run, n)) => (run, n, false),
+                None => (text, len, false),
+            }
+        } else if let Some((text, n)) = dated {
+            (text, n, false)
         } else {
-            let before = (i > 0 && token::joined(&toks[i - 1], &toks[i])).then(|| toks[i - 1].lower.as_str());
             let last = &rest[spoken.len - 1];
-            let after = rest.get(spoken.len).filter(|n| token::joined(last, n)).map(|n| n.lower.as_str());
-            let (text, took) = numbers::styled(&spoken.value, before, after)?;
+            let after = rest.get(spoken.len).filter(|n| token::joined(last, n));
+            let of_month = after.is_some_and(|of| of.lower == "of")
+                && rest.get(spoken.len + 1).is_some_and(|m| token::joined(&rest[spoken.len], m) && dates::is_month(m));
+            let (text, took) = numbers::styled(&spoken.value, of_month, after.map(|n| n.lower.as_str()))?;
             let said: Vec<&str> = words[..spoken.len].to_vec();
             if !took && text == said.join(" ") {
                 return None;
             }
-            (text, took)
+            (text, spoken.len, took)
         };
-        let end = from + spoken.len + usize::from(took);
+        let end = from + len + usize::from(took);
         let (first, last) = (&toks[i], &toks[end - 1]);
         // A number that began with a capital keeps it ("Twenty-five people").
-        let starts_upper = toks[from].core.chars().next().is_some_and(char::is_uppercase) && !numeral;
+        // Digits don't: "Twelve O Two P M" is "12:02 p.m.", not "12:02 P.m.".
+        let starts_upper = toks[from].core.chars().next().is_some_and(char::is_uppercase)
+            && !numeral
+            && text.starts_with(char::is_alphabetic);
         let core = if starts_upper { render::capitalize_first(&text) } else { text };
         // "p.m." ends a sentence by itself: no second full stop.
         let trail = match last.trail.strip_prefix('.') {
@@ -265,6 +288,22 @@ impl CommandPass {
         Some((word, end - i))
     }
 
+    /// How many tokens from `i` are a year said in two parts outside a
+    /// date, which the style guide leaves as said (see [`dates`]).
+    fn year_as_said(&self, toks: &[token::Token], i: usize) -> Option<usize> {
+        if self.config.numbers != NumberStyle::StyleGuide {
+            return None;
+        }
+        let dated = i > 0
+            && token::joined(&toks[i - 1], &toks[i])
+            && (dates::is_month(&toks[i - 1]) || toks[i - 1].lower == "numeral");
+        if dated {
+            return None;
+        }
+        let (words, stops, _) = number_words(&toks[i..]);
+        dates::year_pair(&words, &stops).map(|(_, used)| used)
+    }
+
     /// Handles one `scratch that`: drops this segment's words so far, or,
     /// when there are none, asks the caller to drop the previous segment.
     fn scratch(&self, items: &mut Vec<render::Item>) -> Action {
@@ -275,6 +314,17 @@ impl CommandPass {
         items.clear();
         Action { kind: ActionKind::ScratchWithinSegment { discarded }, offset: 0 }
     }
+}
+
+/// The tokens' words for reading a number (lowercase), whether a mark
+/// ends the number after each (`stops`), and whether that mark is a lone
+/// comma (`commas`, which a year may follow: "May 21, 2026").
+fn number_words(rest: &[token::Token]) -> (Vec<&str>, Vec<bool>, Vec<bool>) {
+    let words = rest.iter().map(|t| t.lower.as_str()).collect();
+    let next_lead = |k: usize| rest.get(k + 1).is_some_and(|n| !n.lead.is_empty());
+    let stops = rest.iter().enumerate().map(|(k, t)| !t.trail.is_empty() || next_lead(k)).collect();
+    let commas = rest.iter().enumerate().map(|(k, t)| t.trail == "," && !next_lead(k)).collect();
+    (words, stops, commas)
 }
 
 /// Turns a bare `quote` into an opening command when a closing command

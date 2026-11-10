@@ -329,3 +329,74 @@ fn breaks_a_spelling_asked_for_are_typed_even_with_break_commands_off() {
         assert_eq!(pass.apply(&format!("Yours, {p} Joe"), false).text, "Yours,\n\nJoe");
     }
 }
+
+#[test]
+fn hyphen_and_dash_join_the_words_on_both_sides() {
+    let out = |s: &str| punct_pass().apply(s, false).text;
+    assert_eq!(out("A well hyphen known author."), "A well-known author.");
+    assert_eq!(out("It's a well dash known fact."), "It's a well-known fact.");
+    assert_eq!(out("My mother hyphen in hyphen law called."), "My mother-in-law called.");
+    assert_eq!(out("Send the follow hyphen up."), "Send the follow-up.");
+    assert_eq!(out("Liquid dash chrome."), "Liquid-chrome.");
+    assert_eq!(out("Pages ten dash twelve."), "Pages ten-twelve.");
+    assert_eq!(out("In B the price is N I N T Y dash nine nine cents."), "In B the price is N I N T Y-nine nine cents.");
+    assert_eq!(out("J O T Dash Pad"), "J O T-Pad");
+    // On its own, after a pause.
+    assert_eq!(out("Hyphen."), "-");
+    assert_eq!(out("Dash."), "-");
+    // The en dash, as Nemotron sometimes hears it.
+    assert_eq!(out("Pages ten end dash twelve."), "Pages ten\u{2013}twelve.");
+    // What the recognizer wrote itself is replaced, not doubled.
+    assert_eq!(out("A well, hyphen known author."), "A well-known author.");
+    assert_eq!(out("A well - hyphen known author."), "A well-known author.");
+    assert_eq!(out("A well- hyphen -known author."), "A well-known author.");
+    assert_eq!(out("A well hyphen — known author."), "A well-known author.");
+    assert_eq!(out("She paused em dash then ran"), "She paused\u{2014}then ran");
+    // Off by default, with the other spoken marks.
+    assert_eq!(pass().apply("A well hyphen known author.", false).text, "A well hyphen known author.");
+}
+
+#[test]
+fn the_style_guide_writes_dates_and_times() {
+    let config = CommandConfig { numbers: NumberStyle::StyleGuide, ..CommandConfig::default() };
+    let pass = CommandPass::new(config, Style::default());
+    let out = |s: &str| pass.apply(s, false).text;
+    // As testers said them.
+    assert_eq!(out("Thursday, October fifteenth."), "Thursday, October 15.");
+    assert_eq!(out("Today is Friday, November sixth, twenty twenty six."), "Today is Friday, November 6, 2026.");
+    assert_eq!(out("The letter of October twenty twenty five."), "The letter of October 2025.");
+    assert_eq!(out("Today is Saturday, the eleventh of November."), "Today is Saturday, the 11th of November.");
+    assert_eq!(out("On the punch list from November seven."), "On the punch list from November 7.");
+    assert_eq!(out("At approximately three thirty PM."), "At approximately 3:30 p.m.");
+    assert_eq!(out("A login at nine AM on Thursday."), "A login at 9 a.m. on Thursday.");
+    assert_eq!(out("Twelve O Two P M."), "12:02 p.m.");
+    assert_eq!(out("It's ten fifteen a m now."), "It's 10:15 a.m. now.");
+    // And more.
+    assert_eq!(out("Due May twenty first twenty twenty six."), "Due May 21, 2026.");
+    assert_eq!(out("Born March third, nineteen eighty four, in Leeds."), "Born March 3, 1984, in Leeds.");
+    assert_eq!(out("On the twenty first of May twenty twenty six."), "On the 21st of May 2026.");
+    assert_eq!(out("In June two thousand and five."), "In June 2005.");
+    assert_eq!(out("Since May nineteen oh five."), "Since May 1905.");
+    // Not dates or clock times.
+    assert_eq!(out("The first of them."), "The first of them.");
+    assert_eq!(out("Twenty one of May's friends."), "Twenty-one of May's friends.");
+    assert_eq!(out("Meet at four thirty."), "Meet at four thirty.");
+}
+
+#[test]
+fn numeral_writes_years_too() {
+    let out = |s: &str| pass().apply(s, false).text;
+    assert_eq!(out("Numeral nineteen ninety seven."), "1997.");
+    assert_eq!(out("Numeral Twenty Twenty Six."), "2026.");
+    assert_eq!(out("November numeral twenty twenty six."), "November 2026.");
+    assert_eq!(out("October numeral twenty nine."), "October 29.");
+    assert_eq!(out("Numeral Ten Twenty Three A.M."), "10:23 a.m.");
+    assert_eq!(out("Numeral twelve oh five."), "12:05.");
+    assert_eq!(out("Numeral one nine nine seven."), "1997.");
+    assert_eq!(out("Numeral Two O Two Six."), "2026.");
+    assert_eq!(out("Numeral zero three."), "03.");
+    assert_eq!(out("Room numeral four oh five."), "Room 4:05.", "a time, as before");
+    assert_eq!(out("Numeral one, two."), "1, two.");
+    assert_eq!(out("Back in nineteen ninety seven."), "Back in nineteen ninety seven.", "as said without numeral");
+    assert_eq!(out("May twenty first, twenty twenty six."), "May twenty first, twenty twenty six.");
+}

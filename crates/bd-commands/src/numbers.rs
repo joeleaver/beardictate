@@ -9,8 +9,8 @@
 //! (as in the Chicago Manual of Style): words for zero to one hundred and
 //! round numbers, hyphenated ("twenty-five"); digits for the rest; and
 //! digits for money ("$300"), percentages ("12 percent"), times with a.m.
-//! or p.m. ("4:30 p.m.") and dates after a month ("May 21"). "Four
-//! o'clock" stays as words.
+//! or p.m. ("4:30 p.m.") and dates ("May 21", "May 21, 2026", "the 21st
+//! of May"; see [`crate::dates`]). "Four o'clock" stays as words.
 
 use serde::{Deserialize, Serialize};
 
@@ -110,7 +110,7 @@ fn parts(w: &str) -> Vec<&str> {
 /// Reads a whole number from the start of `words` (lowercase, no marks;
 /// `stops[i]` when punctuation follows word `i`, which ends the number
 /// there). Returns its value, whether it was an ordinal, and the words used.
-fn integer(words: &[&str], stops: &[bool]) -> Option<(u64, bool, usize)> {
+pub(crate) fn integer(words: &[&str], stops: &[bool]) -> Option<(u64, bool, usize)> {
     let (mut total, mut chunk) = (0u64, 0u64);
     let (mut used, mut ordinal, mut any) = (0usize, false, false);
     // What the last number word was, so "twenty five" joins but "five five" doesn't.
@@ -257,6 +257,29 @@ fn meridiem(words: &[&str]) -> (Option<&'static str>, usize) {
     }
 }
 
+/// Digits said one at a time ("one nine nine seven", "two oh two six"),
+/// as a string, with the words they took: two or more, none after a mark.
+pub(crate) fn digit_run(words: &[&str], stops: &[bool]) -> Option<(String, usize)> {
+    let mut out = String::new();
+    for (k, w) in words.iter().enumerate() {
+        let d = match *w {
+            "oh" | "o" => 0,
+            _ => match word(w) {
+                Some(Word::Small(d, false)) if d < 10 => d,
+                _ => break,
+            },
+        };
+        out.push(char::from_digit(d as u32, 10)?);
+        if stops[k] {
+            break;
+        }
+    }
+    (out.len() >= 2).then(|| {
+        let n = out.len();
+        (out, n)
+    })
+}
+
 fn suffix(n: u64) -> &'static str {
     match (n % 10, n % 100) {
         (_, 11..=13) => "th",
@@ -310,13 +333,15 @@ fn small_words(n: u64, ordinal: bool) -> String {
     }
 }
 
-/// What the style guide writes for a number, given the word after it and
-/// the one before (lowercase): `None` to leave the words as said, or the
-/// text and whether it took the word after (the unit it absorbed).
-pub(crate) fn styled(value: &Value, before: Option<&str>, after: Option<&str>) -> Option<(String, bool)> {
-    let after_month = before.is_some_and(|b| MONTHS.contains(&b));
+/// What the style guide writes for a number, given the word after it
+/// (lowercase) and whether "of" and a month follow ("the twenty first of
+/// May"): `None` to leave the words as said, or the text and whether it
+/// took the word after (the unit it absorbed). A day after a month is
+/// [`crate::dates::after_month`]'s.
+pub(crate) fn styled(value: &Value, of_month: bool, after: Option<&str>) -> Option<(String, bool)> {
     match value {
-        Value::Time { oclock: true, meridiem: None, .. } => None,
+        // "four thirty" alone may not be a time ("Zechariah twelve ten").
+        Value::Time { meridiem: None, .. } => None,
         Value::Time { .. } => Some((digits(value), false)),
         Value::Decimal(..) => Some((digits(value), false)),
         Value::Int { n, ordinal } => {
@@ -325,8 +350,9 @@ pub(crate) fn styled(value: &Value, before: Option<&str>, after: Option<&str>) -
                 Some("percent") if !ordinal => return Some((format!("{} percent", grouped(*n)), true)),
                 _ => {}
             }
-            if after_month && (1..=31).contains(n) {
-                return Some((n.to_string(), false));
+            // "the 21st of May": a date, in the order it was said.
+            if of_month && *ordinal && (1..=31).contains(n) {
+                return Some((digits(value), false));
             }
             let round = *n >= 100 && n % 100 == 0 && *n < 1_000_000 && (n % 1000 == 0 || *n < 1000);
             if *n <= 100 || round {
@@ -398,14 +424,15 @@ mod tests {
     #[test]
     fn the_style_guide_keeps_small_numbers_as_words() {
         let v = |s: &str| read_all(s).unwrap().value;
-        assert_eq!(styled(&v("twenty five"), None, Some("people")), Some(("twenty-five".into(), false)));
-        assert_eq!(styled(&v("twenty first"), None, None), Some(("twenty-first".into(), false)));
-        assert_eq!(styled(&v("three hundred"), None, None), None, "round numbers stay as said");
-        assert_eq!(styled(&v("two hundred and thirty four"), None, None), Some(("234".into(), false)));
-        assert_eq!(styled(&v("three hundred"), None, Some("dollars")), Some(("$300".into(), true)));
-        assert_eq!(styled(&v("twelve"), None, Some("percent")), Some(("12 percent".into(), true)));
-        assert_eq!(styled(&v("twenty first"), Some("may"), None), Some(("21".into(), false)));
-        assert_eq!(styled(&v("four o'clock"), None, None), None);
-        assert_eq!(styled(&v("four thirty p.m."), None, None), Some(("4:30 p.m.".into(), false)));
+        assert_eq!(styled(&v("twenty five"), false, Some("people")), Some(("twenty-five".into(), false)));
+        assert_eq!(styled(&v("twenty first"), false, None), Some(("twenty-first".into(), false)));
+        assert_eq!(styled(&v("three hundred"), false, None), None, "round numbers stay as said");
+        assert_eq!(styled(&v("two hundred and thirty four"), false, None), Some(("234".into(), false)));
+        assert_eq!(styled(&v("three hundred"), false, Some("dollars")), Some(("$300".into(), true)));
+        assert_eq!(styled(&v("twelve"), false, Some("percent")), Some(("12 percent".into(), true)));
+        assert_eq!(styled(&v("twenty first"), true, None), Some(("21st".into(), false)));
+        assert_eq!(styled(&v("twenty one"), true, None), Some(("twenty-one".into(), false)), "a count of them");
+        assert_eq!(styled(&v("four o'clock"), false, None), None);
+        assert_eq!(styled(&v("four thirty p.m."), false, None), Some(("4:30 p.m.".into(), false)));
     }
 }

@@ -58,6 +58,13 @@ const PHRASES: &[Phrase] = &[
     punct(&["en", "dash"], "\u{2013}", false),
     punct(&["n", "dash"], "\u{2013}", false),
     punct(&["endash"], "\u{2013}", false),
+    // "en dash" as the recognizer sometimes hears it.
+    punct(&["end", "dash"], "\u{2013}", false),
+    // A hyphen joins the words on both sides ("well hyphen known"). "dash"
+    // alone is an ordinary word too, so it has stricter context rules
+    // ([`hyphen_ok`]).
+    punct(&["hyphen"], "-", false),
+    punct(&["dash"], "-", false),
     punct(&["period"], ".", true),
     punct(&["comma"], ",", false),
     punct(&["colon"], ":", false),
@@ -197,6 +204,7 @@ fn context_ok(toks: &[Token], i: usize, ph: &Phrase, after_command: bool) -> boo
                 || (capital && toks[end].core.starts_with(|c: char| c.is_uppercase()));
             left && right && first.lead.is_empty()
         }
+        Cmd::Punct { mark: "-", .. } => hyphen_ok(toks, i, ph.words == ["dash"], after_command),
         Cmd::Punct { terminal, .. } => {
             if noun_blocked(toks, i) || next_is_noun {
                 return false;
@@ -212,6 +220,82 @@ fn context_ok(toks: &[Token], i: usize, ph: &Phrase, after_command: bool) -> boo
                 || match_at(toks, end, true, true).is_some()
         }
     }
+}
+
+/// Words that, directly after "hyphen" or "dash", show it is a noun in
+/// prose ("hyphen key", "dash mark"). Like [`NOUN_FOLLOWERS`] without "of",
+/// which a hyphen joins ("mother hyphen in hyphen law", "jack hyphen of").
+const HYPHEN_NOUN_FOLLOWERS: &[&str] = &[
+    "mark", "marks", "character", "characters", "symbol", "symbols", "key", "keys", "sign", "signs",
+];
+
+/// Words that, directly before "hyphen" or "dash", show someone is talking
+/// about the mark ("spelled with hyphen", "no dash").
+const HYPHEN_TALK: &[&str] = &["with", "without", "using", "no"];
+
+/// Words that, directly before "dash", make it the verb or the noun of a
+/// run ("to dash", "will dash", "a mad dash", "the hundred yard dash"),
+/// one of a pair ("dot and dash"), or someone asking for the mark ("add
+/// dash", "put dash in").
+const DASH_BLOCKERS: &[&str] = &[
+    "to", "will", "would", "could", "can", "can't", "cannot", "must", "might", "should", "shall", "did",
+    "didn't", "don't", "won't", "i", "we", "they", "you", "he", "she", "mad", "quick", "frantic",
+    "desperate", "sudden", "wild", "headlong", "final", "late", "short", "yard", "metre", "meter", "add",
+    "put", "type", "insert", "and", "or", "little", "trailing", "leading", "extra", "double", "single",
+];
+
+/// Words that, directly after "dash", make it the verb ("dash off a note",
+/// "dash to the shop", "dash his hopes", "dash it all") or the noun ("dash
+/// of salt", "dash cam", "dash and dot"). A compound whose second part is
+/// one of these ("follow-up", "add-on") needs "hyphen".
+const DASH_FOLLOWERS: &[&str] = &[
+    "of", "for", "off", "to", "out", "away", "across", "into", "through", "back", "home", "over",
+    "around", "round", "down", "up", "past", "after", "in", "inside", "outside", "along", "from",
+    "toward", "towards", "onto", "on", "at", "by", "between", "with", "it", "his", "her", "their", "my",
+    "our", "your", "its", "all", "them", "him", "me", "us", "the", "a", "an", "any", "this", "that",
+    "these", "those", "and", "or", "cam", "cams", "camera", "cameras", "board", "boards", "light",
+    "lights",
+];
+
+/// Whether "hyphen" (or, with `dash`, "dash") at token `i` is the mark.
+///
+/// Both: said on its own (the whole segment), or after a word of the same
+/// sentence (or another spoken mark); not a noun ("a hyphen", "the dash",
+/// "hyphen key") and not talked about ("dash is working", "with hyphen").
+///
+/// "dash" also needs a word after it in the same sentence, with no mark
+/// between (a sentence ending on "dash" is prose: "a last-minute dash."),
+/// and is never the verb or a run ([`DASH_BLOCKERS`], [`DASH_FOLLOWERS`])
+/// nor a name: a capital "Dash" mid-sentence ("I told Dash") is someone,
+/// unless the words before it are spelled-out letters ("J O T Dash").
+fn hyphen_ok(toks: &[Token], i: usize, dash: bool, after_command: bool) -> bool {
+    let tok = &toks[i];
+    if toks.len() == 1 {
+        return true;
+    }
+    let prev = i.checked_sub(1).map(|k| &toks[k]);
+    let next = toks.get(i + 1);
+    let joined_next = next.filter(|n| joined(tok, n));
+    let prev_word = prev.filter(|p| joined(p, tok)).map(|p| p.lower.as_str());
+    let next_word = joined_next.map(|n| n.lower.as_str());
+    let left = after_command || prev.is_some_and(|p| !p.ends_sentence());
+    let noun = noun_blocked(toks, i)
+        || next_word.is_some_and(|w| HYPHEN_NOUN_FOLLOWERS.contains(&w) || ABOUT_A_COMMAND.contains(&w))
+        || prev_word.is_some_and(|w| HYPHEN_TALK.contains(&w));
+    if !left || noun {
+        return false;
+    }
+    if !dash {
+        return true;
+    }
+    let capital = tok.core.starts_with(|c: char| c.is_uppercase());
+    let spelled = prev.is_some_and(|p| p.core.chars().count() == 1 && p.core.chars().all(char::is_uppercase));
+    let name = capital && !after_command && !spelled;
+    let word_after = joined_next.is_some() || (tok.trail.is_empty() && next.is_some_and(|n| n.is_bare_punct()));
+    word_after
+        && !name
+        && !prev_word.is_some_and(|w| DASH_BLOCKERS.contains(&w))
+        && !next_word.is_some_and(|w| DASH_FOLLOWERS.contains(&w))
 }
 
 /// True for `quote unquote`, the spoken scare-quote idiom, which stays

@@ -45,6 +45,15 @@ pub(crate) enum Item {
 /// replaces.
 const ASR_PUNCT: &[char] = &[',', '.', ';', ':', '!', '?', '\u{2026}'];
 
+/// Dashes the recognizer may write itself around a spoken dash or hyphen,
+/// which the spoken mark replaces rather than doubles.
+const DASHES: &[char] = &['-', '\u{2014}', '\u{2013}'];
+
+/// Marks that join the words on both sides, with no spaces.
+fn joins(mark: &str) -> bool {
+    matches!(mark, "\u{2014}" | "\u{2013}" | "-")
+}
+
 /// Renders items into text, returning the actions with their offsets.
 /// `quote_open`: a quotation is open coming in. A paragraph break inside a
 /// quotation is speech running on: the next paragraph opens with a mark (and
@@ -57,13 +66,23 @@ pub(crate) fn render(items: &[Item], style: &Style, quote_open: bool) -> (String
     let mut space = false;
     let mut capitalize = false;
     let mut last_was_word = false;
+    // A joining mark was just written: a dash the recognizer put next to it
+    // goes.
+    let mut joining = false;
     for item in items {
         match item {
             Item::Word(tok) => {
+                if joining && tok.is_bare_punct() && tok.lead.chars().all(|c| DASHES.contains(&c)) {
+                    continue;
+                }
                 if space {
                     out.push(' ');
                 }
-                let text = tok.text();
+                let mut text = tok.text();
+                if joining {
+                    text = text.trim_start_matches(DASHES).to_string();
+                }
+                joining = false;
                 if capitalize {
                     out.push_str(&capitalize_first(&text));
                     capitalize = !text.chars().any(char::is_alphabetic);
@@ -76,6 +95,7 @@ pub(crate) fn render(items: &[Item], style: &Style, quote_open: bool) -> (String
             }
             Item::Cmd { cmd, trail } => {
                 let terminal = trail_terminal(trail);
+                joining = false;
                 let kind = match *cmd {
                     // Already open and at a paragraph's start: the mark is
                     // there (a run-on paragraph opened it), so this is a no-op.
@@ -110,10 +130,17 @@ pub(crate) fn render(items: &[Item], style: &Style, quote_open: bool) -> (String
                             }
                         }
                         trim_trailing_spaces(&mut out);
+                        if joins(mark) && last_was_word {
+                            while out.ends_with(DASHES) {
+                                out.pop();
+                            }
+                            trim_trailing_spaces(&mut out);
+                        }
                         actions.push(Action { kind: ActionKind::Punctuation(mark), offset: out.len() });
                         out.push_str(mark);
-                        // An em or en dash joins the words on both sides.
-                        space = !matches!(mark, "\u{2014}" | "\u{2013}");
+                        // A dash or hyphen joins the words on both sides.
+                        space = !joins(mark);
+                        joining = joins(mark);
                         capitalize |= ends;
                         None
                     }

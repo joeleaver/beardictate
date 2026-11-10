@@ -113,3 +113,82 @@ fn known_false_positive_of_literal_punctuation() {
     assert_eq!(pass.apply("He had colon cancer.", false).text, "He had: cancer.");
     assert_eq!(CommandPass::default().apply("He had colon cancer.", false).text, "He had colon cancer.");
 }
+
+/// "dash" and "hyphen" as ordinary words, with spoken marks on: none of
+/// these may become a mark.
+const DASH_PROSE: &[&str] = &[
+    "He made a dash for the door.",
+    "They made a mad dash for it.",
+    "They made a mad dash home.",
+    "It was a last-minute dash.",
+    "Add a dash of salt.",
+    "A dash of lime, then stir.",
+    "Just a dash.",
+    "I need to dash off a note.",
+    "Dash off a quick reply.",
+    "I'll dash to the shop.",
+    "We had to dash across the road.",
+    "She will dash his hopes.",
+    "It could dash their chances.",
+    "Don't dash out into the road.",
+    "Dash it all!",
+    "Dash said he'd come.",
+    "I told Dash to wait.",
+    "Ask Dash and Violet.",
+    "Dash.Wait",
+    "The dashboard lit up.",
+    "His dash cam caught it.",
+    "Dash cam footage helped.",
+    "The hundred yard dash was close.",
+    "Note the dash.",
+    "Items without an extra dash are the ones I don't remember.",
+    "I don't get where the trailing dash comes from.",
+    "I did not ask for a dash, but it was putting a dash in.",
+    "Gotta put dash in the punctuation.",
+    "Is it a dash or a hyphen?",
+    "Morse is dot and dash.",
+    "Dash is working now.",
+    "Use a hyphen here.",
+    "The hyphen key is stuck.",
+    "Spell it with hyphen marks.",
+    "Each hyphen was wrong.",
+    "Hyphen is working now.",
+    "No hyphen, please.",
+    "Hyphen and dash differ.",
+    "The em dash and the hyphen differ.",
+];
+
+#[test]
+fn dash_and_hyphen_in_prose_stay_literal_even_when_enabled() {
+    let pass = CommandPass::new(CommandConfig { literal_punctuation: true, ..CommandConfig::default() }, Style::default());
+    for input in DASH_PROSE {
+        let out = pass.apply(input, false);
+        assert_eq!(out.text, *input, "rewrote prose");
+        assert!(out.actions.is_empty(), "{input:?} produced {:?}", out.actions);
+    }
+}
+
+/// Numbers that look like years but are said outside a date stay as said,
+/// with the style guide on too.
+const YEARLIKE_PROSE: &[&str] = &[
+    "Read John nineteen twenty three.",
+    "Zechariah twelve ten.",
+    "Back in nineteen ninety seven.",
+    "In nineteen eighty four we moved.",
+    "Those nineteen fifties chairs.",
+    "The soldiers march twenty miles.",
+    "Then march twenty paces.",
+    "We were at ten fifteen and climbing.",
+    "Twenty twenty vision.",
+];
+
+#[test]
+fn year_like_numbers_outside_dates_stay_as_said() {
+    let pass = CommandPass::new(CommandConfig { numbers: crate::NumberStyle::StyleGuide, ..CommandConfig::default() }, Style::default());
+    for input in YEARLIKE_PROSE {
+        assert_eq!(pass.apply(input, false).text, *input, "rewrote prose");
+    }
+    for input in YEARLIKE_PROSE {
+        assert_eq!(CommandPass::default().apply(input, false).text, *input, "as said by default");
+    }
+}
