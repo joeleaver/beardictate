@@ -94,10 +94,12 @@
             <tr><td>semicolon</td><td>;</td></tr>
             <tr><td>em dash</td><td>—</td></tr>
             <tr><td>en dash</td><td>–</td></tr>
+            <tr><td>hyphen, dash</td><td>- (joining the words: <q>well hyphen known</q> gives well-known)</td></tr>
             <tr><td>dot dot dot, ellipsis</td><td>…</td></tr>
           </tbody>
         </table>
         <p>Say the mark straight after the word it belongs to (<q>can you hear me question mark</q>), or on its own after a pause. A mark you say replaces the one beardictate would have put there. Turn this off under <em>Writing › Punctuation</em> if those words come up in what you write.</p>
+        <p><q>Dash</q> is an everyday word too (<q>a dash of salt</q>, <q>dash off a note</q>), so beardictate only takes it as a mark between two words that don’t read as one of those; <q>hyphen</q> always works, and is the one to use before words like <q>up</q> or <q>on</q> (<q>follow hyphen up</q>).</p>
 
         <h3 id="numbers">Numbers</h3>
         <p>Numbers are typed as you say them, in words: <q>twenty-five people</q>, <q>the first of May</q>, <q>four o’clock</q>. For digits, say <q>numeral</q> first:</p>
@@ -107,12 +109,13 @@
             <tr><td>numeral twenty five</td><td>25</td></tr>
             <tr><td>numeral first, numeral twenty first</td><td>1st, 21st</td></tr>
             <tr><td>numeral four thirty, numeral four thirty p.m.</td><td>4:30, 4:30 p.m.</td></tr>
+            <tr><td>numeral nineteen eighty four, numeral twenty twenty six</td><td>1984, 2026</td></tr>
             <tr><td>four colon zero zero</td><td>4:00 (a time said with its colon needs no <q>numeral</q>)</td></tr>
             <tr><td>numeral three point five</td><td>3.5</td></tr>
             <tr><td>numeral twelve thousand five hundred</td><td>12,500</td></tr>
           </tbody>
         </table>
-        <p>Or have numbers written as a style guide would (<em>Writing › Numbers</em>): words up to one hundred (<q>twenty-five</q>), digits above (234), and digits for money ($300), percentages (12 percent), times (4:30 p.m.) and dates (May 21). <q>Numeral</q> still gives digits.</p>
+        <p>Or have numbers written as a style guide would (<em>Writing › Numbers</em>): words up to one hundred (<q>twenty-five</q>), digits above (234), and digits for money ($300), percentages (12 percent), times with a.m. or p.m. (4:30 p.m., 9 a.m.) and dates: <q>May twenty first, twenty twenty six</q> gives May 21, 2026, <q>the twenty first of May</q> gives the 21st of May, and <q>October twenty twenty five</q> gives October 2025. A year is only written in digits in a date, so <q>John nineteen twenty three</q> stays as you said it. <q>Numeral</q> still gives digits.</p>
 
         <h3 id="lists">Lists</h3>
         <p>Say <q>bear, start a list</q>, then each item with a pause after it, then <q>bear, end the list</q>. Each item goes on a line of its own, without a capital or a full stop, ready for your editor’s bullets (start the bulleted list in your editor first). Punctuation you say still goes in. <em>List mode</em> is also in the bear’s menu.</p>
@@ -142,6 +145,7 @@
         <p>Fantasy names, invented places, a character called Ysolde: speech recognition has never heard them. Add them under <em>Settings › Special words</em>, each with any ways it tends to mishear them (for Ysolde, <q>Isolde, Ussel</q>).</p>
         <p>beardictate listens harder for those words and corrects the mishearings to your spelling. Keep a group of words per book and switch groups on and off as you move between projects. <em>How hard to listen for these words</em>, on the same page, trades catching more of them against turning ordinary words into them.</p>
         <p>A spelling can have line breaks in it, for a sign-off or an address: write <code>&lt;new line&gt;</code> (or <code>\n</code>) for a new line and <code>&lt;paragraph&gt;</code> for a new paragraph. <q>Best wishes,&lt;new line&gt;Ysolde</q>, heard as <q>sign off</q>, types <q>Best wishes,</q> and <q>Ysolde</q> on lines of their own. They’re typed even with spoken line breaks turned off.</p>
+        <p>A spelling can also start or end with a space, typed even where there’d otherwise be none: type the space in Settings, or write <code>&lt;space&gt;</code>.</p>
       </section>
 
       <section>
@@ -181,6 +185,15 @@
 
           <dt>Will it change what I wrote?</dt>
           <dd>Only in the ways you’d want: punctuation, capitals, removing ums and repeated words, and with <em>Dialog</em> on, quotes and paragraphs. Every sentence is compared with what you said, and if tidying changed any other word, you get your own words instead.</dd>
+
+          <dt>The bear has gone amber.</dt>
+          <dd>The microphone stopped working (unplugged, or Windows reset it). beardictate keeps trying to get it back and carries on by itself when it can; press your shortcut or click the bear to try straight away. If it stays amber, check the microphone, or pick another in <em>Settings › Microphone</em>.</dd>
+
+          <dt>The bear shows a small “!”.</dt>
+          <dd>Either your microphone is quiet (the bear’s menu says so), or beardictate couldn’t type your last words, for example because you were holding Ctrl or no window had the keyboard: they’re on the clipboard, so press Ctrl+V to paste them.</dd>
+
+          <dt>My shortcut says it’s in use by another program.</dt>
+          <dd>Another program has the same shortcut. beardictate keeps trying and takes it as soon as it’s free; or choose another in <em>Settings › General</em>.</dd>
 
           <dt>Which apps does it work in?</dt>
           <dd>Anything you can type into: Word, Scrivener, Google Docs in a browser, Obsidian, a plain text editor.</dd>

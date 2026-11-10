@@ -59,6 +59,19 @@ the generator makes cases like them.
    as words; Bear tried "CharlieLever", which the guardrail refused
    (2026-10-22). Train "<name> at <domain> dot com" → an address, as a
    formatting rewrite the guardrail allows.
+10. **Questions that don't start with the question.** The Windows tester
+    (2026-10-26, 11-05): "it doesn't recognize questions if the question
+    keyword comes after a comma", "has trouble recognizing questions in a
+    subordinate clause", "it needs to look after the comma, not at the very
+    beginning". E.g. "So, what do you think." / "If it rains tomorrow, will
+    the match go ahead." / "Honestly, can you believe that." should end in
+    "?". An extension of 1: the generator's questions start with the
+    question word; add questions after an interjection, a name ("Joe, are
+    you…"), a conditional or time clause ("When you get there, can you…")
+    and tag questions ("…, isn't it"), with Nemotron's "." at the end. Keep
+    as negatives statements with a question word after a comma ("So, what
+    you need is a plan.", "Honestly, how he did it is a mystery.",
+    "If you ask me, who cares." is a real question, rhetorical).
 
 Evidence for 3, 2026-10-22, Dialog off: 15 of 109 answers came back wrapped
 in curly quotes (“Pick up some deli.”). The guardrail took them all out,

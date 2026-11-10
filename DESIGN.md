@@ -86,6 +86,26 @@ was already typed in this dictation, erase it with Backspace: the user is
 talking, not typing, so the cursor is still after it. Repeats reach further
 back. Text from an earlier dictation is left alone; the cursor may have
 moved. Joe, 2026-10-15). The LLM sees commands already applied as literal marks.
+Spoken marks include `hyphen` and `dash` (2026-11-10), both `-` joining the
+words either side; "dash" is a common word, so it only fires between two
+words of one sentence and not where it reads as a noun, verb or name
+("a dash of salt", "dash off a note", "I told Dash"; rules in `bd-commands`
+`rules.rs`, prose tests in `tests_prose.rs`). With the style guide (or after
+"numeral") dates and years become digits ("November sixth, twenty twenty
+six" → "November 6, 2026"; `dates.rs`); a month must be capitalized, and a
+bare "four thirty" is no longer a time without a.m./p.m.
+
+**Joining across utterances** (2026-11-10): when the passage so far ends
+in an open sentence (a comma, semicolon, dash or a word), the next piece
+starts in lower case, except "I", special words, mixed-case words and known
+names (`bd_vocab::is_name`, from SCOWL). Not after a new passage, a quote,
+or in list and case modes (`bd-pipeline` `sentence.rs`, `stages/join_on.rs`). The
+Bear Pad does the same, on each segment and on the model's paragraph.
+
+**Spaces in special words** (2026-11-10): a spelling keeps the spaces it
+was typed with in Settings, and `<space>` writes one in the text format; a
+space at a spelling's start or end is typed even where joining would put
+none (`bd-vocab` `spaces.rs`). Hotwords and matching use the trimmed word.
 
 ### 5. Cleanup LLM
 Input: the raw segment + *our own* recent output (kept in memory — we don't
@@ -229,6 +249,15 @@ Unicode typing handles curly quotes and em-dashes; paste is for apps that drop
 synthetic unicode keystrokes (some games, RDP, a few Electron apps). Per-app
 override list in settings ("always paste in X").
 
+**When it can't type** (2026-11-10, `bd-app` `engine/inject.rs`): with
+Shift/Ctrl/Alt/Super held it waits up to 8 s (was 2 s: a tester's words went
+to the clipboard whenever they arrived while Ctrl+Space was pressed to wake
+or sleep), then leaves the text on the clipboard; pieces left there within 2
+minutes of each other are gathered, not each replacing the last (live typing
+sends a few words at a time; 30 s with no window focused had left two
+characters). The bear's "!", the tray and Settings say so for 2 minutes or
+until typing works again, as the notification may be silenced.
+
 ## Always listening (default)
 
 New installs start in **always listening** mode (Joe, 2026-10-15). The
@@ -237,8 +266,15 @@ and off with "bear, go to sleep" or the hotkey. While asleep, speech is
 transcribed and dropped: nothing is typed and nothing leaves the app. Only
 the tray menu turns the microphone itself off and on, and turning it on
 also wakes (you asked for the mic because you're about to talk). A
-microphone that fails to open, or disappears, is recorded as off, so the
-menu offers to turn it back on. Waking after more than a minute asleep
+microphone that fails to open, disappears or stops delivering audio is
+**not** recorded as off (2026-11-10): the app keeps reopening it (at once,
+then backing off to every 15 s) and says "reconnecting" on the bear, the
+tray and Settings meanwhile; back within a minute it carries on awake if
+it was, later it comes back asleep. The hotkey and the bear try at once.
+Only the menu or Settings turns it off. (A Windows tester's USB microphone
+was invalidated by Windows once or twice a day; recorded as off, it looked
+dead, and the "turn it on from the menu" notification was one Windows
+hid.) Waking after more than a minute asleep
 starts a new passage (no cleanup context from before).
 
 **Other voices in the room** (2026-10-20). An alpha tester left it awake;
@@ -411,7 +447,23 @@ Super): the rebinding UI rejects them. One key is too easy to hit by
 accident, and on the Wayland portal a lone modifier can't even tell a tap
 from Right Ctrl+C (rinch's `chorded` flag is always false there).
 
+**A shortcut another program holds** (2026-11-10, `hotkey_wiring.rs`) is
+tried again every 5 s for a minute, then every 30 s, while it's still the
+one chosen; meanwhile the bear's "!", the tray's tooltip and menu ("Another
+program is using Ctrl+Space: choose another…", opening Settings › General)
+and Settings say so, and it clears by itself once the shortcut is taken. A Windows tester's Ctrl+Space was taken at the first start of each
+day and free later; tried once, the hotkey stayed dead until a restart. Only
+a change to the shortcut itself rebinds (saving other settings used to
+re-run the registration).
+
 ## UI (rinch)
+
+- **What's new** (2026-11-10, `bd-app` `whats_new.rs`): the first start of
+  a new version (an automatic update, or installed over an older one) opens
+  the settings window with a dialog listing what changed since the version
+  that ran last, from `crates/bd-app/WHATS_NEW.md`, built in; "Got it" puts
+  the window away again if it opened only for this. A fresh install shows
+  nothing (the first-run setup does). About › "What's new" shows it again.
 
 - **Tray icon = the status display.** States: idle / listening / cleaning /
   paused / needs-you, carried by the snout colour and a corner dot so the

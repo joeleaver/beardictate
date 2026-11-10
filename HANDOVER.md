@@ -1,10 +1,64 @@
 # beardictate — handover
 
-Last updated: 2026-10-22, after 0.1.22. Read this, then
+Last updated: 2026-11-10 (unreleased fixes after 0.1.22). Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
-## Start here (open items, 2026-10-19)
+## Start here (2026-11-10: testers' feedback, unreleased)
+
+From the Windows tester's notes (10-26 to 11-08) and their telemetry; all
+proved by tests only, not yet in a build or by voice:
+- **The microphone comes back by itself** (`engine/mic_recover.rs`). Their
+  USB mic was invalidated by Windows (WASAPI 0x88890004) about daily; the
+  app recorded it as off, and the hotkey and bear only raised a hidden
+  notification, so it "turned itself off and refused to come back". Now:
+  reopen at once, then every 2/5/10/15 s; a stream with no chunks for 6 s
+  counts as lost; new `State::Reconnecting` (amber bear, tray dot, menu
+  "try now"; hotkey/bear try at once). Telemetry `state`
+  `mic_reconnecting`/`mic_back`. Try on NICO-TOP by unplugging a USB mic.
+- **A taken hotkey is retried** (`hotkey_wiring.rs`, moved out of
+  `ui.rs`): Ctrl+Space was held by another program at each day's first
+  start; we tried once. Now every 5 s for a minute, then every 30 s; only a
+  change to the shortcut rebinds. A taken shortcut is an
+  `engine::Warning::ShortcutTaken` (the bear's "!", tray menu and tooltip,
+  Settings › General); warnings are typed now (`Warning`: quiet, clipboard,
+  shortcut). Checked in a nested KWin with two copies on one display: the
+  second warned, then took the key 10 s after the first quit.
+- **Seen in that check:** with the bear on, rootless Xwayland in the nested
+  KWin segfaulted ~2 s after the bear window opened (X11 bear untried
+  before). Could be Xwayland-in-nested-KWin only; try the bear on a real
+  X11 session.
+- `hyphen`/`dash` spoken marks, dates and years under the style guide
+  (`bd-commands` `dates.rs`), spaces in special words (`<space>`,
+  `bd-vocab` `spaces.rs`), no capital after a comma across utterances
+  (`bd-pipeline` `sentence.rs`, `bd_vocab::is_name`). See DESIGN.md
+  "Command pass". Both of the last two apply in the Bear Pad too.
+- The tester never used list mode or the case modes (they ask for both);
+  tell them where they are. Questions after a comma: RETRAIN.md 10.
+- **Words that couldn't be typed** (`engine/inject.rs`): the modifier
+  wait is 8 s, pieces left on the clipboard are gathered, and the bear's "!"
+  says so (55 clipboard fallbacks in two weeks for the Windows tester, the
+  notification hidden each time).
+- Second Windows install (`c544…`, RTX 5070 Ti): the same microphone
+  dropouts; it never had a post-processing model, so no tidying at all
+  (the model is still never chosen automatically).
+- Checked: the tester's special words (brackets, `@`, `!`) load as Nemotron
+  hotwords fine; the 10-30 "no response after adding a word" was the app
+  asleep (speech while asleep isn't in telemetry).
+- **"What's new"** (`whats_new.rs`, `window/news.rs`): at the first start
+  of a new version the settings window opens with a dialog of
+  `crates/bd-app/WHATS_NEW.md`'s sections since the version that ran last
+  (`last-version` in the state folder; an install from before it sees this
+  version's; a fresh install nothing). About has a "What's new" button.
+  **Releasing: write the version's `## x.y.z` section before building**;
+  `package-linux.sh`, `cross-build-windows.sh` and `site/publish.sh add`
+  refuse without it. 0.1.23's is written. Seen working in a nested KWin
+  (no tray there, so "Got it" hiding the window again wasn't seen).
+- Telemetry server: an export that failed mid-query answered 200 with no
+  body (looked like "0 lines"); now 503, or a cut-off response
+  (`telemetry/server.js`). Not deployed.
+
+## Earlier open items (2026-10-19)
 
 1. **rinch 57bc511d** (wgpu 30, Vello 0.11, winit 0.31 beta 4) is pinned
    since 08db3d8, with no `[patch.crates-io]` left. Joe checked the bear
