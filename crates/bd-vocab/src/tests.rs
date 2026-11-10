@@ -98,3 +98,18 @@ fn a_spelling_ending_in_a_mark_drops_the_recognizers() {
     // Spellings ending in a letter keep what follows.
     assert_eq!(vocab("wyrmstone: worm stone").apply("The worm stone."), "The wyrmstone.");
 }
+
+#[test]
+fn spaces_in_a_spelling_are_kept_but_not_listened_for() {
+    let v = vocab("<space>Ysolde: Ussel\nRegards,<new line><space><space>Thrane<space>: regards thrane");
+    assert_eq!(v.hotwords(), ["Ysolde", "Regards, Thrane"]);
+    assert_eq!(v.apply("Ussel came."), "Ysolde came.");
+    assert_eq!(v.space("Ysolde came."), "\u{E002}Ysolde came.");
+    let typed = v.space(&v.apply("Regards thrane").replace(bd_core::LINE_BREAK, "\n").replace(" \n ", "\n"));
+    assert_eq!(typed, "Regards,\n  Thrane\u{E002}");
+    // A word with typed spaces, as the settings keep them.
+    let v = Vocabulary::new(vec![Word { text: " Ysolde ".into(), heard: vec![] }]);
+    assert_eq!(v.hotwords(), ["Ysolde"]);
+    assert_eq!(v.apply("ysolde came"), "Ysolde came");
+    assert_eq!(v.space("Ysolde"), "\u{E002}Ysolde\u{E002}");
+}

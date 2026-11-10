@@ -48,3 +48,31 @@ fn without_cleanup_the_pad_sends_what_was_dictated() {
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
     assert_eq!(sent(&events), Some("Um, we went out.\n\n"));
 }
+
+fn pad_vocab(list: &str) -> PipelineConfig {
+    PipelineConfig { pad: true, vocabulary: bd_vocab::Vocabulary::parse(list).unwrap(), ..PipelineConfig::default() }
+}
+
+#[test]
+fn the_pad_reads_on_after_a_comma_like_your_app() {
+    for cleanup in [false, true] {
+        let r = pad_rig(vec!["Hello,", "How are you?", "Thanks,", "Sarah said hi.", "Bear, send it."], cleanup);
+        for i in 0..5 {
+            say(&r.pipeline, i);
+        }
+        let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+        assert_eq!(sent(&events), Some("Hello, how are you? Thanks, Sarah said hi."), "cleanup {cleanup}");
+    }
+}
+
+#[test]
+fn the_pad_keeps_a_special_words_own_spaces() {
+    for cleanup in [false, true] {
+        let r = rig_with(vec!["Ussel came.", "Then Ussel left.", "Bear, send it."], cleanup, false, pad_vocab("<space><space>Ysolde: Ussel"));
+        for i in 0..3 {
+            say(&r.pipeline, i);
+        }
+        let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
+        assert_eq!(sent(&events), Some("  Ysolde came. Then  Ysolde left."), "cleanup {cleanup}");
+    }
+}

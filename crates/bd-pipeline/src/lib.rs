@@ -26,6 +26,7 @@
 
 mod case;
 mod compose;
+mod sentence;
 pub mod dump;
 pub mod gain;
 mod voice;

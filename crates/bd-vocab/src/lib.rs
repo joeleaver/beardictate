@@ -23,14 +23,19 @@
 //!
 //! A spelling may ask for breaks: `Best wishes,<new line>Ysolde` types two
 //! lines (`<paragraph>` for a new paragraph; `\n` and `\n\n` work too).
-//! See [`breaks`].
+//! See [`breaks`]. It may also start or end with spaces (`<space>` in this
+//! format, whose lines are trimmed): see [`spaces`].
 
 mod breaks;
+mod names;
+mod spaces;
 mod spelling;
 #[cfg(test)]
 mod tests;
 
 pub use breaks::breaks_as_text;
+pub use names::is_name;
+pub use spaces::SPACE;
 pub use spelling::respell;
 
 /// One of the user's words.
@@ -51,6 +56,8 @@ pub struct Vocabulary {
     rules: Vec<Rule>,
     /// Each word's spelling as typed: its breaks as marks.
     out: Vec<String>,
+    /// The spellings with spaces of their own.
+    spaced: Vec<spaces::Spaced>,
 }
 
 #[derive(Debug, Clone)]
@@ -83,7 +90,8 @@ impl Vocabulary {
         }
         rules.sort_by_key(|r| std::cmp::Reverse(r.pattern.len()));
         let out = words.iter().map(|w| breaks::marked(&w.text)).collect();
-        Self { words, rules, out }
+        let spaced = words.iter().filter_map(|w| spaces::Spaced::new(&w.text)).collect();
+        Self { words, rules, out, spaced }
     }
 
     /// Reads the list format described in the crate docs.
@@ -118,9 +126,20 @@ impl Vocabulary {
         self.words.is_empty()
     }
 
-    /// The spellings, for the ASR's hotword list (breaks taken out).
+    /// The spellings, for the ASR's hotword list (breaks and spaces taken
+    /// out).
     pub fn hotwords(&self) -> Vec<String> {
         self.spellings()
+    }
+
+    /// `text`, about to be typed, with the spaces the spellings in it have
+    /// of their own ([`spaces`]): at its very start or end as [`SPACE`],
+    /// for joining to type.
+    pub fn space(&self, text: &str) -> String {
+        if self.spaced.is_empty() {
+            return text.to_string();
+        }
+        spaces::apply(&self.spaced, text)
     }
 
     /// Replaces heard forms with the user's spellings in `text`.

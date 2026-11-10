@@ -110,7 +110,7 @@ enum Change {
 /// Part of the pad to clean: spans `start..end`, joined into `raw`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Batch {
-    start: usize,
+    pub start: usize,
     spans: Vec<Span>,
     pub raw: String,
     pub context: String,
@@ -239,7 +239,7 @@ impl Pad {
     }
 
     /// The pad's text without the live line.
-    fn settled(&self) -> String {
+    pub(crate) fn settled(&self) -> String {
         let mut acc = String::new();
         for span in &self.spans {
             let (back, delta) = join(&acc, span.text());
@@ -315,6 +315,12 @@ impl Pad {
         let cleaned = cleaned.trim_end_matches([' ', '\t']).to_string();
         self.spans.splice(batch.start..end, [Span { segs, cleaned: Some(cleaned) }]);
         true
+    }
+
+    /// The joined text before span `i`.
+    pub(crate) fn text_before(&self, i: usize) -> String {
+        let all = self.settled();
+        all[..self.prefix_len(i).min(all.len())].to_string()
     }
 
     /// Bytes of the joined text before span `i`.

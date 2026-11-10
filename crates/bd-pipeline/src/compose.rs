@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 /// Marks after which the next segment follows without a space. Not the
 /// straight `"`, which opens and closes alike.
-const OPENERS: &[char] = &['\u{201C}', '\u{2018}', '\u{00AB}', '(', '['];
+pub(crate) const OPENERS: &[char] = &['\u{201C}', '\u{2018}', '\u{00AB}', '(', '['];
 
 /// Marks a segment can start with that attach to the text before them: a
 /// closing quote that continues an open quotation, or punctuation the ASR
@@ -167,8 +167,32 @@ pub fn single_return_paragraphs(text: &str) -> String {
 /// paragraph the user starts by pressing Enter themselves begins cleanly; a
 /// trailing space is invisible. Before a break or a mark that attaches to
 /// the word before it (a closing quote, a comma), that space is taken back.
+///
+/// A special word's own spaces at the segment's start or end, written
+/// [`bd_vocab::SPACE`], are typed whatever comes before or after, the space
+/// joining puts there counting as one of them.
 pub fn join(before: &str, segment: &str) -> (usize, String) {
     let segment = segment.trim_start_matches([' ', '\t']).trim_end_matches([' ', '\t']);
+    let own_lead = segment.len() - segment.trim_start_matches(bd_vocab::SPACE).len();
+    if own_lead == segment.len() && own_lead > 0 {
+        return (0, String::new());
+    }
+    let own_trail = segment.len() - segment.trim_end_matches(bd_vocab::SPACE).len();
+    if own_lead + own_trail > 0 {
+        let width = bd_vocab::SPACE.len_utf8();
+        let (take_back, mut text) = join(before, &segment[own_lead..segment.len() - own_trail]);
+        if own_lead > 0 {
+            let have = before.len() - before.trim_end_matches(' ').len();
+            let lead = text.len() - text.trim_start_matches(' ').len();
+            text.replace_range(..lead, &" ".repeat((own_lead / width).saturating_sub(have)));
+        }
+        if own_trail > 0 {
+            let trail = text.len() - text.trim_end_matches(' ').len();
+            text.truncate(text.len() - trail);
+            text.push_str(&" ".repeat(own_trail / width));
+        }
+        return (take_back, text);
+    }
     // A break the model starts with after a dictated one ("new paragraph",
     // then a model that also opens the next speaker's paragraph) is the same
     // break: never more than one blank line.
@@ -250,6 +274,25 @@ mod tests {
         assert_eq!(join("Text. ", ""), (0, String::new()));
         assert_eq!(join("Text. ", "  "), (0, String::new()));
         assert_eq!(join("Text. ", "\n\n"), (1, "\n\n".into()));
+    }
+
+    #[test]
+    fn a_special_words_own_spaces_are_typed() {
+        let s = |n| bd_vocab::SPACE.to_string().repeat(n);
+        // At a passage's start, after a break or an opening mark, where
+        // joining puts no space.
+        assert_eq!(join("", &format!("{}Ysolde came.", s(1))), (0, " Ysolde came. ".into()));
+        assert_eq!(join("Done.\n", &format!("{}Ysolde came.", s(2))), (0, "  Ysolde came. ".into()));
+        assert_eq!(join("(", &format!("{}Ysolde", s(1))), (0, " Ysolde ".into()));
+        // After the space joining left, it's one of them.
+        assert_eq!(join("Hello, ", &format!("{}Ysolde.", s(1))), (0, "Ysolde. ".into()));
+        assert_eq!(join("Hello, ", &format!("{}Ysolde.", s(2))), (0, " Ysolde. ".into()));
+        assert_eq!(join("Hello,", &format!("{}Ysolde.", s(1))), (0, " Ysolde. ".into()));
+        // At the end: that many, even where joining would put none.
+        assert_eq!(join("So ", &format!("Ysolde{}", s(2))), (0, "Ysolde  ".into()));
+        assert_eq!(join("So ", &format!("(Ysolde{}", s(1))), (0, "(Ysolde ".into()));
+        assert_eq!(join("So ", &format!("\u{201C}{}", s(1))), (0, "\u{201C} ".into()));
+        assert_eq!(join("So ", &s(2)), (0, String::new()));
     }
 
     #[test]

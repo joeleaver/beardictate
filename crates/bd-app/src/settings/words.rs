@@ -70,7 +70,9 @@ pub fn vocabulary(words: &[SpecialWord]) -> bd_vocab::Vocabulary {
         words
             .iter()
             .map(|w| bd_vocab::Word {
-                text: w.word.trim().to_string(),
+                // Spaces at the ends are the user's: a spelling may start or
+                // end with one (bd_vocab's `spaces`).
+                text: w.word.clone(),
                 heard: w.heard.iter().map(|h| h.trim().to_string()).filter(|h| !h.is_empty()).collect(),
             })
             .collect(),
@@ -95,5 +97,13 @@ mod tests {
         let v = vocabulary(&active_words(&groups));
         assert_eq!(v.apply("I use bare dictate daily."), "I use beardictate daily.");
         assert_eq!(v.hotwords(), ["beardictate"]);
+    }
+
+    #[test]
+    fn a_words_own_spaces_are_kept() {
+        let v = vocabulary(&[SpecialWord::new(" Ysolde ", &[" Ussel "])]);
+        assert_eq!(v.hotwords(), ["Ysolde"]);
+        assert_eq!(v.apply("Ussel came"), "Ysolde came");
+        assert_eq!(v.space("Ysolde"), "\u{E002}Ysolde\u{E002}");
     }
 }

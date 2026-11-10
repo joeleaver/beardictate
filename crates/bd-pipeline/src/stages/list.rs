@@ -46,7 +46,8 @@ fn said_last_mark(text: &str, actions: &[Action]) -> bool {
 
 /// `text`, one segment's commanded text, as a list item: on a new line
 /// when `new_line` (there's text before it in this passage), its first word
-/// in lower case unless it's "I", in capitals, or one of `names`, and
+/// in lower case unless it's "I", in capitals, a name or one of `names`
+/// ([`crate::sentence::lower_first_word`]), and
 /// without the recognizer's mark at its end.
 pub(super) fn item(text: &str, actions: &[Action], new_line: bool, names: &[String]) -> String {
     let body = text.trim_matches([' ', '\t']);
@@ -60,31 +61,11 @@ pub(super) fn item(text: &str, actions: &[Action], new_line: bool, names: &[Stri
         let trimmed = body.trim_end_matches(['.', '!', '?', '\u{2026}', ',', ';', ':']).len();
         body.truncate(trimmed);
     }
-    lower_first_word(&mut body, names);
+    crate::sentence::lower_first_word(&mut body, names);
     if new_line && !body.starts_with('\n') {
         body.insert(0, '\n');
     }
     body
-}
-
-fn lower_first_word(body: &mut String, names: &[String]) {
-    let Some(start) = body.find(char::is_alphabetic) else { return };
-    let word: String = body[start..].chars().take_while(|c| c.is_alphanumeric() || *c == '\'' || *c == '\u{2019}').collect();
-    let first = word.chars().next().unwrap_or(' ');
-    let rest_upper = word.chars().skip(1).any(char::is_uppercase);
-    let keep = word == "I"
-        || word.starts_with("I'")
-        || word.starts_with("I\u{2019}")
-        || rest_upper
-        || names.iter().any(|n| {
-            let bare = word.trim_end_matches("'s").trim_end_matches("\u{2019}s");
-            n.split_whitespace().next() == Some(bare)
-        });
-    if keep || !first.is_uppercase() {
-        return;
-    }
-    let lower: String = first.to_lowercase().collect();
-    body.replace_range(start..start + first.len_utf8(), &lower);
 }
 
 #[cfg(test)]
@@ -102,6 +83,7 @@ mod tests {
         assert_eq!(i("I need stamps.", true), "\nI need stamps");
         assert_eq!(i("NASA forms.", true), "\nNASA forms");
         assert_eq!(i("Ysolde's book.", true), "\nYsolde's book");
+        assert_eq!(i("Monday's meeting.", true), "\nMonday's meeting");
         assert_eq!(i("\nOpen the door.", true), "\nopen the door");
     }
 

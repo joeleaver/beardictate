@@ -111,6 +111,11 @@ impl Finisher {
     }
 
     pub(super) fn pad_push(&mut self, id: u64, text: String, quote_before: bool) {
+        let as_said = self.as_said();
+        let Some(mode) = self.pad.as_ref() else { return };
+        // As typed into an app: no capital reading on from an open
+        // sentence, and the special words' own spaces.
+        let text = self.join_on(&mode.pad.settled(), &text, as_said);
         let Some(mode) = self.pad.as_mut() else { return };
         mode.pad.push(id, text, quote_before);
         mode.last_heard = Instant::now();
@@ -225,6 +230,10 @@ impl Finisher {
                 raw.clone()
             }
         };
+        let Some(mode) = self.pad.as_ref() else { return };
+        // The model may give back a capital after an open sentence, or drop
+        // a special word's own spaces. Only sentence case is tidied.
+        let text = self.join_on(&mode.pad.text_before(batch.start), &text, false);
         let Some(mode) = self.pad.as_mut() else { return };
         let kept = mode.pad.apply(batch, &text);
         tracing::info!(ms = elapsed.as_millis(), chars = raw.chars().count(), kept, "pad cleaned");

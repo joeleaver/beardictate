@@ -82,7 +82,7 @@ pub fn words(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 "Names and invented words. beardictate listens for each spelling, and replaces what it tends to hear instead. Group them by book or series and switch a whole group off when you're not writing it. Changes apply right away."
             }
             Text { size: "sm", color: "dimmed",
-                "A spelling can have breaks in it: \u{201C}Best wishes,<new line>Ysolde\u{201D} types two lines (<enter> or \\n work too), and <paragraph> starts a new paragraph. Give it something to hear, such as \u{201C}sign off\u{201D}."
+                "A spelling can have breaks in it: \u{201C}Best wishes,<new line>Ysolde\u{201D} types two lines (<enter> or \\n work too), and <paragraph> starts a new paragraph. Give it something to hear, such as \u{201C}sign off\u{201D}. Spaces at its start or end are typed too, even at the start of a line; <space> is one you can see."
             }
             for (gi, g) in list.settings.get().word_groups.into_iter().enumerate() {
                 let (ga, gb, gc, gd) = (list.clone(), list.clone(), list.clone(), list.clone());
@@ -91,8 +91,9 @@ pub fn words(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 let add = Rc::new({
                     let s = list.clone();
                     move || {
-                        let word = new_word.get().trim().to_string();
-                        if word.is_empty() {
+                        // Spaces at the ends are kept: a spelling may start or end with one.
+                        let word = new_word.get();
+                        if word.trim().is_empty() {
                             return;
                         }
                         let heard = split_heard(&new_heard.get());
@@ -162,8 +163,7 @@ pub fn words(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                                     value: w.word.clone(),
                                     style: if w.enabled { "width: 180px; font-weight: 600;" } else { "width: 180px; font-weight: 600; opacity: 0.5;" },
                                     onchange: move |v: String| {
-                                        let v = v.trim().to_string();
-                                        if !v.is_empty() {
+                                        if !v.trim().is_empty() {
                                             change(&a, |st| st.word_groups[gi].words[wi].word = v);
                                         }
                                     },

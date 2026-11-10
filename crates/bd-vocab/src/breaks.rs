@@ -11,12 +11,13 @@
 use bd_core::{LINE_BREAK, PARAGRAPH_BREAK};
 
 // Longest first: `\r\n` is one break, not two.
-const PARAGRAPH: [&str; 4] = ["<paragraph>", "<new paragraph>", "\\r\\n\\r\\n", "\\n\\n"];
-const LINE: [&str; 9] = ["<new line>", "<newline>", "<line>", "<enter>", "<return>", "<br>", "\\r\\n", "\\n", "\\r"];
+pub(crate) const PARAGRAPH: [&str; 4] = ["<paragraph>", "<new paragraph>", "\\r\\n\\r\\n", "\\n\\n"];
+pub(crate) const LINE: [&str; 9] = ["<new line>", "<newline>", "<line>", "<enter>", "<return>", "<br>", "\\r\\n", "\\n", "\\r"];
 
-/// The spelling with each break as its mark, set apart by spaces.
+/// The spelling with each break as its mark, set apart by spaces. Its own
+/// spaces ([`crate::spaces`]) are put back after the command pass.
 pub(crate) fn marked(spelling: &str) -> String {
-    replace_breaks(spelling, &format!(" {PARAGRAPH_BREAK} "), &format!(" {LINE_BREAK} "))
+    replace_breaks(spelling, &format!(" {PARAGRAPH_BREAK} "), &format!(" {LINE_BREAK} ")).trim().to_string()
 }
 
 /// The spelling's words alone, breaks taken out: what the recognizer
@@ -53,9 +54,9 @@ pub fn breaks_as_text(text: &str) -> String {
 }
 
 /// Replaces each way of writing a break, ignoring case; paragraphs first,
-/// so `\n\n` isn't read as two lines.
+/// so `\n\n` isn't read as two lines. A `<space>` becomes a plain space.
 fn replace_breaks(spelling: &str, paragraph: &str, line: &str) -> String {
-    let mut out = spelling.to_string();
+    let mut out = replace_ignoring_case(spelling, crate::spaces::SPACE_TOKEN, " ");
     for (forms, with) in [(&PARAGRAPH[..], paragraph), (&LINE[..], line)] {
         for form in forms {
             out = replace_ignoring_case(&out, form, with);

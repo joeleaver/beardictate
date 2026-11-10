@@ -374,7 +374,8 @@ fn an_unfinished_sentence_goes_on_alone_after_the_hold() {
     assert_eq!(texts(&events), "And then,");
     say(&r.pipeline, 1);
     let events: Vec<Event> = r.pipeline.finish().try_iter().collect();
-    assert_eq!(texts(&events), "Later.");
+    // It reads on from the comma.
+    assert_eq!(texts(&events), "later.");
 }
 
 #[test]
@@ -480,3 +481,6 @@ mod pad;
 
 #[path = "tests_live.rs"]
 mod live;
+
+#[path = "tests_join.rs"]
+mod join;

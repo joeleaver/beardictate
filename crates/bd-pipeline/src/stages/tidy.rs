@@ -205,6 +205,8 @@ impl Finisher {
         let tail = self.composer.context();
         let base = &tail[..tail.len() - finished.len()];
         let cleaned = if self.blank_line_paragraphs { cleaned.to_string() } else { single_return_paragraphs(cleaned) };
+        // Only pieces said in sentence case are tidied.
+        let cleaned = self.join_on(base, &cleaned, false);
         let (back, delta) = join(base, &cleaned);
         // Where the old page and the new can first differ: in the text
         // before, when the new sentence takes its trailing space back.

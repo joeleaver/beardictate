@@ -42,6 +42,7 @@ impl Finisher {
         }
         let Some(body) = self.stable(text, settled) else { return };
         let base = self.composer.context().to_string();
+        let body = self.join_on(&base, &body, self.as_said());
         let (take_back, delta) = join(&base, &body);
         // The space after it comes with the next words, or at the end.
         self.retype(id, &base, take_back, delta.trim_end_matches(' '));

@@ -14,6 +14,7 @@ use crate::gain::InputGain;
 mod cleaner;
 mod edit;
 mod gate;
+mod join_on;
 mod listen;
 mod list;
 mod live_type;
@@ -338,7 +339,7 @@ impl Finisher {
                 }
                 let Some(Item::Segment(next)) = self.queue.pop_front() else { unreachable!() };
                 tracing::info!(segment = p.id, joined = next.id, "unfinished sentence joined to the next");
-                let (take_back, tail) = join(&p.out.text, &next.out.text);
+                let (take_back, tail) = join(&p.out.text, &self.held_on(&p.out.text, &next));
                 for _ in 0..take_back {
                     p.out.text.pop();
                 }
@@ -373,6 +374,7 @@ impl Finisher {
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
         let base = self.composer.context().to_string();
+        let text = self.join_on(&base, &text, list);
         let (take_back, text) = self.composer.append(&text);
         if take_back > 0
             && let Some(last) = self.typed.last_mut()

@@ -475,3 +475,19 @@ fn case_modes_last_until_switched_back_and_are_not_tidied() {
         assert!(events.contains(&Event::CaseMode(mode)), "{mode:?}");
     }
 }
+
+#[test]
+fn typed_as_spoken_after_a_comma_and_a_special_words_spaces() {
+    let vocabulary = bd_vocab::Vocabulary::parse("<space>Ysolde: Ussel").unwrap();
+    let contexts = Arc::new(Mutex::new(Vec::new()));
+    let lines = vec![vec!["Ussel", "Ussel came,"], vec!["Um, we", "Um, we left."]];
+    let p = live_rig_with(lines, PipelineConfig { vocabulary, ..PipelineConfig::default() }, Some(contexts.clone()), None);
+    say(&p, 0);
+    p.end_session();
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    // Typed as spoken, then each piece tidied: it reads on in lower case
+    // (the fake tidy only drops a capital "Um, w").
+    assert_eq!(page(&events), " Ysolde came, um, we left.");
+    assert_eq!(*contexts.lock().unwrap(), ["", " Ysolde came,"]);
+}
