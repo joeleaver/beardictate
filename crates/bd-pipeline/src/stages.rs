@@ -396,8 +396,7 @@ impl Finisher {
         }
         let typed = self.typed.pop()?;
         self.composer.retract(&typed.text);
-        let id = typed.id;
-        self.emit(Event::Erase { id, text: typed.text, scratch: true });
+        self.emit(Event::Erase { id: typed.id, text: typed.text, scratch: true });
         Some(typed.quote_before)
     }
 
