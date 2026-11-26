@@ -46,6 +46,18 @@ impl Mic {
         }
     }
 
+    /// The device's own stream format (rate, channels, sample type), for
+    /// telemetry; `None` for a file.
+    pub fn format(&self) -> Option<String> {
+        match self {
+            Mic::Device(c) => {
+                let f = c.native_format();
+                Some(format!("{} Hz, {} ch, {:?}", f.sample_rate, f.channels, f.sample_format))
+            }
+            Mic::File(_) => None,
+        }
+    }
+
     /// A real microphone, rather than a file played as one.
     pub fn is_device(&self) -> bool {
         matches!(self, Mic::Device(_))
