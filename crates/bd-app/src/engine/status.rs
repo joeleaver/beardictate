@@ -108,7 +108,7 @@ impl<U: Ui> Worker<U> {
             Some(Warning::Clipboard(chars))
         } else if let Some(sc) = &self.shortcut_taken {
             Some(Warning::ShortcutTaken(sc.clone()))
-        } else if self.silence.showing() && !self.standby {
+        } else if self.silence.showing() && !self.settings.voice_wake {
             Some(Warning::Silent)
         } else {
             self.quiet.showing.then_some(Warning::Quiet)

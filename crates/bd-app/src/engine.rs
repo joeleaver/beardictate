@@ -362,6 +362,7 @@ impl<U: Ui> Worker<U> {
         self.listening_since = None;
         self.cleaning = true;
         self.last_dictation = Some(Instant::now());
+        self.silence.paused();
         self.publish();
     }
 

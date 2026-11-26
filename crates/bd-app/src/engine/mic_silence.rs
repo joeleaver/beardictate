@@ -45,8 +45,7 @@ const JUDGE_AFTER: Duration = Duration::from_secs(8);
 /// as long as it takes (the tester's lasted up to 40 minutes).
 fn reopen_after(reopens: u32) -> Duration {
     Duration::from_secs(match reopens {
-        0 => 8,
-        1 => 10,
+        0 | 1 => 10,
         2 => 20,
         3 => 30,
         _ => 60,
@@ -82,6 +81,12 @@ impl Silence {
     pub fn opened(&mut self) {
         self.silent_since = None;
         self.heard = false;
+    }
+
+    /// The stream stopped between dictations (the hotkey): the time until
+    /// the next one isn't silence it sent.
+    pub fn paused(&mut self) {
+        self.silent_since = None;
     }
 
     /// Forgets everything: the microphone was turned off or another chosen.
@@ -150,10 +155,11 @@ impl<U: Ui> Worker<U> {
     pub(super) fn check_silent(&mut self) {
         let device = self.capture.as_ref().filter(|c| c.is_device()).map(crate::mic::Mic::name);
         let Some(device) = device else { return };
-        if !self.silence.due(Instant::now()) {
+        let now = Instant::now();
+        if !self.silence.due(now) {
             return;
         }
-        if self.silence.give_up(Instant::now()) {
+        if self.silence.give_up(now) {
             tracing::warn!(device = %device, standby = self.standby, "the microphone sends only silence");
             crate::telemetry::record("state", None, || json!({"state": "mic_silent", "device": device}));
             self.notifier.notify(
@@ -256,6 +262,16 @@ mod tests {
         assert_eq!(reopens, 7);
         assert!(silent >= Duration::from_secs(8 + 10 + 20 + 30 + 60 + 60));
         assert!(!s.showing());
+    }
+
+    #[test]
+    fn the_time_between_dictations_is_not_silence() {
+        let mut s = Silence::default();
+        s.opened();
+        let (t, _) = feed(&mut s, Instant::now(), 5, 0.0);
+        s.paused();
+        let (t, _) = feed(&mut s, t + Duration::from_secs(3600), 1, 0.0);
+        assert!(!s.due(t), "one second into the next dictation");
     }
 
     #[test]

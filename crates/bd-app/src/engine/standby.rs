@@ -109,9 +109,9 @@ impl<U: Ui> Worker<U> {
     /// The hotkey: wake up or go to sleep. With the microphone off it says
     /// where to turn it on, rather than turning it on itself.
     pub(super) fn voice_toggle(&mut self) {
-        if self.standby && self.silence.showing() {
-            // Try now; and as it was pressed to talk, awake (going to sleep
-            // would help nobody while nothing can be heard).
+        if self.standby && self.silence.showing() && self.listening_since.is_none() {
+            // Asleep: try now, and wake, as it was pressed to talk. (Awake,
+            // the hotkey sends it to sleep as usual.)
             self.reopen_silent();
             if self.standby {
                 self.pipeline.as_ref().expect("standing by").set_awake(true);

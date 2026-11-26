@@ -278,7 +278,7 @@ hid.) A stream that opens but has sent only digital silence (below -100
 dBFS) for 8 s counts as not working either (2026-11-26, `mic_silence.rs`):
 it's reopened, then again after 10, 20, 30 s and every minute until sound
 comes, awake or asleep as it was, with the bear amber and "reconnecting"
-meanwhile; the hotkey and the bear reopen it at once and wake it. Only a
+meanwhile; asleep, the hotkey and the bear reopen it at once and wake it. Only a
 stream that has never sent sound counts, so a noise-gated microphone's
 silences, or a quiet room (its noise floor is far louder), are never
 reopened, and nothing being dictated is cut. Dictating by the hotkey, it
