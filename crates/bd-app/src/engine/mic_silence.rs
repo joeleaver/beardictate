@@ -83,8 +83,8 @@ impl Silence {
         self.heard = false;
     }
 
-    /// The stream stopped between dictations (the hotkey): the time until
-    /// the next one isn't silence it sent.
+    /// A dictation by the hotkey starts on a stream that was stopped since
+    /// the last: the time between isn't silence it sent.
     pub fn paused(&mut self) {
         self.silent_since = None;
     }
@@ -269,8 +269,12 @@ mod tests {
         let mut s = Silence::default();
         s.opened();
         let (t, _) = feed(&mut s, Instant::now(), 5, 0.0);
+        // The last chunks drain after the dictation stopped, then an hour
+        // later the next one starts.
+        let (t, _) = feed(&mut s, t, 1, 0.0);
+        let t = t + Duration::from_secs(3600);
         s.paused();
-        let (t, _) = feed(&mut s, t + Duration::from_secs(3600), 1, 0.0);
+        let (t, _) = feed(&mut s, t, 1, 0.0);
         assert!(!s.due(t), "one second into the next dictation");
     }
 

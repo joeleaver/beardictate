@@ -341,6 +341,9 @@ impl<U: Ui> Worker<U> {
             self.capture = None;
         }
         self.open_mic()?;
+        // The stream was stopped since the last dictation (its last chunks
+        // drain after `stop`): the time between isn't silence it sent.
+        self.silence.paused();
         let pipeline = self.pipeline.as_ref().expect("checked by toggle");
         if self.last_dictation.is_none_or(|t| t.elapsed() > NEW_PASSAGE_AFTER) {
             pipeline.new_passage();
@@ -362,7 +365,6 @@ impl<U: Ui> Worker<U> {
         self.listening_since = None;
         self.cleaning = true;
         self.last_dictation = Some(Instant::now());
-        self.silence.paused();
         self.publish();
     }
 
