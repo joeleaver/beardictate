@@ -83,6 +83,7 @@ pub fn entries(shared: &Shared) -> Vec<Entry> {
         Some(Warning::ShortcutTaken(sc)) => {
             out.push(item(format!("\u{26A0} Another program is using {sc}: choose another\u{2026}"), Some(Act::ShortcutSettings)));
         }
+        Some(Warning::Silent) => out.push(item("\u{26A0} Your microphone sends no sound\u{2026}", Some(Act::MicrophoneSettings))),
         Some(Warning::Quiet) => out.push(item("\u{26A0} Your microphone is quiet\u{2026}", Some(Act::MicrophoneSettings))),
         None => {}
     }

@@ -1,11 +1,12 @@
-//! A few seconds after a microphone opens, how loud it was: logged, and a
-//! notification when it delivered nothing at all (the wrong input or
-//! channel, a muted interface), which otherwise looks like dictation being
-//! ignored. And speech that keeps arriving quiet: a warning that stays on
+//! A few seconds after a microphone opens, how loud it was: logged and sent
+//! as telemetry with its format (a stream of only silence is
+//! `mic_silence.rs`'s). And speech that keeps arriving quiet: a warning that stays on
 //! the bear, the tray and Settings until a sentence comes in loud enough
 //! (Windows silenced the notification for an alpha tester, who never saw it).
 
 use std::time::{Duration, Instant};
+
+use serde_json::json;
 
 /// How often the level meter updates.
 const METER_EVERY: Duration = Duration::from_millis(100);
@@ -44,19 +45,26 @@ impl Quiet {
     }
 }
 
-/// Below this the input is digital silence: no microphone noise floor is
-/// this quiet (about -100 dBFS).
-const SILENT: f32 = 1e-5;
-
 pub(super) struct MicCheck {
     name: String,
     opened: Instant,
     peak: f32,
+    /// Every chunk so far was exactly zero (not just very quiet).
+    zeros: bool,
+    /// Reopened while silent: logged, not sent again (`mic_silence.rs`).
+    reopened: bool,
 }
 
 impl MicCheck {
-    pub fn new(name: String) -> Self {
-        Self { name, opened: Instant::now(), peak: 0.0 }
+    /// Starts measuring `mic`, just opened; `reopened` when it's being
+    /// reopened because it sent only silence.
+    pub fn new(mic: &crate::mic::Mic, reopened: bool) -> Self {
+        let name = mic.name();
+        if !reopened {
+            let format = mic.format();
+            crate::telemetry::record("mic", None, || json!({"device": name, "event": "opened", "detail": format}));
+        }
+        Self { name, opened: Instant::now(), peak: 0.0, zeros: true, reopened }
     }
 }
 
@@ -65,6 +73,7 @@ impl<U: Ui> Worker<U> {
     pub(super) fn note_level(&mut self, rms: f32) {
         if let Some(check) = self.mic_check.as_mut() {
             check.peak = check.peak.max(rms);
+            check.zeros &= rms == 0.0;
         }
     }
 
@@ -75,16 +84,13 @@ impl<U: Ui> Worker<U> {
             return;
         }
         let db = 20.0 * check.peak.max(1e-9).log10();
-        tracing::info!(device = %check.name, "microphone level over its first seconds: {db:.0} dBFS");
-        if check.peak < SILENT {
-            self.notifier.notify(
-                "mic-silent",
-                "No sound from the microphone",
-                &format!(
-                    "{} is open but sends silence. Check its input, channel and gain, or pick another microphone in Settings.",
-                    check.name
-                ),
-            );
+        let zeros = check.zeros;
+        tracing::info!(device = %check.name, zeros, "microphone level over its first seconds: {db:.0} dBFS");
+        if !check.reopened {
+            let (device, db) = (check.name.clone(), db.round());
+            crate::telemetry::record("mic", None, || {
+                json!({"device": device, "event": "level", "detail": {"peak_dbfs": db, "zeros": zeros}})
+            });
         }
         self.mic_check = None;
     }

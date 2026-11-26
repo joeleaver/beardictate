@@ -201,6 +201,10 @@ impl<U: Ui> Worker<U> {
         let list = format!("{}{case}", if self.settings.list_mode { "List · " } else { "" });
         let status = if self.loading.is_some() {
             "Loading…".to_string()
+        } else if self.recover.is_some() {
+            super::mic_recover::RECONNECTING.to_string()
+        } else if self.standby && self.silence.showing() {
+            super::mic_silence::REOPENING.to_string()
         } else if listening {
             "Listening · \u{201C}bear, send it\u{201D} types this".to_string()
         } else if self.standby {
@@ -209,7 +213,7 @@ impl<U: Ui> Worker<U> {
             format!("Not listening · {} to dictate", self.settings.hotkey)
         };
         let status = format!("{list}{status}");
-        let marks = (self.settings.list_mode, self.quiet.showing || self.on_clipboard.is_some() || self.shortcut_taken.is_some());
+        let marks = (self.settings.list_mode, self.warning().is_some());
         host.sync(bear, look_name(self.pad.look.get()), marks, &self.pad.menu, visible, status, &self.pad.view);
     }
 }

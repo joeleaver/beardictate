@@ -5,6 +5,10 @@ Shown once in the app, at the first start of a new version (see
 `- ` lines, newest first; write them for the people using the app, not for
 us. `site/publish.sh add` refuses a version with no section here.
 
+## 0.1.24
+
+- If your microphone is on but sends no sound (some USB microphones do for a while after the computer starts), beardictate notices, keeps reopening it and picks it up as soon as it sends sound. Meanwhile the bear glows amber; press your shortcut or click the bear to try straight away.
+
 ## 0.1.23
 
 - When your microphone stops working (unplugged, or Windows resets it), beardictate now gets it back by itself. Meanwhile the bear glows amber; press your shortcut or click the bear to try straight away.

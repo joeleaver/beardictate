@@ -5,7 +5,7 @@
 use rinch::prelude::*;
 use rinch::reactive::Effect;
 
-use crate::engine::{Command, Warning};
+use crate::engine::{Command, State, Status, Warning};
 use crate::ui::{Section, Shared, change};
 
 /// The Select value standing for "no particular microphone".
@@ -16,6 +16,17 @@ const WARNING_STYLE: &str = "padding: 10px 12px; border-radius: 8px; background:
 /// dBFS for an RMS level.
 fn db(level: f32) -> f32 {
     20.0 * level.max(1e-6).log10()
+}
+
+/// What the banner at the top of the page says about the microphone, if
+/// anything: it's quiet, it sends no sound, or it's being reconnected.
+/// Also on the bear and in the tray: Windows may silence the notification.
+fn mic_banner(st: &Status) -> Option<String> {
+    match (&st.warning, st.state) {
+        (Some(w @ (Warning::Quiet | Warning::Silent)), _) => Some(format!("{}.", w.text())),
+        (_, State::Reconnecting) => Some(st.detail.clone()),
+        _ => None,
+    }
 }
 
 /// Where a level sits on the meter, 0 to 100 (-60 dBFS to 0).
@@ -45,9 +56,8 @@ pub fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Microphone" }
-            // Also on the bear and in the tray: Windows may silence the notification.
-            div { style: {move || if status.with(|st| st.warning == Some(Warning::Quiet)) { WARNING_STYLE.to_string() } else { "display: none;".to_string() }},
-                Text { size: "sm", {format!("\u{26A0} {}.", Warning::Quiet.text())} }
+            div { style: {move || if status.with(|st| mic_banner(st).is_some()) { WARNING_STYLE.to_string() } else { "display: none;".to_string() }},
+                Text { size: "sm", {move || status.with(|st| mic_banner(st).map(|t| format!("\u{26A0} {t}")).unwrap_or_default())} }
             }
             Select {
                 label: "Microphone",
@@ -128,5 +138,22 @@ pub fn microphone(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
                 onchange: {let s = s6.clone(); move || change(&s, |st| st.keep_mic_open = !st.keep_mic_open)},
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_banner_says_what_is_wrong_with_the_microphone() {
+        let ok = Status { state: State::Asleep, detail: String::new(), since: None, voice: true, warning: None };
+        assert_eq!(mic_banner(&ok), None);
+        let silent = Status { warning: Some(Warning::Silent), ..ok.clone() };
+        assert!(mic_banner(&silent).is_some_and(|t| t.contains("sends no sound")));
+        let reopening = Status { state: State::Reconnecting, detail: "reopening it…".into(), ..ok.clone() };
+        assert_eq!(mic_banner(&reopening).as_deref(), Some("reopening it…"));
+        let clipboard = Status { warning: Some(Warning::Clipboard(3)), ..ok };
+        assert_eq!(mic_banner(&clipboard), None, "not a microphone problem");
     }
 }
