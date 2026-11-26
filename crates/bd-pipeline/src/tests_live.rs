@@ -428,6 +428,9 @@ fn a_mark_said_while_its_sentence_is_tidied_stays_the_only_mark() {
 #[path = "tests_hold.rs"]
 mod hold;
 
+#[path = "tests_rejoin.rs"]
+mod rejoin;
+
 #[test]
 fn someone_elses_voice_is_neither_shown_as_spoken_nor_typed() {
     let config = PipelineConfig { drop_far_voices: true, ..PipelineConfig::default() };

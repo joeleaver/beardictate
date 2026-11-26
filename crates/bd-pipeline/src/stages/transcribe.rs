@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use bd_core::{Asr, AudioSegment, BoxError, SAMPLE_RATE};
 use crossbeam_channel::{Receiver, Sender};
 
+use super::rejoin::Ending;
 use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;
 use crate::voice::VoiceLevel;
@@ -26,8 +27,9 @@ pub(super) struct Report {
 }
 
 impl Report {
-    /// The finished segment's text, or `None` after reporting a failure.
-    pub(super) fn finished(&mut self, id: u64, seg: &AudioSegment, used: f32, started: Instant, text: Result<String, BoxError>) -> Option<Heard> {
+    /// The finished segment's text, or `None` after reporting a failure;
+    /// `ending` says how its sentence was left.
+    pub(super) fn finished(&mut self, id: u64, seg: &AudioSegment, used: f32, started: Instant, text: Result<String, BoxError>, ending: Ending) -> Option<Heard> {
         let audio = secs(seg.samples.len() as u64);
         let pause = self.previous_end.map(|end| secs(seg.start_sample.saturating_sub(end)));
         self.previous_end = Some(seg.start_sample + seg.samples.len() as u64);
@@ -57,7 +59,7 @@ impl Report {
         }
         let _ = self.events.send(Event::Transcribed { id, text: text.clone(), audio, level, gain, pause, elapsed, far });
         let text = if far { String::new() } else { text };
-        Some(Heard::Text { id, text, pause })
+        Some(Heard::Text { id, text, pause, ending })
     }
 
     /// The control messages both stages pass on alike.
@@ -97,7 +99,7 @@ pub(super) fn transcribe(asr: Box<dyn Asr>, input: Receiver<Cut>, out: Sender<He
             Cut::Segment(id, seg, used) => {
                 let started = Instant::now();
                 let text = asr.transcribe(&seg);
-                report.finished(id, &seg, used, started, text)
+                report.finished(id, &seg, used, started, text, Ending::Alone)
             }
             other => report.control(other, |words, boost| asr.set_hotwords(words, boost)),
         };

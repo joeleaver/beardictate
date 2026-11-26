@@ -37,7 +37,7 @@ impl Finisher {
 }
 
 /// Whether the speaker said the mark at the end ("…, question mark").
-fn said_last_mark(text: &str, actions: &[Action]) -> bool {
+pub(super) fn said_last_mark(text: &str, actions: &[Action]) -> bool {
     actions.iter().any(|a| match &a.kind {
         ActionKind::Punctuation(mark) => a.offset + mark.len() >= text.trim_end_matches([' ', '\t']).len(),
         _ => false,

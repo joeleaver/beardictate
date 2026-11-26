@@ -88,6 +88,25 @@ the generator makes cases like them.
     no-change cases. (The recognizer's own runaway repeats of a boosted
     special word, "re re re…" 40 times in one sentence that day, are an
     app problem, not something to train away.)
+13. **Two sentences run together when given without a break.**
+    `eval/rejoin` (2026-11-26) gave Bear two utterances the listener had
+    split at a pause as one dictation, the first's full stop taken off and
+    the second's capital lowered. Where the pause really was a sentence's
+    end (97 of them, the Windows tester's), Bear put the full stop back in
+    only 50: 47 came out as one run-on sentence (as if "The train was late.
+    But nobody minded." came back "The train was late but nobody minded."). Bear rarely adds a sentence break the recognizer
+    didn't; it should, where the grammar plainly restarts. Add run-on
+    pairs (statement + statement, statement + question, without the mark)
+    whose target splits them, and keep real compound sentences as
+    no-change cases.
+14. **No sense of whether a sentence was finished.** In the same eval,
+    asked yes/no whether the second utterance carries on the first, Bear's
+    P(yes) was about 0.01 for both mid-sentence and real ends (no signal),
+    and stock Gemma 4 E2B's about 0.04; asked to choose between the split
+    and joined versions, Gemma scored nearly every pair exactly 0.5 (a
+    pure position bias). If the next Bear is to judge a closed pause, it
+    needs training for that task (the eval's boundaries, by segment id,
+    are a start); until then the app uses a word rule only.
 
 Evidence for 3, 2026-10-22, Dialog off: 15 of 109 answers came back wrapped
 in curly quotes (“Pick up some deli.”). The guardrail took them all out,

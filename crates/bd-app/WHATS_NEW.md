@@ -5,6 +5,11 @@ Shown once in the app, at the first start of a new version (see
 `- ` lines, newest first; write them for the people using the app, not for
 us. `site/publish.sh add` refuses a version with no section here.
 
+## 0.1.24
+
+- In a list, when you pause for a moment in the middle of an item and carry on, the rest goes on the same item instead of a new line. Writing › Pauses turns it off.
+- New, off for now: Writing › Pauses › “Carry on a sentence after a pause to think”. When a sentence gets a full stop because you stopped to think after “the” or “and”, and you carry on, the full stop is taken back.
+
 ## 0.1.23
 
 - When your microphone stops working (unplugged, or Windows resets it), beardictate now gets it back by itself. Meanwhile the bear glows amber; press your shortcut or click the bear to try straight away.

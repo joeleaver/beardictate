@@ -139,6 +139,24 @@ impl Finisher {
         }
     }
 
+    /// The sentence delivered as piece `id` was closed, and the words after
+    /// it turned out to carry it on ([`super::rejoin`]): it's open again,
+    /// to be tidied whole with them. A tidy of it alone that's with the
+    /// model is void; one waiting is taken back.
+    pub(super) fn tidy_reopen(&mut self, id: u64) {
+        let Some(tidy) = self.tidy.as_mut() else { return };
+        let mut ids = vec![id];
+        if let Some(sent) = tidy.in_flight.as_mut().filter(|s| s.ids.contains(&id)) {
+            sent.void = true;
+            ids.clone_from(&sent.ids);
+        } else if let Some(i) = tidy.waiting.iter().position(|w| w.contains(&id)) {
+            ids = tidy.waiting.remove(i).expect("found");
+        }
+        tidy.open.retain(|o| !ids.contains(o));
+        tidy.open.splice(0..0, ids);
+        tidy.open_since.get_or_insert_with(Instant::now);
+    }
+
     /// Stops tidying (the pad, or typing a sentence at a time, took over)
     /// and hands the model back.
     pub(super) fn tidy_stop(&mut self) {
@@ -232,6 +250,7 @@ impl Finisher {
         let first = &self.typed[k];
         let merged = Typed { id, text: delta, quote_before: first.quote_before, at: first.at };
         self.typed.splice(k..k + sent.ids.len(), (!merged.text.is_empty()).then_some(merged));
+        self.rejoin.merged(&sent.ids, id);
         Ok(())
     }
 }

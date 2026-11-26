@@ -40,7 +40,9 @@ impl Finisher {
             let shown = bd_vocab::breaks_as_text(&self.own_words(text));
             return self.pad_live(&shown);
         }
-        let Some(body) = self.stable(text, settled) else { return };
+        let Some(body) = self.stable(id, text, settled) else { return };
+        // A sentence closed at the pause before this may open again.
+        self.reopen(id);
         let base = self.composer.context().to_string();
         let body = self.join_on(&base, &body, self.as_said());
         let (take_back, delta) = join(&base, &body);
@@ -73,9 +75,10 @@ impl Finisher {
         }
     }
 
-    /// The part of `text` that won't change, vocabulary and commands
-    /// applied; `None` when nothing is sure yet. All of it when `settled`.
-    fn stable(&self, text: &str, settled: bool) -> Option<String> {
+    /// The part of utterance `id`'s `text` that won't change, vocabulary
+    /// and commands applied; `None` when nothing is sure yet. All of it
+    /// when `settled`.
+    fn stable(&mut self, id: u64, text: &str, settled: bool) -> Option<String> {
         let words: Vec<&str> = text.split_whitespace().collect();
         let mut n = if settled { words.len() } else { words.len().saturating_sub(1) };
         // A sentence starting "bear, …" may be voice wake's, or an edit
@@ -94,11 +97,12 @@ impl Finisher {
         });
         // A "scratch that" takes effect when the utterance ends.
         let mut body = out.text.trim_end_matches([' ', '\t']).to_string();
+        let joins = !scratches && out.has_words() && self.joins_on(id, &body);
         if self.case_mode != crate::CaseMode::Normal && out.has_words() {
             body = self.in_case(&body, &out.actions);
         }
         if self.list_mode && out.has_words() {
-            body = super::list::item(&body, &out.actions, self.passage_has_text, &self.vocabulary.spellings());
+            body = super::list::item(&body, &out.actions, self.passage_has_text && !joins, &self.vocabulary.spellings());
         }
         (!scratches && (body.chars().any(char::is_alphanumeric) || body.contains('\n'))).then_some(body)
     }

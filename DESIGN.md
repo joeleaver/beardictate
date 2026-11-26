@@ -386,6 +386,22 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   mid-sentence pauses of 1.2–2.5 s came out right and 3 of 5 real
   sentence ends. The cost: a sentence's end, and so its tidying or a
   typed-once sentence, comes about 1.5 s later.
+- **After a closed pause** (`stages/rejoin.rs`): a thinking pause can
+  outlast any tolerable wait (a tester's were 2–8 s), so the listener's
+  mark is provisional. When the next utterance comes within 10 s, with
+  nothing typed, said or switched in between, and the words say the
+  sentence goes on, the mark is taken back, the next words read on in
+  lower case, and the tidy takes the two as one sentence. The words say
+  so only when the closed one ended on a word a sentence can't end on
+  ("the", "and", "my") or a comma, or the next starts with "that",
+  "which"… On a tester's 11 closed mid-sentence pauses that mended 1 or 2,
+  with none of 97 real sentence ends joined; neither Bear nor stock Gemma
+  4 E2B could tell the two apart (`eval/rejoin/FINDINGS.md`), so it's a
+  setting, off by default (`rejoin_sentences`), and telemetry's `rejoined`
+  says how often it fires. In a list, an utterance he went on to before
+  the deadline is the rest of the item unless Nemotron ended the one
+  before with . ? or ! (17 of 18 split items kept whole, 1 false join in
+  39 item ends): on by default (`list_join_pauses`).
 - Measured 2026-10-19, `bd file --stream --realtime` on NICO-TOP, tidy on:
   cleanup 0.3–0.5 s a sentence on its Radeon iGPU, about 2 s on its CPU
   alone with Nemotron running, never behind, so the tidied sentence lands
