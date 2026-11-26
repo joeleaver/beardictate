@@ -89,3 +89,50 @@ impl Finisher {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crossbeam_channel::unbounded;
+
+    use super::super::list_join::Ending;
+    use super::*;
+    use crate::PipelineConfig;
+
+    fn text(id: u64, text: &str) -> Heard {
+        Heard::Text { id, text: text.into(), pause: None, ending: Ending::WentOn }
+    }
+
+    /// The page left by the events so far, kept in `page`.
+    fn page<'a>(page: &'a mut String, events: &Receiver<Event>) -> &'a str {
+        for event in events.try_iter() {
+            match event {
+                Event::Text { take_back, text, .. } => {
+                    (0..take_back).for_each(|_| _ = page.pop());
+                    page.push_str(&text);
+                }
+                Event::Erase { text, .. } => text.chars().for_each(|_| _ = page.pop()),
+                _ => {}
+            }
+        }
+        page
+    }
+
+    #[test]
+    fn a_segment_scratched_while_it_is_finished_takes_its_live_words_back() {
+        let (events, seen) = unbounded();
+        let mut f = Finisher::new(None, PipelineConfig::default(), events, true, None);
+        let mut on_page = String::new();
+        assert!(f.types_live());
+        // Its words are typed as they're spoken, then it ends.
+        f.partial(1, "We went down to", false);
+        assert_eq!(page(&mut on_page, &seen), "We went down");
+        f.take_in(text(1, "We went down to the shop."));
+        let Some(Item::Segment(p)) = f.queue.pop_front() else { panic!("not queued") };
+        // "Scratch that" is already waiting when it's finished.
+        let (input, heard) = unbounded();
+        input.send(text(2, "Scratch that.")).unwrap();
+        f.finish(p, &heard);
+        assert!(f.in_flight.is_none());
+        assert_eq!(page(&mut on_page, &seen), "", "the live words are taken back");
+    }
+}
