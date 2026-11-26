@@ -62,16 +62,20 @@ for lib in kernel32 user32 shell32 ole32 uuid advapi32; do
 done
 export LINK
 cd "$repo"
-cargo xwin build --release --locked --target "$triple" -p bd-cli -p bd-app \
-    --features bd-cli/vulkan-dl,bd-app/vulkan-dl,bd-cli/nemotron-hotwords,bd-app/nemotron-hotwords,bd-app/alpha
+command -v jq >/dev/null || { echo "jq is needed (to read cargo's build messages)" >&2; exit 1; }
 release="$target/$triple/release"
+mkdir -p "$release"
+messages="$release/cross-build-messages.jsonl"
+cargo xwin build --release --locked --target "$triple" -p bd-cli -p bd-app \
+    --features bd-cli/vulkan-dl,bd-app/vulkan-dl,bd-cli/nemotron-hotwords,bd-app/nemotron-hotwords,bd-app/alpha \
+    --message-format=json-render-diagnostics > "$messages"
 # llama-cpp-sys hard-links its DLLs next to the exes only when none is there
-# yet, so take them from its newest vulkan-dl build folder instead (other
-# feature sets, e.g. a clippy run without vulkan-dl, leave folders without
-# backends).
-out="$(ls -td "$release"/build/llama-cpp-sys-2-*/out/backends/ggml-vulkan.dll 2>/dev/null | head -1)"
-out="${out%/backends/ggml-vulkan.dll}"
-test -n "$out" || { echo "no vulkan-dl build of llama.cpp in $release" >&2; exit 1; }
+# yet, so take them from the folder this build's llama.cpp was built in, as
+# cargo reports it (its build-folder layout changed in Rust 1.100; see
+# scripts/llama-out-dir.ps1).
+out="$(jq -r 'select(.reason == "build-script-executed" and (.package_id | test("#llama-cpp-sys-2@"))) | .out_dir' "$messages" | sort -u)"
+test "$(printf '%s\n' "$out" | grep -c .)" = 1 || { echo "expected one llama-cpp-sys-2 build in $messages, found: $out" >&2; exit 1; }
+test -f "$out/backends/ggml-vulkan.dll" || { echo "llama.cpp in $out was built without the Vulkan backend (vulkan-dl)" >&2; exit 1; }
 
 rm -rf "$stage"
 mkdir -p "$stage"
