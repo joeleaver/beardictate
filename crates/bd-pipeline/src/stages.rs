@@ -378,6 +378,9 @@ impl Finisher {
         self.take_in_ready(input);
         let flight = self.in_flight.take();
         if flight.is_some_and(|f| f.cancelled) {
+            // Scratched: its live words go too, and the sentence it had
+            // reopened is closed again.
+            self.untype(p.id);
             return self.restore_mark(p.id);
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };

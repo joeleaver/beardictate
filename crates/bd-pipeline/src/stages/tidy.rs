@@ -165,6 +165,13 @@ impl Finisher {
         }
     }
 
+    /// A sentence [`Self::tidy_reopen`] opened has its mark again: it goes
+    /// to the model as it is.
+    pub(super) fn tidy_close_again(&mut self) {
+        self.close_sentence();
+        self.tidy_send();
+    }
+
     fn close_sentence(&mut self) {
         if let Some(tidy) = self.tidy.as_mut()
             && !tidy.open.is_empty()

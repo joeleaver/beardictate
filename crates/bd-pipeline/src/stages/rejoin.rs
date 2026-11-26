@@ -362,6 +362,7 @@ impl Finisher {
         match self.rewrite_from(cut, &rest, id, &rest, None) {
             Ok(()) => {
                 self.typed.last_mut().expect("checked").text.insert(at, r.mark);
+                self.tidy_close_again();
                 tracing::info!(segment = id, "mark put back: nothing carried the sentence on");
             }
             Err(why) => tracing::info!(segment = id, why, "mark not put back"),
