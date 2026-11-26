@@ -10,7 +10,7 @@ are `session prefix:segment`; no transcripts here. How to rerun:
 
 | model | verdict | why |
 |---|---|---|
-| SAVA | **drop** | On his normal dictation SAVA's `turn` barely tells a thinking pause from a finished sentence (AUC 0.57–0.60). Every rule where SAVA decides makes 3–6× *more* false splits than ours. Used only to lengthen our wait, it prevents 4 of our 18 false splits, as many as raising our 1.5 s wait to 1.8 s, which delays less. In list mode, where every pause inside an item splits it today (22 of 22), joining an utterance into the item whenever he resumes before the listener's existing deadline leaves 4, adds no wait and needs no model; SAVA leaves the same 4. ONNX export works. |
+| SAVA | **drop** | On his normal dictation SAVA's `turn` barely tells a thinking pause from a finished sentence (AUC 0.57–0.60). Every rule where SAVA decides makes 3–6× *more* false splits than ours. Used only to lengthen our wait, it prevents 4 or 5 of our 18 false splits; raising our 1.5 s wait to 1.8 s prevents 4 and delays less. In list mode, where every pause inside an item splits it today (22 of 22), joining an utterance into the item whenever he resumes before the listener's existing deadline leaves 4 false splits for 4 false joins (of 39 item ends), adds no wait and needs no model; SAVA as a brake does the same (4 and 5). ONNX export works. |
 | Voice Isolator | **drop** | It doesn't touch the runaway repeats: they come from the live decoder, not the audio (the worst, 9913149c:71, doesn't happen offline at all; the 7 of 16 that do are all still there after isolation). It keeps the supper conversation, which is voices (149 → 152 words). It makes quiet speech worse. Across 64 segments, 17 transcripts got worse, 6 better, 41 unchanged. It isn't realtime here on CPU (about 12 CPU-seconds per audio second) or on the Radeon 890M (4 s per audio second, bound by kernel launches, not arithmetic). |
 
 ## 1. SAVA: thinking pause or sentence end?
@@ -91,7 +91,7 @@ the speech.
 
 **So, at an acceptable latency, how many of his false splits would SAVA
 have prevented? Effectively none.** SAVA in charge makes the end of a
-sentence fast (0.6–0.8 s median, against our 2.1 s) but splits 37–76% of
+sentence fast (0.6–0.8 s median, against our 2.1 s) but splits 37–79% of
 his thinking pauses, against our 14%. At 0.7 s into a pause that is still
 silent, `turn` is above 0.9 at 51% of mid-sentence pauses and 59% of
 sentence ends: barely different (for example 8731bdaf:2740, a short pause
@@ -113,23 +113,32 @@ after he stops, or when he speaks again. The other rows model what the
 app doesn't do yet: joining an utterance into the current item when he
 resumes before D.
 
-| rule | false item splits | time to final at item ends: median / mean / p90 (s) |
-|---|---|---|
-| **current** | **22** (all) | 2.10 / 2.03 / 2.10 |
-| joined at today's D | 4 | 2.10 / 2.03 / 2.10 |
-| hold 0.9 | 4 | 2.13 / 2.19 / 2.54 |
-| sava 0.9 / 2.1 | 10 | 0.62 / 0.80 / 1.53 |
-| sava 0.95 / 2.1 | 8 | 0.64 / 1.19 / 2.10 |
-| wait 1.2 | 12 | 1.20 / 1.19 / 1.20 |
-| wait 1.5 | 8 | 1.50 / 1.47 / 1.50 |
+| rule | false item splits (of 22) | false joins (of 39) | time to final at item ends: median / mean / p90 (s) |
+|---|---|---|---|
+| **current** | **22** (all) | 0 | 2.10 / 2.03 / 2.10 |
+| joined at today's D | 4 | 4 | 2.10 / 2.03 / 2.10 |
+| hold 0.9 | 4 | 5 | 2.13 / 2.19 / 2.54 |
+| sava 0.9 / 2.1 | 10 | 0 | 0.62 / 0.80 / 1.53 |
+| sava 0.95 / 2.1 | 8 | 0 | 0.64 / 1.19 / 2.10 |
+| wait 1.2 | 12 | 2 | 1.20 / 1.19 / 1.20 |
+| wait 1.5 | 8 | 2 | 1.50 / 1.47 / 1.50 |
 
-**Joining at the listener's own deadline leaves 4 of 22**, the 4 pauses
-of 3.3–5.4 s (9afdefb3:196, :197, :203, da122f63:173), with no added wait:
-the listener already waits that long. SAVA leaves the same 4 (hold 0.9).
+A false join is an item end where he began the next item before D, so
+joining would run the two items together (the script's `ends run on`).
+Today those are split correctly, because every report is an item. For a
+false join the time shown is when the next item began, not a finished
+item.
+
+**Joining at the listener's own deadline leaves 4 of 22 false splits**,
+the 4 pauses of 3.3–5.4 s (9afdefb3:196, :197, :203, da122f63:173), with
+no added wait (the listener already waits that long), **at the price of 4
+false joins out of 39 item ends**, where he went straight on to the next
+item. SAVA as a brake (hold 0.9) gets the same 4 splits with 5 false joins.
 SAVA does read list items better than sentences (AUC 0.77 at 0.7 s: a
 pause inside an item mostly keeps a low `turn`, as at 9afdefb3:191,
 99dc6817:1645, da122f63:200), so SAVA in charge would close items faster
-(0.62 s median against 2.1 s) at 10 false splits instead of 4. That is a
+(0.62 s median against 2.1 s) at 10 false splits instead of 4, with no
+false joins. That is a
 latency trade on 22 pauses from one tester, not a reason to add a model.
 
 ### Cost and ONNX
@@ -232,14 +241,17 @@ three findings above depend on the top band.
 
 - **SAVA: drop.** Nothing it does beats our own rule with a longer
   wait. If the 18 false splits matter more than the extra wait, try
-  `WAIT` 1.8 s in `stages/listen.rs` (14 left, as with SAVA's best rule,
-  for 0.16 s more mean time to final against its 0.23), or 2.2 s (12
+  `WAIT` 1.8 s in `stages/listen.rs` (14 left, as with hold 0.9,
+  for 0.16 s more mean time to final against its 0.23; SAVA's best, hold
+  0.95, leaves 13 for 0.31 s), or 2.2 s (12
   left): a constant, no model.
 - **List mode: join, don't split, when he resumes in time.** Today every
   pause inside a list item makes two items (22 of 22). Treating an
   utterance that the listener reported because his next words came (not
-  at its deadline) as the rest of the same item leaves 4 of 22 and adds
-  no wait. That's new logic where list items are made (`stages.rs`,
+  at its deadline) as the rest of the same item leaves 4 of 22 false
+  splits and adds no wait, but runs 4 of 39 real item ends into the next
+  item (he went straight on). Fewer false splits for some false joins: a
+  trade to try with him. That's new logic where list items are made (`stages.rs`,
   `stages/list.rs`), not a constant, and it's the change worth trying.
   The ONNX export is here and verified if a turn model is ever wanted.
 - **Voice Isolator: drop.** It doesn't address any of the three problems
