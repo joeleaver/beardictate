@@ -72,6 +72,22 @@ the generator makes cases like them.
     as negatives statements with a question word after a comma ("So, what
     you need is a plan.", "Honestly, how he did it is a mystery.",
     "If you ask me, who cares." is a real question, rhetorical).
+11. **A year said as words hyphenated all the way.** The Windows tester,
+    Numbers "as said" (2026-11-18): raw "November 18, twenty twenty six."
+    came back "November 18, twenty-twenty-six." Only the compound under a
+    hundred takes a hyphen: "twenty twenty-six", "nineteen eighty-four",
+    "two thousand twenty-six" (which Bear got right the same evening).
+    Add years said as two pairs ("twenty twenty six", "nineteen oh five")
+    with the as-said style, and keep "twenty-twenty" (eyesight, hindsight)
+    as a negative.
+12. **Changing a word said several times over.** The Windows tester
+    (2026-11-26): raw "Claude Claude Claude Claude." came back
+    "Claude! Claude! Claude!": one of the four dropped and "!" added that
+    wasn't said. Repeats the speaker means ("no no no no", "very, very,
+    very") must keep their count and their punctuation; add such runs as
+    no-change cases. (The recognizer's own runaway repeats of a boosted
+    special word, "re re re…" 40 times in one sentence that day, are an
+    app problem, not something to train away.)
 
 Evidence for 3, 2026-10-22, Dialog off: 15 of 109 answers came back wrapped
 in curly quotes (“Pick up some deli.”). The guardrail took them all out,
