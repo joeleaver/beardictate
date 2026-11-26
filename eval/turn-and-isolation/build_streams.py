@@ -58,7 +58,11 @@ UNFINISHED = {
 def ends_unfinished(text: str) -> bool:
     """Whether the listener would wait 4 s after this text (listen.rs `unfinished`)."""
     words = text.split()
-    if not words or words[-1].endswith((".", "!", "?")):
+    if not words:
+        return False
+    if words[-1].endswith(","):
+        return True
+    if words[-1].endswith((".", "!", "?")):
         return False
     return re.sub(r"[^\w']", "", words[-1].lower()) in UNFINISHED
 

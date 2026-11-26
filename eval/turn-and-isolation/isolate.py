@@ -73,8 +73,8 @@ def select(args) -> None:
     quiet = [s for s in every if s.level_dbfs < -48 and s.audio_ms > 1500 and s.sid not in chosen]
     for s in rng.sample(quiet, min(8, len(quiet))):
         chosen.setdefault(s.sid, "quiet")
-    # Noisy: louder than usual for a short utterance with few words, a
-    # stand-in for a busy room; picked by a high noise floor below.
+    # Noisy: the highest noise floors (quietest 10% of 20 ms windows) of
+    # 200 random segments over 1.5 s, a stand-in for a busy room.
     loud_floor = []
     pool = rng.sample([s for s in every if s.sid not in chosen and s.audio_ms > 1500], 200)
     for s in pool:

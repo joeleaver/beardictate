@@ -10,7 +10,7 @@ are `session prefix:segment`; no transcripts here. How to rerun:
 
 | model | verdict | why |
 |---|---|---|
-| SAVA | **drop for sentence ends; list mode is not worth it on its own** | On his normal dictation SAVA's `turn` barely tells a thinking pause from a finished sentence (AUC 0.57–0.59). Every rule where SAVA decides makes 3–5× *more* false splits than ours. Used only to lengthen our wait, it prevents 4 of our 18 false splits, the same as raising our 1.5 s wait to 1.8 s, which adds less delay. In list mode it helps (10 of 22 false item splits left, against 15 for a flat wait at the same 0.9 s mean), but on 22 pauses, and a longer list-mode wait gets most of it. ONNX export works. |
+| SAVA | **drop** | On his normal dictation SAVA's `turn` barely tells a thinking pause from a finished sentence (AUC 0.57–0.60). Every rule where SAVA decides makes 3–6× *more* false splits than ours. Used only to lengthen our wait, it prevents 4 of our 18 false splits, as many as raising our 1.5 s wait to 1.8 s, which delays less. In list mode, where every pause inside an item splits it today (22 of 22), joining an utterance into the item whenever he resumes before the listener's existing deadline leaves 4, adds no wait and needs no model; SAVA leaves the same 4. ONNX export works. |
 | Voice Isolator | **drop** | It doesn't touch the runaway repeats: they come from the live decoder, not the audio (the worst, 9913149c:71, doesn't happen offline at all; the 7 of 16 that do are all still there after isolation). It keeps the supper conversation, which is voices (149 → 152 words). It makes quiet speech worse. Across 64 segments, 17 transcripts got worse, 6 better, 41 unchanged. It isn't realtime here on CPU (about 12 CPU-seconds per audio second) or on the Radeon 890M (4 s per audio second, bound by kernel launches, not arithmetic). |
 
 ## 1. SAVA: thinking pause or sentence end?
@@ -48,76 +48,89 @@ Times are from the end of the speech (segment end less the segmenter's
 200 ms padding). The speaker resumed after G = `pause_ms` + 0.4 s. A rule
 decides at D; it splits if D < G. At a `mid` boundary a split is a
 **false split** (a full stop and capital, or a new list item, mid-thought).
-At an `end` boundary D is the **wait** before the sentence is final.
-SAVA's `turn` for every pause length comes from a copy of the streaming
-session fed 10.5 s more of the same noise at each segment end
-([run_sava.py](run_sava.py)).
+At an `end` boundary the sentence is **final** at min(D, G): at D, or
+sooner if he started the next sentence first. SAVA's `turn` for every
+pause length comes from a copy of the streaming session fed 10.5 s more of
+the same noise at each segment end ([run_sava.py](run_sava.py)).
 
 - **current**: what the app does now (`stages/listen.rs`): the VAD stops
   at 0.6 s, then the stream waits 1.5 s more (4 s after a word a sentence
-  doesn't end on). D = 2.1 s, or 4.6 s. In list mode every utterance is an
-  item, D = 0.6 s. (`sentence_hold` in the tidy stage only delays
-  cleanup; it doesn't decide the full stop, so it isn't modelled.)
+  doesn't end on, or after a comma). D = 2.1 s, or 4.6 s.
+  (`sentence_hold` in the tidy stage only delays cleanup; it doesn't
+  decide the full stop, so it isn't modelled.)
+- **`WAIT` w**: the current rule with its 1.5 s constant changed to w.
 - **sava t/M**: once the VAD has stopped, end at the first frame with
   `turn` > t, else at M.
 - **hold t**: our rule, but SAVA can lengthen it: at our decision time,
   end if `turn` > t, else wait until it is, at most 4.6 s.
-- **wait W**: no model, a flat wait W: the baseline a SAVA rule must beat.
+- **wait W**: no model, a flat wait W, even after an unfinished word.
+
+The unfinished-word test reads the segment's final text from the export,
+which stands in for what the listener saw while it waited (when the
+deadline fired, the app's own full stop is on it; the test looks past it).
 
 ### Normal dictation (132 mid, 164 end)
 
-| rule | false splits | wait at ends: median / mean / p90 (s) |
+| rule | false splits | time to final at ends: median / mean / p90 (s) |
 |---|---|---|
-| **current** | **18** | 2.10 / 2.13 / 2.10 |
-| sava 0.5 / 2.1 | 100 | 0.62 / 0.73 / 0.64 |
-| sava 0.9 / 2.1 | 75 | 0.64 / 1.13 / 2.10 |
-| sava 0.95 / 2.1 | 56 | 0.86 / 1.31 / 2.10 |
-| sava 0.95 / 4.6 | 49 | 0.86 / 1.96 / 4.32 |
-| hold 0.9 | 14 | 2.13 / 2.57 / 3.72 |
-| hold 0.95 | 13 | 2.13 / 2.81 / 4.58 |
-| wait 2.6 | 15 | 2.60 / 2.60 / 2.60 |
-| wait 2.8 | 12 | 2.80 / 2.80 / 2.80 |
-| current, `WAIT` 1.8 | 14 | 2.40 / 2.43 / 2.40 |
-| current, `WAIT` 2.2 | 12 | 2.80 / 2.82 / 2.80 |
-
-(`wait W` is flat, even after an unfinished word; "current, `WAIT` x" is
-the app's rule with only its 1.5 s constant changed.)
+| **current** | **18** | 2.10 / 1.75 / 2.10 |
+| `WAIT` 1.8 | 14 | 2.40 / 1.91 / 2.40 |
+| `WAIT` 2.2 | 12 | 2.61 / 2.11 / 2.80 |
+| sava 0.5 / 2.1 | 100 | 0.62 / 0.72 / 0.64 |
+| sava 0.9 / 2.1 | 75 | 0.64 / 1.01 / 2.10 |
+| sava 0.95 / 2.1 | 56 | 0.77 / 1.13 / 2.10 |
+| sava 0.95 / 4.6 | 49 | 0.77 / 1.42 / 3.37 |
+| hold 0.9 | 14 | 2.11 / 1.98 / 3.15 |
+| hold 0.95 | 13 | 2.12 / 2.06 / 3.39 |
+| wait 2.6 | 15 | 2.59 / 2.02 / 2.60 |
+| wait 2.8 | 12 | 2.61 / 2.11 / 2.80 |
 
 How well `turn` separates `end` from `mid` while still silent (AUC; 0.5 is
-chance): 0.57 at 0.8 s, 0.59 at 1.2 s, 0.59 at 2.0 s after the speech.
+chance): 0.60 at 0.7 s, 0.57 at 0.8 s, 0.59 at 1.2 s, 0.59 at 2.0 s after
+the speech.
 
 **So, at an acceptable latency, how many of his false splits would SAVA
 have prevented? Effectively none.** SAVA in charge makes the end of a
-sentence fast (0.6–0.9 s median, against our 2.1 s) but splits 37–76% of
-his thinking pauses, against our 14%. On his speech `turn` is above 0.9
-by 0.7 s into the pause at 47% of mid-sentence pauses and 59% of sentence
-ends: barely different (for example
-8731bdaf:2740, a short pause before a relative clause, or
-8731bdaf:96, 8731bdaf:195). As a brake on our rule it saves 4 of the 18
-(2e98972e:488, 2e98972e:2868, 9913149c:108, 56b2be93:112) for 0.44 s more
-mean wait; our own rule with `WAIT` 1.8 s instead of 1.5 saves the same 4
-for 0.30 s more. Our 18 false
-splits are pauses of 2.1–7.7 s (half over 3.3 s); only a longer wait
-reaches them, model or no model.
+sentence fast (0.6–0.8 s median, against our 2.1 s) but splits 37–76% of
+his thinking pauses, against our 14%. At 0.7 s into a pause that is still
+silent, `turn` is above 0.9 at 51% of mid-sentence pauses and 59% of
+sentence ends: barely different (for example 8731bdaf:2740, a short pause
+before a relative clause, or 8731bdaf:96, 8731bdaf:195). As a brake on
+our rule (hold 0.9) it saves 4 of the 18 (2e98972e:488, 2e98972e:2868,
+9913149c:108, 56b2be93:112) for 0.23 s more mean time to final; our own
+rule with `WAIT` 1.8 s instead of 1.5 saves 4 too (three the same, and
+2e98972e:2981 for 2e98972e:2868) for 0.16 s more. Our 18 false splits are
+pauses of 2.1–7.7 s (half over 3.4 s); only a longer wait reaches them,
+model or no model.
 
 ### List mode (22 mid, 39 end)
 
-| rule | false item splits | wait at item ends: median / mean / p90 (s) |
-|---|---|---|
-| **current** | **22** (all) | 0.60 / 0.60 / 0.60 |
-| hold 0.9 | 10 | 0.62 / 0.89 / 1.53 |
-| hold 0.95 | 6 | 0.64 / 1.52 / 3.20 |
-| wait 0.9 | 15 | 0.90 |
-| wait 1.2 | 12 | 1.20 |
-| wait 1.5 | 8 | 1.50 |
+The listener has no list-mode path: each utterance is reported when his
+next words come or at its deadline, and the pipeline makes every report a
+list item (`stages.rs`, `list::item`). So today **every** pause inside an
+item splits it, however short, and an item is final 2.1 s (or 4.6 s)
+after he stops, or when he speaks again. The other rows model what the
+app doesn't do yet: joining an utterance into the current item when he
+resumes before D.
 
-Here SAVA does read something (AUC 0.74 at 0.8 s): with hold 0.9 a pause
-inside an item mostly keeps a low `turn` (9afdefb3:191, 99dc6817:1645,
-da122f63:200 stay under 0.1), so it saves 12 of the 22 false item splits
-while item ends still close at 0.62 s median. Against a flat wait at the
-same mean (0.9 s: 15 left) that's 5 fewer false splits out of 22. Real, but
-small, and on one tester's 22 pauses. A list-mode wait of 1.2–1.5 s
-(12 or 8 left), a one-line change, gets most of it.
+| rule | false item splits | time to final at item ends: median / mean / p90 (s) |
+|---|---|---|
+| **current** | **22** (all) | 2.10 / 2.03 / 2.10 |
+| joined at today's D | 4 | 2.10 / 2.03 / 2.10 |
+| hold 0.9 | 4 | 2.13 / 2.19 / 2.54 |
+| sava 0.9 / 2.1 | 10 | 0.62 / 0.80 / 1.53 |
+| sava 0.95 / 2.1 | 8 | 0.64 / 1.19 / 2.10 |
+| wait 1.2 | 12 | 1.20 / 1.19 / 1.20 |
+| wait 1.5 | 8 | 1.50 / 1.47 / 1.50 |
+
+**Joining at the listener's own deadline leaves 4 of 22**, the 4 pauses
+of 3.3–5.4 s (9afdefb3:196, :197, :203, da122f63:173), with no added wait:
+the listener already waits that long. SAVA leaves the same 4 (hold 0.9).
+SAVA does read list items better than sentences (AUC 0.77 at 0.7 s: a
+pause inside an item mostly keeps a low `turn`, as at 9afdefb3:191,
+99dc6817:1645, da122f63:200), so SAVA in charge would close items faster
+(0.62 s median against 2.1 s) at 10 false splits instead of 4. That is a
+latency trade on 22 pauses from one tester, not a reason to add a model.
 
 ### Cost and ONNX
 
@@ -154,7 +167,9 @@ The reference for word error is the cleanup's output where it cleaned that
 segment alone, else the live transcript. Both come from the original
 audio, so the WER leans towards the original; the iso-vs-orig column
 (word edits between the two offline transcripts, over the original's
-words) has no such lean.
+words) has no such lean. For the repeat group the reference is often
+the live transcript, runaway and all, so that group's WER partly scores
+the repeats themselves; read its iso-vs-orig and runaway columns instead.
 
 | group | n | runaway (5+ repeats) orig → iso | words orig → iso | level change (dB) | iso vs orig edits | WER orig → iso |
 |---|---|---|---|---|---|---|
@@ -215,18 +230,18 @@ three findings above depend on the top band.
 
 ## Recommendation
 
-- **SAVA: drop for normal dictation.** Nothing it does beats a longer
+- **SAVA: drop.** Nothing it does beats our own rule with a longer
   wait. If the 18 false splits matter more than the extra wait, try
   `WAIT` 1.8 s in `stages/listen.rs` (14 left, as with SAVA's best rule,
-  for 0.30 s more mean wait against its 0.44), or 2.2 s (12 left): a
-  constant, no model.
-- **List mode: try a longer wait first, not SAVA.** Every list item
-  that pauses mid-thought becomes two items today (22 of 22). A list-mode
-  wait of 1.2–1.5 s (12 or 8 left) is a one-line change. SAVA's hold 0.9
-  does better at less wait (10 left at 0.89 s mean), but that's on 22
-  pauses from one tester, and costs a 103 MB ONNX model and a tenth to a half
-  of a core. Revisit it only if testers still complain after the wait change.
-  The ONNX export is here and verified, if that day comes.
+  for 0.16 s more mean time to final against its 0.23), or 2.2 s (12
+  left): a constant, no model.
+- **List mode: join, don't split, when he resumes in time.** Today every
+  pause inside a list item makes two items (22 of 22). Treating an
+  utterance that the listener reported because his next words came (not
+  at its deadline) as the rest of the same item leaves 4 of 22 and adds
+  no wait. That's new logic where list items are made (`stages.rs`,
+  `stages/list.rs`), not a constant, and it's the change worth trying.
+  The ONNX export is here and verified if a turn model is ever wanted.
 - **Voice Isolator: drop.** It doesn't address any of the three problems
   it was hoped for, harms quiet speech, and can't run live on his
   hardware. The runaway repeats are a recognizer-state bug: look for them
