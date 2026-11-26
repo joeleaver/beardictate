@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use bd_core::{Asr, AudioSegment, BoxError, SAMPLE_RATE};
 use crossbeam_channel::{Receiver, Sender};
 
-use super::rejoin::Ending;
+use super::list_join::Ending;
 use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;
 use crate::voice::VoiceLevel;

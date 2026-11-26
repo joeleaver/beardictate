@@ -16,7 +16,7 @@ use bd_commands::{CommandConfig, is_spoken_mark};
 use bd_core::{AudioSegment, BoxError, LiveAudio, SAMPLE_RATE, StreamingAsr};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
-use super::rejoin::Ending;
+use super::list_join::Ending;
 use super::transcribe::Report;
 use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;

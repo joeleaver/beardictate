@@ -164,7 +164,7 @@ fn in_a_list_words_said_after_a_short_pause_go_on_the_same_item() {
     let events: Vec<Event> = p.finish().try_iter().collect();
     // The recognizer ended "eggs" knowing what came next: a new item.
     assert_eq!(page(&events), "eggs\na tin of red tomatoes");
-    let joined = events.iter().filter(|e| matches!(e, Event::Rejoined { how: "in_item", .. })).count();
+    let joined = events.iter().filter(|e| matches!(e, Event::Rejoined { .. })).count();
     assert_eq!(joined, 1);
 }
 
@@ -198,5 +198,26 @@ fn with_list_join_off_each_pause_starts_an_item() {
     say(&p, 1);
     let events: Vec<Event> = p.finish().try_iter().collect();
     assert_eq!(page(&events), "a tin of\nred tomatoes");
+    assert!(events.iter().all(|e| !matches!(e, Event::Rejoined { .. })));
+}
+
+#[test]
+fn an_item_said_after_going_to_sleep_starts_its_own_line() {
+    let config = PipelineConfig { voice_wake: true, ..listing(true) };
+    const SLEPT: &str = "Bear, wake up. A tin of, bear, go to sleep.";
+    let p = rig(
+        vec![
+            vec!["Bear, wake up.", "Bear, wake up."],
+            vec!["Bear, wake up. A tin of", SLEPT, SLEPT],
+            vec!["Bear, wake up. A tin of, bear, go to sleep. Bear, wake up. Tomatoes"],
+        ],
+        config,
+        None,
+    );
+    say(&p, 0);
+    say(&p, 1);
+    say(&p, 2);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "a tin of\ntomatoes");
     assert!(events.iter().all(|e| !matches!(e, Event::Rejoined { .. })));
 }

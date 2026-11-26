@@ -1,6 +1,6 @@
 # beardictate — handover
 
-Last updated: 2026-11-26 (pauses: rejoin and list items, unreleased). Read this, then
+Last updated: 2026-11-26 (pauses: list items, unreleased). Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
@@ -15,14 +15,11 @@ session's scratchpad). After the testers update, check telemetry for
 `mic_reconnecting`/`mic_back`, clipboard fallbacks and "what's new".
 
 **Since 0.1.23 (2026-11-26, unreleased, tests only):** pauses
-(`stages/rejoin.rs`, `eval/rejoin/FINDINGS.md`). In a list, words said
-after a short pause stay on the same item (setting `list_join_pauses`, on).
-A sentence the listener closed at a thinking pause is reopened when the
-next words carry it on (`rejoin_sentences`, **off**: it mends only 1–2 of
-11 such pauses, and no model could tell them apart). Both under Writing ›
-Pauses; telemetry `rejoined`. Try by voice: a list item with a pause in it;
-with the setting on, "I went down to the … shop", tidy on and off. Next
-idea there: fillers ("um") in the listener's UNFINISHED words, so it waits.
+(`stages/list_join.rs`). In a list, words said after a short pause stay on
+the same item (setting `list_join_pauses`, on, under Writing › Pauses;
+telemetry `rejoined`). Try by voice: a list item with a pause in it.
+Next idea there: fillers ("um") in the listener's UNFINISHED words, so it
+waits.
 
 From the Windows tester's notes (10-26 to 11-08) and their telemetry; all
 proved by tests only, not yet in a build or by voice:

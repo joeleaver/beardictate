@@ -8,7 +8,7 @@ use bd_commands::CommandPass;
 use crossbeam_channel::Receiver;
 
 use super::gate::Step;
-use super::rejoin::Ending;
+use super::list_join::Ending;
 use super::{Finisher, Heard, Item, Pending, list};
 use crate::{PadAction, PipelineConfig};
 
@@ -25,15 +25,15 @@ impl Finisher {
                 if self.speaking == Some(*id) {
                     self.speaking = None;
                 }
-                self.rejoin.seen(*id);
+                self.list_join.seen(*id);
             }
-            Heard::Partial { id, text, .. } if !text.is_empty() => self.rejoin.seen(*id),
+            Heard::Partial { id, text, .. } if !text.is_empty() => self.list_join.seen(*id),
             _ => {}
         }
         let (id, text, pause, ending) = match heard {
             Heard::Text { id, text, pause, ending } => (id, text, pause, ending),
             Heard::EndSession => {
-                self.rejoin.forget();
+                self.list_join.forget();
                 return self.queue.push_back(Item::EndSession);
             }
             Heard::Reconfigure(config) => return self.reconfigure(*config),
@@ -47,14 +47,14 @@ impl Finisher {
             }
             Heard::Pad(action) => return self.pad_action(action),
             Heard::Awake(awake) => {
-                self.rejoin.forget();
+                self.list_join.forget();
                 let step = self.gate.set(awake);
                 return self.follow(step, 0, None, Ending::Alone);
             }
             Heard::NewPassage => {
                 self.quote_open = false;
                 self.passage_has_text = false;
-                self.rejoin.forget();
+                self.list_join.forget();
                 return self.queue.push_back(Item::NewPassage);
             }
         };
@@ -79,7 +79,7 @@ impl Finisher {
             self.take_in_text(id, text, pause, ending);
         }
         if step.sleep_after {
-            self.rejoin.forget();
+            self.list_join.forget();
             self.queue.push_back(Item::Sleep);
         }
     }
@@ -111,15 +111,15 @@ impl Finisher {
         let quote_before = self.quote_open;
         self.quote_open = out.quote_open;
         self.note_commanded(id, &heard, &text, &out, pad_action.as_ref());
-        // Whether it carries on what was said before a pause, read before
-        // it's made a list item; then it's what the next one reads on from.
-        // Not when it scratched what it would carry on, nor in the pad.
+        // Whether it goes on the list item said before a pause, read before
+        // it's made an item; then it's what the next one may go on from.
+        // Not when it scratched what it would go on, nor in the pad.
         if scratches > 0 {
-            self.rejoin.refuse(id);
+            self.list_join.refuse(id);
         }
-        let joins = scratches == 0 && out.has_words() && pad_action.is_none() && self.pad.is_none() && self.joins_on(id, &out.text);
-        let sentence_case = self.case_mode == crate::CaseMode::Normal && self.pad.is_none() && pad_action.is_none();
-        self.rejoin.taken(id, ending, &out, self.list_mode, sentence_case);
+        let joinable = pad_action.is_none() && self.pad.is_none();
+        let joins = scratches == 0 && out.has_words() && joinable && self.joins_on(id, &out.text);
+        self.list_join.taken(id, ending, &out, self.list_mode, joinable);
         let cased = self.case_mode != crate::CaseMode::Normal && out.has_words();
         let list = (self.list_mode || cased) && out.has_words();
         if cased {
@@ -131,17 +131,10 @@ impl Finisher {
         } else if std::mem::take(&mut self.after_list) && out.has_words() && !out.text.starts_with('\n') {
             out.text.insert(0, '\n');
         }
-        let long_pause = !list
-            && matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min)
-            && self.passage_has_text
-            && !out.text.starts_with('\n')
-            && out.has_words();
-        // Words that read on from the sentence before start the paragraph
-        // only if it isn't reopened after all, which is known when they're typed.
-        if long_pause && !joins {
+        let long_pause = !list && matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
+        if long_pause && self.passage_has_text && !out.text.starts_with('\n') && out.has_words() {
             out.text.insert_str(0, "\n\n");
         }
-        let paragraph_unless_reopened = long_pause && joins;
         if out.has_words() {
             self.passage_has_text = true;
         }
@@ -152,7 +145,7 @@ impl Finisher {
             if self.pad.is_some() {
                 self.pad_push(id, out.text, quote_before);
             } else {
-                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now(), list, paragraph_unless_reopened }));
+                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now(), list }));
             }
         }
         match pad_action {
@@ -176,7 +169,7 @@ impl Finisher {
         self.live_typing = config.live_typing;
         self.list_mode = config.list_mode;
         self.case_mode = config.case_mode;
-        self.rejoin.configure(config.rejoin, config.list_join);
+        self.list_join.configure(config.list_join);
         if !(self.live && self.live_typing && !config.pad) {
             self.tidy_stop();
         }

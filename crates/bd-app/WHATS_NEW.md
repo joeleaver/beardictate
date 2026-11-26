@@ -8,7 +8,6 @@ us. `site/publish.sh add` refuses a version with no section here.
 ## 0.1.24
 
 - In a list, when you pause for a moment in the middle of an item and carry on, the rest goes on the same item instead of a new line. Writing › Pauses turns it off.
-- New, off for now: Writing › Pauses › “Carry on a sentence after a pause to think”. When a sentence gets a full stop because you stopped to think after “the” or “and”, and you carry on, the full stop is taken back.
 
 ## 0.1.23
 

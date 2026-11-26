@@ -20,8 +20,7 @@ pub(super) fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let t3 = toggle(__scope, s, "After a long pause", "", |st| st.paragraph_on_pause, |st| st.paragraph_on_pause = !st.paragraph_on_pause);
     let t4 = toggle(__scope, s, "When the prose calls for one", "A new topic, place or time, as a novelist would break it. The post-processing model decides.", |st| st.paragraph_on_topic, |st| st.paragraph_on_topic = !st.paragraph_on_topic);
     let t5 = toggle(__scope, s, "Say punctuation out loud", "“comma”, “period” or “full stop”, “question mark”, “exclamation point”, “colon”, “semicolon”, “em dash”, “dot dot dot”. Off, those words are typed.", |st| st.spoken_punctuation, |st| st.spoken_punctuation = !st.spoken_punctuation);
-    let j1 = toggle(__scope, s, "Carry on a sentence after a pause to think", "When a sentence ends at a pause but what you say next plainly carries it on (“I went down to the” … “shop”), the full stop is taken back. Off by default while we measure how often it helps.", |st| st.rejoin_sentences, |st| st.rejoin_sentences = !st.rejoin_sentences);
-    let j2 = toggle(__scope, s, "In a list, keep going on the same item after a short pause", "When you go on before the item is closed, unless it had come to a full stop. Off, every pause starts a new item.", |st| st.list_join_pauses, |st| st.list_join_pauses = !st.list_join_pauses);
+    let j1 = toggle(__scope, s, "In a list, keep going on the same item after a short pause", "When you go on before the item is closed, unless it had come to a full stop. Off, every pause starts a new item.", |st| st.list_join_pauses, |st| st.list_join_pauses = !st.list_join_pauses);
     let n1 = numbers(__scope, s, "As you say them", "\u{201C}twenty-five people\u{201D}. Say \u{201C}numeral\u{201D} first for digits: \u{201C}numeral twenty five\u{201D} is 25, \u{201C}numeral first\u{201D} is 1st, \u{201C}numeral four thirty\u{201D} is 4:30.", NumberStyle::AsSaid);
     let n2 = numbers(__scope, s, "As a style guide writes them", "Words up to one hundred, digits above (234), and digits for money ($300), percentages (12 percent), times (4:30 p.m.) and dates (May 21). \u{201C}Numeral\u{201D} still gives digits.", NumberStyle::StyleGuide);
     let r1 = run_on(__scope, s, "Leave it open, and open the next paragraph: \u{201C}…the river.  \u{201C}And then…", false);
@@ -81,7 +80,7 @@ pub(super) fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Pauses" }
-                {j1} {j2}
+                {j1}
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "When a character keeps speaking into a new paragraph" }

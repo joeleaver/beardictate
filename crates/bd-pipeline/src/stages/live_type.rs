@@ -41,8 +41,6 @@ impl Finisher {
             return self.pad_live(&shown);
         }
         let Some(body) = self.stable(id, text, settled) else { return };
-        // A sentence closed at the pause before this may open again.
-        self.reopen(id);
         let base = self.composer.context().to_string();
         let body = self.join_on(&base, &body, self.as_said());
         let (take_back, delta) = join(&base, &body);

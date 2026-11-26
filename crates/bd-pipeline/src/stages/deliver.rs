@@ -1,6 +1,5 @@
-//! Delivering a segment: taking back the mark of a sentence it reopens,
-//! cleaning it (or typing it as dictated), dropping it if a "scratch that"
-//! came while it was with the model, and typing it.
+//! Delivering a segment: cleaning it (or typing it as dictated), dropping
+//! it if a "scratch that" came while it was with the model, and typing it.
 
 use std::time::{Duration, Instant};
 
@@ -13,11 +12,7 @@ use crate::compose::single_return_paragraphs;
 use crate::{Event, Stage};
 
 impl Finisher {
-    pub(super) fn finish(&mut self, mut p: Pending, input: &Receiver<Heard>) {
-        // Before it's cleaned, so the model sees the sentence it goes on.
-        if !self.reopen(p.id) && p.paragraph_unless_reopened {
-            p.out.text.insert_str(0, "\n\n");
-        }
+    pub(super) fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let ends_sentence = p.ends_sentence();
         let list = p.list;
@@ -36,18 +31,10 @@ impl Finisher {
         self.take_in_ready(input);
         let flight = self.in_flight.take();
         if flight.is_some_and(|f| f.cancelled) {
-            // Scratched: its live words go too, and the sentence it had
-            // reopened is closed again.
-            self.untype(p.id);
-            return self.restore_mark(p.id);
+            // Scratched: its live words go too.
+            return self.untype(p.id);
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
-        if !text.chars().any(char::is_alphanumeric) {
-            // It came to nothing, or to a break: if its live words had
-            // reopened the sentence before, that's closed again before
-            // what's left of it is typed after it.
-            self.restore_mark(p.id);
-        }
         let base = self.composer.context().to_string();
         let text = self.join_on(&base, &text, list);
         let (take_back, text) = self.composer.append(&text);

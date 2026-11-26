@@ -93,9 +93,7 @@ impl<U: Ui> Worker<U> {
                 }
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
-            Event::Rejoined { id, onto, how, erased } => {
-                tracing::info!(segment = id, onto, how, erased, "went on from the sentence before")
-            }
+            Event::Rejoined { id, onto } => tracing::info!(segment = id, onto, "went on the list item before"),
             Event::Pad(view) => self.on_pad_view(view),
             Event::CaseMode(mode) => {
                 self.settings.case_mode = mode;

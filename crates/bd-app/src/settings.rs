@@ -116,11 +116,6 @@ pub struct Settings {
     /// New paragraph where the prose calls for one (topic, place, time).
     pub paragraph_on_topic: bool,
     pub pause_paragraph_secs: f32,
-    /// A sentence closed at a thinking pause is opened again when what's
-    /// said next plainly carries it on ("I went down to the" … "shop").
-    /// Off by default: see eval/rejoin/FINDINGS.md
-    /// ([`bd_pipeline::PipelineConfig::rejoin`]).
-    pub rejoin_sentences: bool,
     /// In a list, words said after a short pause go on the same item
     /// rather than a new one ([`bd_pipeline::PipelineConfig::list_join`]).
     pub list_join_pauses: bool,
@@ -213,7 +208,6 @@ impl Default for Settings {
             paragraph_on_pause: false,
             paragraph_on_topic: false,
             pause_paragraph_secs: 3.0,
-            rejoin_sentences: false,
             list_join_pauses: true,
             quote_marks: QuoteMarks::Double,
             curly_quotes: true,
@@ -274,7 +268,6 @@ pub struct LiveSettings {
     pub pad: bool,
     pub list_mode: bool,
     pub case_mode: bd_pipeline::CaseMode,
-    pub rejoin_sentences: bool,
     pub list_join_pauses: bool,
 }
 
@@ -373,7 +366,6 @@ impl Settings {
             pad: self.pad(),
             list_mode: self.list_mode,
             case_mode: self.case_mode,
-            rejoin_sentences: self.rejoin_sentences,
             list_join_pauses: self.list_join_pauses,
         }
     }

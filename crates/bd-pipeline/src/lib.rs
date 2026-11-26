@@ -187,16 +187,9 @@ pub struct PipelineConfig {
     /// capital or the recognizer's full stop, and not tidied. "bear, start
     /// a list" and "bear, end the list" switch it too ([`Event::ListMode`]).
     pub list_mode: bool,
-    /// Take back the full stop the listener put at a long pause when the
-    /// next words carry the sentence on: after a word a sentence can't end
-    /// on ("the", "and") or before one that only carries one on ("that",
-    /// "which"). In list mode, the item goes on instead (`stages/rejoin.rs`).
-    /// Off by default: on a tester's pauses it mended 1 or 2 in 11
-    /// (eval/rejoin/FINDINGS.md).
-    pub rejoin: bool,
     /// List mode: an utterance said before the listener's deadline is the
     /// rest of the item, unless the recognizer ended the one before with
-    /// . ? or ! (`stages/rejoin.rs`). On by default.
+    /// . ? or ! (`stages/list_join.rs`). On by default.
     pub list_join: bool,
     /// Title case, lower case or all caps ([`CaseMode`]): until switched
     /// back, by "bear, normal case" or [`Event::CaseMode`]'s like. Not tidied.
@@ -225,7 +218,6 @@ impl Default for PipelineConfig {
             drop_far_voices: false,
             pad: false,
             list_mode: false,
-            rejoin: false,
             list_join: true,
             case_mode: CaseMode::Normal,
         }
@@ -266,10 +258,9 @@ pub enum Event {
     },
     /// A spoken "scratch that" dropped this segment before delivery.
     Scratched { id: u64 },
-    /// Segment `id` carries on the sentence or list item of `onto`, which a
-    /// pause had ended ([`PipelineConfig::rejoin`], `list_join`): `how` is
-    /// `in_item`, `dangling` or `continues`; `erased`, the mark taken back.
-    Rejoined { id: u64, onto: u64, how: &'static str, erased: String },
+    /// In list mode, segment `id` goes on the item of `onto`, said before a
+    /// pause ([`PipelineConfig::list_join`]).
+    Rejoined { id: u64, onto: u64 },
     /// Take `text` back (with Backspace, one per character typed; the
     /// cursor is still right after it, since the user is talking, not
     /// typing). `scratch`: "scratch that" (or an undo) for a segment already

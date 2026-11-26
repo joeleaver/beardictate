@@ -110,7 +110,6 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
         pad: live.pad,
         list_mode: live.list_mode,
         case_mode: live.case_mode,
-        rejoin: live.rejoin_sentences,
         list_join: live.list_join_pauses,
         ..PipelineConfig::default()
     }

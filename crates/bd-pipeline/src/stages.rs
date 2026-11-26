@@ -18,6 +18,7 @@ mod gate;
 mod join_on;
 mod listen;
 mod list;
+mod list_join;
 mod live_type;
 mod notes;
 mod segment;
@@ -26,7 +27,6 @@ mod noise;
 mod pace;
 mod pad_mode;
 mod pad_voice;
-mod rejoin;
 mod rewrite;
 mod take_in;
 mod tidy;
@@ -55,7 +55,7 @@ enum Cut {
 enum Heard {
     /// A transcript, with the silence before it in this session (`None` for
     /// a session's first segment), and how its sentence was left.
-    Text { id: u64, text: String, pause: Option<Duration>, ending: rejoin::Ending },
+    Text { id: u64, text: String, pause: Option<Duration>, ending: list_join::Ending },
     /// A streaming recognizer's text so far for utterance `id`; empty when
     /// it turned out not to be speech. `settled` when the utterance has
     /// ended: no word of it changes now but the last one's punctuation.
@@ -105,9 +105,6 @@ struct Pending {
     ready: Instant,
     /// A list item, or said in a case mode: typed as it is, not tidied.
     list: bool,
-    /// A long pause came before it, but it reads on from the sentence
-    /// before: it starts a paragraph unless that sentence reopens.
-    paragraph_unless_reopened: bool,
 }
 
 enum Item {
@@ -139,9 +136,9 @@ impl Pending {
     }
 
     /// Whether this can be read on from the segment before it: not the
-    /// start of a paragraph, nor perhaps one.
+    /// start of a paragraph.
     fn continues(&self) -> bool {
-        !self.paragraph_unless_reopened && !self.out.text.trim_start_matches([' ', '\t']).starts_with('\n')
+        !self.out.text.trim_start_matches([' ', '\t']).starts_with('\n')
     }
 }
 
@@ -230,8 +227,8 @@ struct Finisher {
     after_list: bool,
     /// See [`PipelineConfig::case_mode`].
     case_mode: crate::CaseMode,
-    /// Sentences closed at a pause that the next words may reopen.
-    rejoin: rejoin::Rejoin,
+    /// List items the speaker went on with over a pause.
+    list_join: list_join::ListJoin,
 }
 
 impl Finisher {
@@ -270,7 +267,7 @@ impl Finisher {
             list_mode: config.list_mode,
             after_list: false,
             case_mode: config.case_mode,
-            rejoin: rejoin::Rejoin::new(config.rejoin, config.list_join),
+            list_join: list_join::ListJoin::new(config.list_join),
         };
         finisher.set_pad(pad);
         finisher
@@ -383,7 +380,6 @@ impl Finisher {
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
                     self.untype(p.id);
-                    self.restore_mark(p.id);
                     self.emit(Event::Scratched { id: p.id });
                     return Some(p.quote_before);
                 }
@@ -402,7 +398,6 @@ impl Finisher {
         self.composer.retract(&typed.text);
         let id = typed.id;
         self.emit(Event::Erase { id, text: typed.text, scratch: true });
-        self.restore_mark(id);
         Some(typed.quote_before)
     }
 

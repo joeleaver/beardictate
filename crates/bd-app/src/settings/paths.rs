@@ -160,8 +160,6 @@ const SETTINGS_HEADER: &str = "\
 #   sentence (in the pad, the paragraph) is tidied in place when you pause; false leaves them be.
 # tidy_device: where the model that tidies runs: \"auto\" (the graphics card if there is one) or \"cpu\"
 #   (the processor only; try it if tidying is slow).
-# rejoin_sentences: true to open a sentence closed at a thinking pause again when what
-#   you say next carries it on (\"I went down to the\" ... \"shop\").
 # list_join_pauses: true to keep words said after a short pause on the same list item.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
