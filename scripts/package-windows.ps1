@@ -62,6 +62,8 @@ if ($Stage) {
         $env:RUSTFLAGS = "-C target-feature=-crt-static"
         $cargoArgs = @("build", "--release", "--locked", "-p", "bd-app", "-p", "bd-cli", "--features", "bd-app/vulkan-dl,bd-cli/vulkan-dl")
         $BuildMessages = "$target\package-build-messages.jsonl"
+        # The redirect opens this file before cargo runs, so its folder must exist.
+        New-Item -ItemType Directory -Force $target | Out-Null
         Push-Location $repo
         try {
             & cargo @cargoArgs --message-format=json-render-diagnostics > $BuildMessages
