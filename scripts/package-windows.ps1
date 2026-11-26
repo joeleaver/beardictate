@@ -3,19 +3,22 @@
 # and first run"). Run from anywhere on a Windows machine with Rust (MSVC),
 # CMake and the Vulkan SDK (VULKAN_SDK set):
 #
-#   pwsh scripts/package-windows.ps1 [-NoBuild] [-Stage <dir>]
+#   pwsh scripts/package-windows.ps1 [-NoBuild -BuildMessages <file>] [-Stage <dir>]
 #
 # Output in dist\. It builds the release configuration, as
 # scripts/cross-build-windows.sh does on Linux (what releases use): feature
 # vulkan-dl, the DLL C runtime, and a stage folder holding the exes and every
 # DLL to ship (llama.cpp's libraries and backends, the VC++ runtime pinned in
 # scripts/windows-vc-runtime.sh). -NoBuild packages an existing build of that
-# configuration (CI builds it in earlier steps); -Stage <dir> packages a stage
+# configuration (CI builds it in earlier steps), with that build's cargo
+# messages (--message-format=json-render-diagnostics), which say where
+# llama.cpp's DLLs are (scripts/llama-out-dir.ps1); -Stage <dir> packages a stage
 # folder made elsewhere (the cross build).
 # Code signing: set BD_SIGN_CMD to a signtool command line ending in the file
 # to sign, written as $f (e.g. 'signtool sign /fd sha256 /tr http://... /td sha256 /a $f').
 param(
     [switch]$NoBuild,
+    [string]$BuildMessages = "",
     [string]$Stage = ""
 )
 $ErrorActionPreference = "Stop"
@@ -58,22 +61,24 @@ if ($Stage) {
         $env:LLAMA_STATIC_CRT = "0"
         $env:RUSTFLAGS = "-C target-feature=-crt-static"
         $cargoArgs = @("build", "--release", "--locked", "-p", "bd-app", "-p", "bd-cli", "--features", "bd-app/vulkan-dl,bd-cli/vulkan-dl")
+        $BuildMessages = "$target\package-build-messages.jsonl"
         Push-Location $repo
-        try { & cargo @cargoArgs; if ($LASTEXITCODE) { throw "cargo build failed" } } finally { Pop-Location }
+        try {
+            & cargo @cargoArgs --message-format=json-render-diagnostics > $BuildMessages
+            if ($LASTEXITCODE) { throw "cargo build failed" }
+        } finally { Pop-Location }
+    } elseif (-not $BuildMessages) {
+        throw "-NoBuild needs -BuildMessages: the cargo messages of the build to package"
     }
     $release = "$target\release"
     # llama-cpp-sys copies its DLLs next to the exes only when none is there
-    # yet, so take them from its newest vulkan-dl build folder (other feature
-    # sets leave folders without backends).
-    $llama = Get-ChildItem -Directory "$release\build\llama-cpp-sys-2-*\out" |
-        Where-Object { Test-Path "$($_.FullName)\backends\ggml-vulkan.dll" } |
-        Sort-Object { (Get-Item "$($_.FullName)\backends\ggml-vulkan.dll").LastWriteTime } | Select-Object -Last 1
-    if (-not $llama) { throw "no vulkan-dl build of llama.cpp in $release" }
+    # yet, so take them from the folder this build's llama.cpp was built in.
+    $llama = & "$repo\scripts\llama-out-dir.ps1" $BuildMessages
     foreach ($f in "beardictate.exe", "bd.exe", "sherpa-onnx-c-api.dll", "onnxruntime.dll", "onnxruntime_providers_shared.dll") {
         Copy-Item "$release\$f" $out
     }
-    foreach ($f in "llama.dll", "ggml.dll", "ggml-base.dll") { Copy-Item "$($llama.FullName)\bin\$f" $out }
-    Copy-Item "$($llama.FullName)\backends\*.dll" $out
+    foreach ($f in "llama.dll", "ggml.dll", "ggml-base.dll") { Copy-Item "$llama\bin\$f" $out }
+    Copy-Item "$llama\backends\*.dll" $out
     Get-VcRuntime $out
 }
 & "$out\bd.exe" --version; if ($LASTEXITCODE) { throw "the staged bd.exe doesn't start" }
