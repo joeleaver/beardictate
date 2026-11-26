@@ -15,7 +15,11 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $dlls = @(Get-ChildItem "$From\*.dll")
-if ($dlls.Count -eq 0) { throw "no DLLs in $From" }
+# The ones the tests can't do without: missing, they'd fall back to
+# System32's onnxruntime.dll and crash rather than fail plainly.
+foreach ($need in "sherpa-onnx-c-api.dll", "onnxruntime.dll") {
+    if (-not (Test-Path "$From\$need")) { throw "$need is not in $From" }
+}
 $dirs = @(Get-Content $Messages |
     Where-Object { $_.StartsWith("{") } |
     ForEach-Object { $_ | ConvertFrom-Json } |
