@@ -105,6 +105,13 @@ struct Next {
     done: bool,
 }
 
+/// A mark taken back, kept so it goes back if what took it comes to nothing.
+struct Reopened {
+    id: u64,
+    typed_id: u64,
+    mark: char,
+}
+
 pub(super) struct Rejoin {
     /// See [`crate::PipelineConfig::rejoin`].
     after_close: bool,
@@ -112,11 +119,12 @@ pub(super) struct Rejoin {
     list_join: bool,
     last: Option<Last>,
     next: VecDeque<Next>,
+    reopened: VecDeque<Reopened>,
 }
 
 impl Rejoin {
     pub(super) fn new(after_close: bool, list_join: bool) -> Self {
-        Self { after_close, list_join, last: None, next: VecDeque::new() }
+        Self { after_close, list_join, last: None, next: VecDeque::new(), reopened: VecDeque::new() }
     }
 
     pub(super) fn configure(&mut self, after_close: bool, list_join: bool) {
@@ -149,13 +157,19 @@ impl Rejoin {
         self.last = Some(Last { id, ending, at: Instant::now(), last_word, mark, said, list, typed_id: id });
     }
 
-    /// Something came between (a new passage, a stop, a wake): nothing said
-    /// after it reopens what was said before. Utterances already seen were
-    /// said before it and keep what they follow; the stop itself, handled
-    /// in its turn, clears what was typed, so they can't reopen across it
-    /// ([`Finisher::take_back_mark`]).
+    /// Something came between (a new passage, a stop, a sleep or wake):
+    /// nothing said after it reopens what was said before. An utterance
+    /// whose join was already decided was all said before it (its text was
+    /// taken in first) and keeps that decision; the stop, handled in its
+    /// turn after it, clears what was typed, so a sentence can't reopen
+    /// across it anyway ([`Finisher::take_back_mark`]). One only seen so
+    /// far (its words still coming) is decided after it, so it follows
+    /// nothing.
     pub(super) fn forget(&mut self) {
         self.last = None;
+        for n in self.next.iter_mut().filter(|n| n.join.is_none()) {
+            n.after = None;
+        }
     }
 
     /// A tidy merged delivered pieces `ids` into one under `into`.
@@ -163,6 +177,9 @@ impl Rejoin {
         let lasts = self.last.iter_mut().chain(self.next.iter_mut().filter_map(|n| n.after.as_mut()));
         for last in lasts.filter(|l| ids.contains(&l.typed_id)) {
             last.typed_id = into;
+        }
+        for r in self.reopened.iter_mut().filter(|r| ids.contains(&r.typed_id)) {
+            r.typed_id = into;
         }
     }
 
@@ -193,11 +210,27 @@ impl Rejoin {
         Some((last.id, last.typed_id, join))
     }
 
-    /// Reopening failed: `id` starts a sentence of its own after all.
-    fn refuse(&mut self, id: u64) {
-        if let Some(next) = self.next.iter_mut().find(|n| n.id == id) {
-            next.join = Some(Join::No);
+    /// `id` carries nothing on after all: reopening failed, or it scratched
+    /// what it would have carried on.
+    pub(super) fn refuse(&mut self, id: u64) {
+        match self.next.iter_mut().find(|n| n.id == id) {
+            Some(next) => next.join = Some(Join::No),
+            None => {
+                if self.next.len() == NEXT_KEPT {
+                    self.next.pop_front();
+                }
+                self.next.push_back(Next { id, after: None, join: Some(Join::No), list: false, done: false });
+            }
         }
+    }
+
+    /// Utterance `id` took back `mark` from the end of delivered piece
+    /// `typed_id`.
+    fn reopened(&mut self, id: u64, typed_id: u64, mark: char) {
+        if self.reopened.len() == NEXT_KEPT {
+            self.reopened.pop_front();
+        }
+        self.reopened.push_back(Reopened { id, typed_id, mark });
     }
 }
 
@@ -260,12 +293,18 @@ impl Finisher {
     /// takes back that sentence's closing mark on the page, and tidies the
     /// two as one sentence.
     pub(super) fn reopen(&mut self, id: u64) {
+        // Words in a case mode, or in the pad, aren't sentences read on
+        // (the mode may have been switched since the sentence before).
+        if self.case_mode != crate::CaseMode::Normal || self.pad.is_some() {
+            return;
+        }
         let Some((onto, typed_id, join)) = self.rejoin.reopening(id) else { return };
-        match self.take_back_mark(typed_id, id) {
-            Ok(erased) => {
+        match self.take_back_mark(typed_id, id, join) {
+            Ok(mark) => {
                 tracing::info!(segment = id, onto, how = join.how(), "sentence reopened");
+                self.rejoin.reopened(id, typed_id, mark);
                 self.tidy_reopen(typed_id);
-                self.emit(Event::Rejoined { id, onto, how: join.how(), erased });
+                self.emit(Event::Rejoined { id, onto, how: join.how(), erased: mark.to_string() });
             }
             Err(why) => {
                 tracing::info!(segment = id, onto, why, "sentence left closed");
@@ -275,8 +314,9 @@ impl Finisher {
     }
 
     /// Takes the closing . or ? off delivered piece `typed_id`, if it's the
-    /// last thing typed and still all there; returns the mark.
-    fn take_back_mark(&mut self, typed_id: u64, id: u64) -> Result<String, &'static str> {
+    /// last thing typed, still all there and (after a tidy) still ends on
+    /// the word that made it `join`; returns the mark.
+    fn take_back_mark(&mut self, typed_id: u64, id: u64, join: Join) -> Result<char, &'static str> {
         let last = self.typed.last().filter(|t| t.id == typed_id).ok_or("typed since")?;
         if last.at.elapsed() > WINDOW {
             return Err("typed too long ago");
@@ -292,11 +332,40 @@ impl Finisher {
             return Err("not a closing mark");
         }
         let at = body.len() - 1;
+        // The rule read the words as heard; a tidy may have taken the
+        // dangling word out since.
+        if join == Join::Dangling && !body[..at].split_whitespace().last().is_some_and(dangles) {
+            return Err("tidied to an end");
+        }
         let cut = context.len() - last.text.len() + at;
         let rest = last.text[at + 1..].to_string();
         self.rewrite_from(cut, &rest, id, &rest, None)?;
         self.typed.last_mut().expect("checked").text.remove(at);
-        Ok(mark.to_string())
+        Ok(mark)
+    }
+
+    /// Utterance `id` came to nothing or was scratched: if it had taken
+    /// back the mark of the sentence before, that sentence is closed again.
+    pub(super) fn restore_mark(&mut self, id: u64) {
+        let Some(i) = self.rejoin.reopened.iter().position(|r| r.id == id) else { return };
+        let r = self.rejoin.reopened.remove(i).expect("found");
+        let Some(last) = self.typed.last().filter(|t| t.id == r.typed_id) else {
+            return tracing::info!(segment = id, "the reopened sentence isn't the last typed: left open");
+        };
+        let context = self.composer.context();
+        if !context.ends_with(&last.text) {
+            return tracing::info!(segment = id, "the reopened sentence isn't all there: left open");
+        }
+        let at = last.text.trim_end_matches([' ', '\t']).len();
+        let cut = context.len() - last.text.len() + at;
+        let rest = format!("{}{}", r.mark, &last.text[at..]);
+        match self.rewrite_from(cut, &rest, id, &rest, None) {
+            Ok(()) => {
+                self.typed.last_mut().expect("checked").text.insert(at, r.mark);
+                tracing::info!(segment = id, "mark put back: nothing carried the sentence on");
+            }
+            Err(why) => tracing::info!(segment = id, why, "mark not put back"),
+        }
     }
 }
 

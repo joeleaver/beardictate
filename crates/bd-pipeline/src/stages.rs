@@ -361,6 +361,7 @@ impl Finisher {
         self.reopen(p.id);
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let ends_sentence = p.ends_sentence();
+        let has_words = p.out.has_words();
         let list = p.list;
         let commanded = p.out.text;
         let behind = self.queue.iter().any(|item| matches!(item, Item::Segment(_)));
@@ -377,7 +378,7 @@ impl Finisher {
         self.take_in_ready(input);
         let flight = self.in_flight.take();
         if flight.is_some_and(|f| f.cancelled) {
-            return;
+            return self.restore_mark(p.id);
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
         let base = self.composer.context().to_string();
@@ -393,6 +394,10 @@ impl Finisher {
         }
         if self.types_live() {
             self.typed_live(p.id, p.quote_before, &base, take_back, text);
+            if !has_words {
+                // Its live words had reopened the sentence before.
+                self.restore_mark(p.id);
+            }
             if list {
                 return;
             }
@@ -400,6 +405,7 @@ impl Finisher {
         }
         if text.is_empty() {
             tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
+            self.restore_mark(p.id);
         } else {
             if self.typed.len() == MAX_ERASABLE {
                 self.typed.remove(0);
@@ -440,6 +446,7 @@ impl Finisher {
         }
     }
 
+    /// Drops the most recent undelivered segment of this passage, returning
     /// the quotation state from before it. `None` when there is none left.
     fn drop_latest(&mut self) -> Option<bool> {
         if self.pad.is_some() {
@@ -456,6 +463,7 @@ impl Finisher {
                 Item::Segment(_) => {
                     let Some(Item::Segment(p)) = self.queue.remove(i) else { unreachable!() };
                     self.untype(p.id);
+                    self.restore_mark(p.id);
                     self.emit(Event::Scratched { id: p.id });
                     return Some(p.quote_before);
                 }
@@ -472,7 +480,9 @@ impl Finisher {
         }
         let typed = self.typed.pop()?;
         self.composer.retract(&typed.text);
-        self.emit(Event::Erase { id: typed.id, text: typed.text, scratch: true });
+        let id = typed.id;
+        self.emit(Event::Erase { id, text: typed.text, scratch: true });
+        self.restore_mark(id);
         Some(typed.quote_before)
     }
 

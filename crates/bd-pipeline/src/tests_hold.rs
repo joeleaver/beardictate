@@ -169,6 +169,25 @@ fn in_a_list_words_said_after_a_short_pause_go_on_the_same_item() {
 }
 
 #[test]
+fn an_item_that_scratches_the_one_before_starts_its_own_line() {
+    let p = rig(
+        vec![
+            vec!["Milk", "Milk", "Milk"],
+            vec!["Milk. A tin", "Milk. A tin of", "Milk. A tin of"],
+            vec!["Milk. A tin of scratch", "Milk. A tin of scratch that.", "Milk. A tin of scratch that. Eggs"],
+        ],
+        listing(true),
+        None,
+    );
+    say(&p, 0);
+    say(&p, 1);
+    say(&p, 2);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "milk\neggs");
+    assert!(events.iter().all(|e| !matches!(e, Event::Rejoined { .. })));
+}
+
+#[test]
 fn with_list_join_off_each_pause_starts_an_item() {
     let p = rig(
         vec![vec!["A tin of", "A tin of", "A tin of"], vec!["A tin of red", "A tin of red tomatoes"]],

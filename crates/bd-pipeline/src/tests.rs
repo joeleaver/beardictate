@@ -62,7 +62,8 @@ impl Cleanup for FakeCleanup {
         if request.raw.contains("explode") {
             return Err("model crashed".into());
         }
-        Ok(request.raw.replace("Um, w", "W"))
+        // A word dropped as a slip, ending the sentence elsewhere.
+        Ok(request.raw.replace("Um, w", "W").replace(" over the.", "."))
     }
 }
 

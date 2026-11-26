@@ -79,6 +79,7 @@ impl Finisher {
             self.take_in_text(id, text, pause, ending);
         }
         if step.sleep_after {
+            self.rejoin.forget();
             self.queue.push_back(Item::Sleep);
         }
     }
@@ -112,7 +113,11 @@ impl Finisher {
         self.note_commanded(id, &heard, &text, &out, pad_action.as_ref());
         // Whether it carries on what was said before a pause, read before
         // it's made a list item; then it's what the next one reads on from.
-        let joins = out.has_words() && pad_action.is_none() && self.joins_on(id, &out.text);
+        // Not when it scratched what it would carry on, nor in the pad.
+        if scratches > 0 {
+            self.rejoin.refuse(id);
+        }
+        let joins = scratches == 0 && out.has_words() && pad_action.is_none() && self.pad.is_none() && self.joins_on(id, &out.text);
         let sentence_case = self.case_mode == crate::CaseMode::Normal && self.pad.is_none() && pad_action.is_none();
         self.rejoin.taken(id, ending, &out, self.list_mode, sentence_case);
         let cased = self.case_mode != crate::CaseMode::Normal && out.has_words();
