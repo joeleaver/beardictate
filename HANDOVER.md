@@ -14,6 +14,21 @@ deploy the telemetry server, tell the testers (draft reply in that
 session's scratchpad). After the testers update, check telemetry for
 `mic_reconnecting`/`mic_back`, clipboard fallbacks and "what's new".
 
+**After 0.1.23 (2026-11-26, unreleased): a silent microphone is reopened**
+(`engine/mic_silence.rs`, WHATS_NEW 0.1.24). Will's Orca USB mic sent only
+digital silence after ~30 first starts of the day (`mic-silent` at 14 s;
+chunks kept coming, so 0.1.23's recovery never acted). The silence ends on
+the device's side (often when Windows resets it, 6 to 25 min after boot); an
+early reopen or restart can stay silent. Now a stream that never sent sound
+is reopened after 8 s, then 10/20/30 s and every minute, the bear amber
+meanwhile (state `Reconnecting`; Windows hides his notifications). New
+telemetry: `state` `mic_silent`/`mic_sound`, and the `mic` kind (format,
+first-seconds level, exact zeros or not). Proved by tests only. To check
+on NICO-TOP: mute the mic in Windows' sound settings with always listening
+on, expect amber within ~10 s, unmute, expect it back within a minute.
+After Will updates: `mic_sound`'s `silent_ms`/`reopens`, and `mic` `level`
+`zeros`. `engine.rs`'s status code moved to `engine/status.rs`.
+
 **Since 0.1.23 (2026-11-26, unreleased, tests only):** pauses
 (`stages/list_join.rs`). In a list, words said after a short pause stay on
 the same item (setting `list_join_pauses`, on, under Writing › Pauses;

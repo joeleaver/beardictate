@@ -274,7 +274,19 @@ it was, later it comes back asleep. The hotkey and the bear try at once.
 Only the menu or Settings turns it off. (A Windows tester's USB microphone
 was invalidated by Windows once or twice a day; recorded as off, it looked
 dead, and the "turn it on from the menu" notification was one Windows
-hid.) Waking after more than a minute asleep
+hid.) A stream that opens but has sent only digital silence (below -100
+dBFS) for 8 s counts as not working either (2026-11-26, `mic_silence.rs`):
+it's reopened, then again after 10, 20, 30 s and every minute until sound
+comes, awake or asleep as it was, with the bear amber and "reconnecting"
+meanwhile; asleep, the hotkey and the bear reopen it at once and wake it. Only a
+stream that has never sent sound counts, so a noise-gated microphone's
+silences, or a quiet room (its noise floor is far louder), are never
+reopened, and nothing being dictated is cut. Dictating by the hotkey, it
+warns ("!") and opens the microphone afresh at the next dictation. (The
+Windows tester's USB microphone sent only silence after most first starts
+of the day, for seconds to 40 minutes, until Windows reset it; once
+reopened at 13 minutes it was still silent, so one retry isn't enough.)
+Waking after more than a minute asleep
 starts a new passage (no cleanup context from before).
 
 **Other voices in the room** (2026-10-20). An alpha tester left it awake;

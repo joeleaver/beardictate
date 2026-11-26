@@ -29,8 +29,11 @@ mod notes;
 mod inject;
 mod mic_check;
 mod mic_recover;
+mod mic_silence;
 mod pad;
 mod standby;
+mod status;
+pub use status::{State, Status, Warning};
 use inject::{Injected, TypeJob, spawn_injector};
 
 mod load;
@@ -64,62 +67,6 @@ pub enum Command {
     Shutdown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum State {
-    Loading,
-    Idle,
-    /// Always listening: the microphone is open, waiting for "bear, wake up"
-    /// or the hotkey.
-    Asleep,
-    /// Always listening, with the microphone turned off from the menu.
-    MicOff,
-    /// Always listening, but the microphone went away: trying to reopen it
-    /// (see `engine/mic_recover.rs`).
-    Reconnecting,
-    Listening,
-    /// Stopped listening; the last sentences are still being cleaned.
-    Cleaning,
-    NeedsYou,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Status {
-    pub state: State,
-    /// The cleanup model's name, or what needs attention.
-    pub detail: String,
-    /// When listening started.
-    pub since: Option<Instant>,
-    /// Always listening: the hotkey wakes and sends to sleep.
-    pub voice: bool,
-    /// Something the user should fix, shown on the bear, in the tray's
-    /// tooltip and menu and in Settings (a notification alone can be
-    /// silenced by the system).
-    pub warning: Option<Warning>,
-}
-
-/// Something the user should know and fix, besides the state.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Warning {
-    /// Speech keeps arriving quiet (`mic_check.rs`).
-    Quiet,
-    /// Words couldn't be typed: this many characters are on the clipboard
-    /// (`inject.rs`).
-    Clipboard(usize),
-    /// Another program holds the shortcut (as people write it); it's being
-    /// tried again (`hotkey_wiring.rs`).
-    ShortcutTaken(String),
-}
-
-impl Warning {
-    /// What the tooltip and Settings say.
-    pub fn text(&self) -> String {
-        match self {
-            Warning::Quiet => mic_check::QUIET_WARNING.to_string(),
-            Warning::Clipboard(chars) => inject::clipboard_warning(*chars),
-            Warning::ShortcutTaken(sc) => format!("Another program is using {sc}, so it won\u{2019}t work here: beardictate keeps trying, or choose another shortcut in Settings \u{203A} General"),
-        }
-    }
-}
 
 /// What the engine tells the UI. Called on the engine's thread.
 pub trait Ui: Send + 'static {
@@ -206,6 +153,8 @@ struct Worker<U> {
     /// Always listening, waiting for a microphone that went away to come
     /// back (see `mic_recover.rs`).
     recover: Option<mic_recover::Recover>,
+    /// Whether the open stream sends only silence (see `mic_silence.rs`).
+    silence: mic_silence::Silence,
     /// When the microphone last delivered audio.
     last_chunk: Instant,
     /// A different microphone was chosen mid-dictation: reopen after.
@@ -270,6 +219,7 @@ impl<U: Ui> Worker<U> {
             start_on_load: !quiet_start,
             mic_check: None,
             recover: None,
+            silence: mic_silence::Silence::default(),
             last_chunk: Instant::now(),
             reopen_mic: false,
             reload_after_load: false,
@@ -334,6 +284,7 @@ impl<U: Ui> Worker<U> {
                     self.watch_files();
                     self.check_mic_level();
                     self.check_stalled();
+                    self.check_silent();
                     self.retry_mic(false);
                     self.expire_clipboard_warning();
                     self.sleep_if_unspoken_to();
@@ -346,57 +297,6 @@ impl<U: Ui> Worker<U> {
         }
     }
 
-    // ---- status -------------------------------------------------------------
-
-    fn publish(&self) {
-        let (state, detail) = if self.loading.is_some() {
-            (State::Loading, self.loading_detail.clone())
-        } else if let Some(e) = self.load_error.as_ref().or(self.injector_error.as_ref()) {
-            (State::NeedsYou, e.clone())
-        } else if self.listening_since.is_some() {
-            let detail = match (self.reload_when_idle, load::cleanup_label(&self.settings)) {
-                (true, Some(next)) => format!("{} · {next} loads when you stop dictating", self.cleanup_name),
-                (true, None) => format!("{} · post-processing turns off when you stop dictating", self.cleanup_name),
-                _ => self.cleanup_name.clone(),
-            };
-            (State::Listening, detail)
-        } else if self.cleaning {
-            (State::Cleaning, self.cleanup_name.clone())
-        } else if self.recover.is_some() {
-            (State::Reconnecting, mic_recover::RECONNECTING.to_string())
-        } else if self.standby {
-            (State::Asleep, self.cleanup_name.clone())
-        } else if self.settings.voice_wake {
-            (State::MicOff, self.cleanup_name.clone())
-        } else {
-            (State::Idle, self.cleanup_name.clone())
-        };
-        crate::telemetry::set_dictating(matches!(state, State::Listening | State::Cleaning));
-        let warning = match (self.on_clipboard, &self.shortcut_taken) {
-            (Some((chars, _)), _) => Some(Warning::Clipboard(chars)),
-            (None, Some(sc)) => Some(Warning::ShortcutTaken(sc.clone())),
-            (None, None) => self.quiet.showing.then_some(Warning::Quiet),
-        };
-        self.ui.status(Status { state, detail, since: self.listening_since, voice: self.settings.voice_wake, warning });
-        self.pad.look.set(state);
-        self.sync_pad();
-    }
-
-    /// The UI says the shortcut is taken, or works again.
-    fn shortcut_taken(&mut self, taken: Option<String>) {
-        if taken == self.shortcut_taken {
-            return;
-        }
-        if let Some(sc) = &taken {
-            self.notifier.notify("hotkey", &format!("{sc} is taken"), &Warning::ShortcutTaken(sc.clone()).text());
-        }
-        self.shortcut_taken = taken;
-        self.publish();
-    }
-
-    fn busy(&self) -> bool {
-        self.listening_since.is_some() || self.cleaning
-    }
 
     // ---- dictation ----------------------------------------------------------
 
@@ -428,14 +328,22 @@ impl<U: Ui> Worker<U> {
             };
             let capture = Mic::open(config).context("opening the microphone")?;
             tracing::info!(device = %capture.name(), "microphone open");
-            self.mic_check = Some(mic_check::MicCheck::new(capture.name()));
+            self.mic_check = Some(mic_check::MicCheck::new(&capture, self.silence.showing()));
+            self.silence.opened();
             self.capture = Some(capture);
         }
         Ok(())
     }
 
     fn start(&mut self) -> Result<()> {
+        if self.silence.showing() {
+            // It sent only silence last time: open it afresh.
+            self.capture = None;
+        }
         self.open_mic()?;
+        // The stream was stopped since the last dictation (its last chunks
+        // drain after `stop`): the time between isn't silence it sent.
+        self.silence.paused();
         let pipeline = self.pipeline.as_ref().expect("checked by toggle");
         if self.last_dictation.is_none_or(|t| t.elapsed() > NEW_PASSAGE_AFTER) {
             pipeline.new_passage();
@@ -461,15 +369,17 @@ impl<U: Ui> Worker<U> {
     }
 
     fn on_audio(&mut self, event: CaptureEvent) {
-        if matches!(event, CaptureEvent::Chunk(_)) {
-            // Also while models load: the stream is alive (mic_recover.rs).
+        if let CaptureEvent::Chunk(chunk) = &event {
+            // Also while models load: the stream is alive (mic_recover.rs),
+            // and how loud it is doesn't depend on the models.
             self.last_chunk = Instant::now();
+            self.note_level(chunk.rms);
+            self.note_silence(chunk.rms);
         }
         let Some(pipeline) = self.pipeline.as_ref() else { return };
         match event {
             CaptureEvent::Chunk(chunk) => {
                 pipeline.push_audio(chunk.samples);
-                self.note_level(chunk.rms);
                 self.note_meter(chunk.rms);
             }
             CaptureEvent::Stopped { dropped_frames } => {
@@ -516,6 +426,10 @@ impl<U: Ui> Worker<U> {
             self.quiet = mic_check::Quiet::default();
         }
         let s = &self.settings;
+        if old.microphone != s.microphone {
+            // A silent episode was about the other one.
+            self.silence.reset();
+        }
         if self.standby && old.microphone != s.microphone {
             // A different microphone: reopen it, staying asleep or awake.
             let awake = self.listening_since.is_some();

@@ -100,6 +100,7 @@ impl<U: Ui> Worker<U> {
         }
         // Release the device, so the desktop stops showing it in use.
         self.capture = None;
+        self.silence.reset();
         self.listening_since = None;
         tracing::info!("always listening: microphone off");
         self.publish();
@@ -108,6 +109,15 @@ impl<U: Ui> Worker<U> {
     /// The hotkey: wake up or go to sleep. With the microphone off it says
     /// where to turn it on, rather than turning it on itself.
     pub(super) fn voice_toggle(&mut self) {
+        if self.standby && self.silence.showing() && self.listening_since.is_none() {
+            // Asleep: try now, and wake, as it was pressed to talk. (Awake,
+            // the hotkey sends it to sleep as usual.)
+            self.reopen_silent();
+            if self.standby {
+                self.pipeline.as_ref().expect("standing by").set_awake(true);
+                return self.publish();
+            }
+        }
         if self.reconnecting() {
             // Try now rather than at the next retry; once it's back, the
             // hotkey wakes it as usual.
@@ -141,6 +151,7 @@ impl<U: Ui> Worker<U> {
             self.stand_by(wake);
         } else {
             self.recover = None;
+            self.silence.reset();
             self.leave_standby();
         }
         self.publish();
