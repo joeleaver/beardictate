@@ -114,7 +114,6 @@ jobs:
           Copy-Item (Get-ChildItem "C:\t\sherpa-onnx-prebuilt\*\lib\*.dll").FullName $release
           $llama = & scripts/llama-out-dir.ps1 C:\t\build-messages.jsonl
           Copy-Item "$llama\bin\*.dll", "$llama\backends\*.dll" $release
-          Copy-Item "$release\*.dll" "$release\deps"
           dumpbin /dependents "$release\bd.exe" | Select-String "\.dll"
           & "$release\bd.exe" --version
           if ($LASTEXITCODE) { throw "bd.exe doesn't start (exit $LASTEXITCODE)" }
@@ -130,8 +129,16 @@ jobs:
             Invoke-WebRequest -OutFile "$wavs\en.wav" "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78/test_wavs/en.wav"
           }
 
+      # The test binaries need the same DLLs beside them, or Windows loads
+      # System32's older onnxruntime.dll and they crash. Cargo's messages say
+      # where they are (Rust 1.100 moved them out of release\deps).
       - name: Test
-        run: cargo test --workspace --release --locked --features ${{ env.FEATURES }}
+        shell: pwsh
+        run: |
+          cargo test --workspace --release --locked --features $env:FEATURES --no-run --message-format=json-render-diagnostics > C:\t\test-messages.jsonl
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & scripts/dlls-beside-executables.ps1 C:\t\test-messages.jsonl C:\t\release
+          cargo test --workspace --release --locked --features $env:FEATURES
 
       - name: Transcribe the test wav with bd
         run: C:\t\release\bd.exe file "%BD_MODELS_DIR%\test_wavs\en.wav" --cleanup off
