@@ -103,6 +103,8 @@ struct Next {
     list: bool,
     /// Its join was carried out (or reported, in list mode).
     done: bool,
+    /// Its text was taken in: all of it was said by then.
+    taken: bool,
 }
 
 /// A mark taken back, kept so it goes back if what took it comes to nothing.
@@ -140,12 +142,15 @@ impl Rejoin {
         if self.next.len() == NEXT_KEPT {
             self.next.pop_front();
         }
-        self.next.push_back(Next { id, after: self.last.clone(), join: None, list: false, done: false });
+        self.next.push_back(Next { id, after: self.last.clone(), join: None, list: false, done: false, taken: false });
     }
 
     /// Utterance `id` was taken in, commanded as `out`: what comes next
     /// reads on from it, if it has words and was said in sentence case.
     pub(super) fn taken(&mut self, id: u64, ending: Ending, out: &CommandOutput, list: bool, sentence_case: bool) {
+        if let Some(next) = self.next.iter_mut().find(|n| n.id == id) {
+            next.taken = true;
+        }
         if !out.has_words() || !sentence_case {
             self.last = None;
             return;
@@ -159,15 +164,16 @@ impl Rejoin {
 
     /// Something came between (a new passage, a stop, a sleep or wake):
     /// nothing said after it reopens what was said before. An utterance
-    /// whose join was already decided was all said before it (its text was
-    /// taken in first) and keeps that decision; the stop, handled in its
-    /// turn after it, clears what was typed, so a sentence can't reopen
-    /// across it anyway ([`Finisher::take_back_mark`]). One only seen so
-    /// far (its words still coming) is decided after it, so it follows
-    /// nothing.
+    /// whose text was taken in first was all said before it, and keeps what
+    /// it follows, whether its join is decided yet or not (one with no
+    /// words when taken in is decided by its live words, typed before the
+    /// stop is handled); the stop, handled in its turn after it, clears
+    /// what was typed, so a sentence can't reopen across it anyway
+    /// ([`Finisher::take_back_mark`]). One only seen so far (its words
+    /// still coming) is decided after it, so it follows nothing.
     pub(super) fn forget(&mut self) {
         self.last = None;
-        for n in self.next.iter_mut().filter(|n| n.join.is_none()) {
+        for n in self.next.iter_mut().filter(|n| n.join.is_none() && !n.taken) {
             n.after = None;
         }
     }
@@ -190,7 +196,7 @@ impl Rejoin {
         let (after_close, list_join) = (self.after_close, self.list_join);
         if !self.next.iter().any(|n| n.id == id) {
             // Seen only now, with nothing before it to read on from.
-            self.next.push_back(Next { id, after: None, join: None, list, done: false });
+            self.next.push_back(Next { id, after: None, join: None, list, done: false, taken: false });
         }
         let next = self.next.iter_mut().find(|n| n.id == id).expect("just made");
         if next.join.is_none() {
@@ -219,7 +225,7 @@ impl Rejoin {
                 if self.next.len() == NEXT_KEPT {
                     self.next.pop_front();
                 }
-                self.next.push_back(Next { id, after: None, join: Some(Join::No), list: false, done: false });
+                self.next.push_back(Next { id, after: None, join: Some(Join::No), list: false, done: false, taken: false });
             }
         }
     }
@@ -291,8 +297,14 @@ impl Finisher {
 
     /// Before utterance `id` is typed: if it reopens the sentence before,
     /// takes back that sentence's closing mark on the page, and tidies the
-    /// two as one sentence.
-    pub(super) fn reopen(&mut self, id: u64) {
+    /// two as one sentence. Whether `id` carries that sentence on: its mark
+    /// was taken back, now or while `id`'s words were typed live.
+    pub(super) fn reopen(&mut self, id: u64) -> bool {
+        self.try_reopen(id);
+        self.rejoin.reopened.iter().any(|r| r.id == id)
+    }
+
+    fn try_reopen(&mut self, id: u64) {
         // Words in a case mode, or in the pad, aren't sentences read on
         // (the mode may have been switched since the sentence before).
         if self.case_mode != crate::CaseMode::Normal || self.pad.is_some() {
@@ -440,10 +452,25 @@ mod tests {
         assert_eq!(rule(&old, "shop", false, true, true), Join::No);
     }
 
+    fn out(text: &str) -> CommandOutput {
+        CommandOutput { text: text.into(), actions: Vec::new(), quote_open: false }
+    }
+
+    #[test]
+    fn an_utterance_taken_in_before_a_stop_still_follows_what_came_before() {
+        let mut r = Rejoin::new(true, true);
+        r.seen(1);
+        r.taken(1, Ending::Closed, &out("I went to the."), false, true);
+        // Only a break when taken in: its live words decide it later.
+        r.seen(2);
+        r.taken(2, Ending::Closed, &out("\n\n"), false, true);
+        r.forget();
+        assert_eq!(r.decide(2, "new pair", false).join, Some(Join::Dangling));
+    }
+
     #[test]
     fn an_utterance_follows_what_came_before_its_first_word() {
         let mut r = Rejoin::new(true, true);
-        let out = |text: &str| CommandOutput { text: text.into(), actions: Vec::new(), quote_open: false };
         r.seen(1);
         r.taken(1, Ending::Closed, &out("I went to the."), false, true);
         r.seen(2);

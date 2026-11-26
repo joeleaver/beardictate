@@ -131,10 +131,17 @@ impl Finisher {
         } else if std::mem::take(&mut self.after_list) && out.has_words() && !out.text.starts_with('\n') {
             out.text.insert(0, '\n');
         }
-        let long_pause = !list && !joins && matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min);
-        if long_pause && self.passage_has_text && !out.text.starts_with('\n') && out.has_words() {
+        let long_pause = !list
+            && matches!((pause, self.pause_paragraph), (Some(p), Some(min)) if p >= min)
+            && self.passage_has_text
+            && !out.text.starts_with('\n')
+            && out.has_words();
+        // Words that read on from the sentence before start the paragraph
+        // only if it isn't reopened after all, which is known when they're typed.
+        if long_pause && !joins {
             out.text.insert_str(0, "\n\n");
         }
+        let paragraph_unless_reopened = long_pause && joins;
         if out.has_words() {
             self.passage_has_text = true;
         }
@@ -145,7 +152,7 @@ impl Finisher {
             if self.pad.is_some() {
                 self.pad_push(id, out.text, quote_before);
             } else {
-                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now(), list }));
+                self.queue.push_back(Item::Segment(Pending { id, quote_before, out, ready: Instant::now(), list, paragraph_unless_reopened }));
             }
         }
         match pad_action {

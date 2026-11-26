@@ -13,12 +13,13 @@ use crate::compose::single_return_paragraphs;
 use crate::{Event, Stage};
 
 impl Finisher {
-    pub(super) fn finish(&mut self, p: Pending, input: &Receiver<Heard>) {
+    pub(super) fn finish(&mut self, mut p: Pending, input: &Receiver<Heard>) {
         // Before it's cleaned, so the model sees the sentence it goes on.
-        self.reopen(p.id);
+        if !self.reopen(p.id) && p.paragraph_unless_reopened {
+            p.out.text.insert_str(0, "\n\n");
+        }
         self.in_flight = Some(InFlight { id: p.id, quote_before: p.quote_before, cancelled: false });
         let ends_sentence = p.ends_sentence();
-        let has_words = p.out.has_words();
         let list = p.list;
         let commanded = p.out.text;
         let behind = self.queue.iter().any(|item| matches!(item, Item::Segment(_)));
@@ -41,6 +42,12 @@ impl Finisher {
             return self.restore_mark(p.id);
         }
         let text = if self.blank_line_paragraphs { text } else { single_return_paragraphs(&text) };
+        if !text.chars().any(char::is_alphanumeric) {
+            // It came to nothing, or to a break: if its live words had
+            // reopened the sentence before, that's closed again before
+            // what's left of it is typed after it.
+            self.restore_mark(p.id);
+        }
         let base = self.composer.context().to_string();
         let text = self.join_on(&base, &text, list);
         let (take_back, text) = self.composer.append(&text);
@@ -54,10 +61,6 @@ impl Finisher {
         }
         if self.types_live() {
             self.typed_live(p.id, p.quote_before, &base, take_back, text);
-            if !has_words {
-                // Its live words had reopened the sentence before.
-                self.restore_mark(p.id);
-            }
             if list {
                 return;
             }
@@ -65,7 +68,6 @@ impl Finisher {
         }
         if text.is_empty() {
             tracing::info!(segment = p.id, "nothing to type (cleaned to nothing)");
-            self.restore_mark(p.id);
         } else {
             if self.typed.len() == MAX_ERASABLE {
                 self.typed.remove(0);

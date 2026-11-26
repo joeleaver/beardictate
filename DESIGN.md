@@ -398,7 +398,10 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   with none of 97 real sentence ends joined; neither Bear nor stock Gemma
   4 E2B could tell the two apart (`eval/rejoin/FINDINGS.md`), so it's a
   setting, off by default (`rejoin_sentences`), and telemetry's `rejoined`
-  says how often it fires. In a list, an utterance he went on to before
+  says how often it fires. A long pause's paragraph gives way to a
+  reopening, and comes back when the sentence stays closed after all; if
+  what reopened it comes to nothing, a break or a "scratch that", the
+  mark goes back. In a list, an utterance he went on to before
   the deadline is the rest of the item unless Nemotron ended the one
   before with . ? or ! (17 of 18 split items kept whole, 1 false join in
   39 item ends): on by default (`list_join_pauses`).

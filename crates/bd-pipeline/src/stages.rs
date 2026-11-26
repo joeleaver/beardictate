@@ -105,6 +105,9 @@ struct Pending {
     ready: Instant,
     /// A list item, or said in a case mode: typed as it is, not tidied.
     list: bool,
+    /// A long pause came before it, but it reads on from the sentence
+    /// before: it starts a paragraph unless that sentence reopens.
+    paragraph_unless_reopened: bool,
 }
 
 enum Item {
@@ -136,9 +139,9 @@ impl Pending {
     }
 
     /// Whether this can be read on from the segment before it: not the
-    /// start of a paragraph.
+    /// start of a paragraph, nor perhaps one.
     fn continues(&self) -> bool {
-        !self.out.text.trim_start_matches([' ', '\t']).starts_with('\n')
+        !self.paragraph_unless_reopened && !self.out.text.trim_start_matches([' ', '\t']).starts_with('\n')
     }
 }
 
