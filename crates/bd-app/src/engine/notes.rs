@@ -78,6 +78,9 @@ pub(super) fn note(event: &Event, live_typing: bool, testing: bool) {
         Event::SessionEnded => record("state", None, || json!({"state": "session_ended"})),
         // The pad's view changes on every word; the pad events above say what matters.
         Event::Pad(_) => {}
+        // `transcribed`'s pause_ms has these; the wait they suggest is
+        // recorded when it changes (`engine/pauses.rs`).
+        Event::Paused(_) => {}
     }
 }
 

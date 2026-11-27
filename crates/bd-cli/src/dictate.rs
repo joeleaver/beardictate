@@ -47,6 +47,10 @@ pub struct DictateArgs {
     /// Treat spoken "comma", "period", "question mark" etc. as marks.
     #[arg(long)]
     pub literal_punctuation: bool,
+    /// With a streaming recognizer: how long, in seconds (1 to 3), a pause
+    /// waits for the speaker to go on before the sentence ends there.
+    #[arg(long, default_value_t = 1.5, value_name = "SECS")]
+    pub sentence_wait: f32,
     /// Your names and invented words, one per line, optionally with what
     /// the ASR hears instead: `wyrmstone: worm stone, wormstone`.
     #[arg(long, value_name = "FILE")]
@@ -158,6 +162,8 @@ fn spawn_pipeline(args: &DictateArgs) -> Result<Pipeline> {
         .context("--pause-paragraph must be a positive number of seconds")?;
     let mut config = PipelineConfig { style, vocabulary, pause_paragraph, pad: args.pad, live_typing, voice_wake: args.voice_wake, ..PipelineConfig::default() };
     config.commands.literal_punctuation = args.literal_punctuation;
+    let wait = Duration::try_from_secs_f32(args.sentence_wait).context("--sentence-wait must be a positive number of seconds")?;
+    config.sentence_wait = bd_pipeline::sentence_wait::clamp(wait);
     let pipeline = Pipeline::spawn(parts, config).map_err(|e| anyhow::anyhow!(e))?;
     if args.voice_wake {
         pipeline.set_awake(true);
@@ -238,6 +244,8 @@ impl Reporter {
             }
             Event::Scratched { id } => eprintln!("[{id}] scratched"),
             Event::Rejoined { id, onto } => eprintln!("[{id}] goes on the list item of [{onto}]"),
+            Event::Paused(p) if self.verbose => eprintln!("[went on after {} ms, of {} ms]", p.pause.as_millis(), p.wait.as_millis()),
+            Event::Paused(_) => {}
             Event::Woke => eprintln!("[awake]"),
             Event::Slept => eprintln!("[asleep]"),
             Event::ScratchTooLate => eprintln!("scratch that: nothing left to take back in this dictation"),

@@ -3,6 +3,7 @@
 
 use rinch::prelude::*;
 
+use super::sentence_wait::sentence_wait;
 use super::spelling::spelling;
 use crate::settings::{Punctuation, QuoteMarks, Settings};
 use crate::ui::{Shared, change};
@@ -29,6 +30,7 @@ pub(super) fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
     let b2 = breaks(__scope, s, "One return, for editors that space paragraphs themselves", false);
     let (s1, s2, s3) = (s.clone(), s.clone(), s.clone());
     let sp = spelling(__scope, s);
+    let sw = sentence_wait(__scope, s);
     rsx! {
         div { style: "display: flex; flex-direction: column; gap: 18px;",
             Title { order: 3, "Writing" }
@@ -80,6 +82,7 @@ pub(super) fn writing(__scope: &mut RenderScope, s: &Shared) -> NodeHandle {
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",
                 Text { style: "font-weight: 600;", "Pauses" }
+                {sw}
                 {j1}
             }
             div { style: "display: flex; flex-direction: column; gap: 8px;",

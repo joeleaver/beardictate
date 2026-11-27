@@ -8,8 +8,6 @@
 //! Typing has a thread of its own, so a slow target app never holds up audio.
 //! The UI hears about state through [`Ui`].
 
-use std::fs;
-use std::path::Path;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -22,6 +20,8 @@ use crate::mic::Mic;
 use crate::notify::Notifier;
 use crate::settings::{Paths, Settings};
 
+mod apply;
+use apply::mtime;
 mod events;
 mod idle_update;
 pub use idle_update::QUIET_START;
@@ -31,6 +31,7 @@ mod mic_check;
 mod mic_recover;
 mod mic_silence;
 mod pad;
+mod pauses;
 mod standby;
 mod status;
 pub use status::{State, Status, Warning};
@@ -81,6 +82,9 @@ pub trait Ui: Send + 'static {
     fn heard(&self, _text: String, _level: f32) {}
     /// A choice from the bear's menu on screen.
     fn act(&self, _act: crate::menu::Act) {}
+    /// The sentence wait suggested from the user's own pauses, and how many
+    /// it's from; `None` until there are enough.
+    fn sentence_wait_suggested(&self, _wait: Option<Duration>, _pauses: usize) {}
 }
 
 pub struct Engine {
@@ -170,6 +174,8 @@ struct Worker<U> {
     active_at: Instant,
     /// Learned microphone gains by microphone, and the gain in use.
     gains: std::collections::BTreeMap<String, f32>,
+    /// Recent pauses mid-sentence, for the suggested sentence wait.
+    pauses: pauses::Pauses,
     gain: f32,
     /// The level meter: loudest chunk since it last updated, and when.
     meter_peak: f32,
@@ -200,6 +206,8 @@ impl<U: Ui> Worker<U> {
         notes::settings(&settings);
         let (type_text, injected) = spawn_injector(&paths);
         let gains = paths.load_gains();
+        let pauses = pauses::Pauses::load(&paths.pauses);
+        pauses.tell(&ui);
         let quiet_start = idle_update::take_quiet_start(&paths.updates);
         Worker {
             notifier: Notifier::new(settings.notifications),
@@ -227,6 +235,7 @@ impl<U: Ui> Worker<U> {
             last_heard: Instant::now(),
             active_at: Instant::now(),
             gains,
+            pauses,
             gain: 1.0,
             meter_peak: 0.0,
             meter_at: Instant::now(),
@@ -405,102 +414,4 @@ impl<U: Ui> Worker<U> {
             CaptureEvent::Error(e) => tracing::warn!("capture: {e}"),
         }
     }
-
-    fn apply(&mut self, new: Settings) {
-        if new != self.settings {
-            notes::settings(&new);
-        }
-        let old = std::mem::replace(&mut self.settings, new);
-        let s = &self.settings;
-        self.notifier.set_enabled(s.notifications);
-        if (old.voice_wake, old.microphone_on) != (s.voice_wake, s.microphone_on) {
-            self.apply_rest(&old);
-            return self.switch_mic(old.microphone_on);
-        }
-        if old.microphone != s.microphone
-            && let Some(pipeline) = &self.pipeline
-        {
-            // Each microphone has its own learned gain.
-            pipeline.reconfigure(pipeline_config(s, self.starting_gain()));
-            self.gain = self.starting_gain();
-            self.quiet = mic_check::Quiet::default();
-        }
-        let s = &self.settings;
-        if old.microphone != s.microphone {
-            // A silent episode was about the other one.
-            self.silence.reset();
-        }
-        if self.standby && old.microphone != s.microphone {
-            // A different microphone: reopen it, staying asleep or awake.
-            let awake = self.listening_since.is_some();
-            self.leave_standby();
-            self.stand_by(awake);
-        } else if old.microphone != s.microphone || old.keep_mic_open != s.keep_mic_open {
-            if self.busy() {
-                tracing::info!("microphone change applies after this dictation");
-                self.reopen_mic = true;
-            } else {
-                self.capture = None;
-            }
-        }
-        self.apply_rest(&old);
-    }
-
-    /// The model and live pipeline settings.
-    fn apply_rest(&mut self, old: &Settings) {
-        let s = &self.settings;
-        if old.models() != s.models() {
-            self.request_reload();
-        } else if old.live() != s.live()
-            && let Some(pipeline) = &self.pipeline
-        {
-            tracing::info!("settings applied");
-            pipeline.reconfigure(pipeline_config(s, self.starting_gain()));
-        }
-    }
-
-    fn request_reload(&mut self) {
-        if self.loading.is_some() {
-            // One load at a time: two at once hold two copies of the model.
-            // The one running is stale; load again when it lands.
-            self.reload_after_load = true;
-            return;
-        }
-        // Always listening is awake for hours; waiting for "go to sleep"
-        // would keep the old model all that time. Reload now and wake again
-        // after (speech during the few seconds of loading isn't typed).
-        let waits = self.cleaning || (self.listening_since.is_some() && !self.standby);
-        if waits {
-            self.reload_when_idle = true;
-            self.publish();
-        } else {
-            self.start_load();
-        }
-    }
-
-    fn watch_files(&mut self) {
-        let now = mtime(&self.paths.settings);
-        if now != self.settings_mtime {
-            self.settings_mtime = now;
-            // List and case modes aren't in the file: they carry over.
-            let loaded = self.paths.load().map(|mut s| {
-                s.list_mode = self.settings.list_mode;
-                s.case_mode = self.settings.case_mode;
-                s
-            });
-            match loaded {
-                Ok(s) if s != self.settings => {
-                    tracing::info!("settings file changed");
-                    self.ui.settings_changed(s.clone());
-                    self.apply(s);
-                }
-                Ok(_) => {}
-                Err(e) => self.notifier.notify("settings", "Settings file has a mistake", &format!("{e:#}")),
-            }
-        }
-    }
-}
-
-fn mtime(path: &Path) -> Option<SystemTime> {
-    fs::metadata(path).and_then(|m| m.modified()).ok()
 }

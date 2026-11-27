@@ -36,6 +36,9 @@ pub struct Shared {
     /// The window opened only to show "what's new": closing it hides the
     /// window again.
     pub news_opened_window: Signal<bool>,
+    /// The sentence wait suggested from the user's pauses, in seconds, and
+    /// how many pauses it's from (`engine/pauses.rs`).
+    pub sentence_wait_suggested: Signal<(Option<f32>, usize)>,
 }
 
 /// What the engine reports about the microphone, for the Microphone page.
@@ -127,12 +130,13 @@ impl Shared {
             updates,
             news: Signal::new(Vec::new()),
             news_opened_window: Signal::new(false),
+            sentence_wait_suggested: Signal::new((None, 0)),
         }
     }
 
     /// The engine's way back to the UI thread.
     pub fn bridge(&self) -> Bridge {
-        Bridge { status: self.status, settings: self.settings, mic: self.mic }
+        Bridge { status: self.status, settings: self.settings, mic: self.mic, sentence_wait_suggested: self.sentence_wait_suggested }
     }
 }
 
@@ -140,6 +144,7 @@ pub struct Bridge {
     status: Signal<Status>,
     settings: Signal<Settings>,
     mic: MicView,
+    sentence_wait_suggested: Signal<(Option<f32>, usize)>,
 }
 
 impl engine::Ui for Bridge {
@@ -167,6 +172,11 @@ impl engine::Ui for Bridge {
                 crate::menu::perform(&s, act);
             }
         });
+    }
+
+    fn sentence_wait_suggested(&self, wait: Option<std::time::Duration>, pauses: usize) {
+        let signal = self.sentence_wait_suggested;
+        rinch::run_on_main_thread(move || signal.set((wait.map(|d| d.as_secs_f32()), pauses)));
     }
 
     fn heard(&self, text: String, level: f32) {

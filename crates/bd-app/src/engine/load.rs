@@ -111,6 +111,7 @@ pub(super) fn pipeline_config(settings: &Settings, gain: f32) -> PipelineConfig 
         list_mode: live.list_mode,
         case_mode: live.case_mode,
         list_join: live.list_join_pauses,
+        sentence_wait: live.sentence_wait,
         ..PipelineConfig::default()
     }
 }

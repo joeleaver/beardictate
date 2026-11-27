@@ -221,3 +221,58 @@ fn an_item_said_after_going_to_sleep_starts_its_own_line() {
     assert_eq!(page(&events), "a tin of\ntomatoes");
     assert!(events.iter().all(|e| !matches!(e, Event::Rejoined { .. })));
 }
+
+const WENT_ON: [&str; 2] = ["I'm going to say a sentence with a pause in", "I'm going to say a sentence with a pause in the middle"];
+
+fn paused(events: &[Event]) -> Vec<crate::sentence_wait::Pause> {
+    events.iter().filter_map(|e| if let Event::Paused(p) = e { Some(*p) } else { None }).collect()
+}
+
+#[test]
+fn a_pause_the_speaker_went_on_from_is_reported_with_its_wait() {
+    let config = PipelineConfig { sentence_wait: Duration::from_secs(2), ..PipelineConfig::default() };
+    let p = rig(vec![PAUSED.to_vec(), WENT_ON.to_vec()], config, None);
+    say(&p, 0);
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    let pauses = paused(&events);
+    assert_eq!(pauses.len(), 1, "{events:?}");
+    assert_eq!(pauses[0].wait, Duration::from_secs(2));
+    assert!(pauses[0].pause < pauses[0].wait);
+}
+
+#[test]
+fn no_pause_is_reported_at_a_sentence_end_or_after_an_unfinished_word() {
+    // The recognizer ended the sentence, hearing what came next.
+    let p = rig(
+        vec![
+            vec!["I finished", "I finished the report", "I finished the report"],
+            vec!["I finished the report. Can", "I finished the report. Can you check it"],
+        ],
+        PipelineConfig::default(),
+        None,
+    );
+    say(&p, 0);
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert!(paused(&events).is_empty(), "{events:?}");
+    // "to": the longer wait, a different kind of pause.
+    let p = rig(vec![vec!["I'm going", "I'm going to", "I'm going to"], vec!["I'm going to say it"]], PipelineConfig::default(), None);
+    say(&p, 0);
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "I'm going to say it.");
+    assert!(paused(&events).is_empty(), "{events:?}");
+}
+
+#[test]
+fn a_longer_wait_set_while_running_holds_the_sentence_open_longer() {
+    let p = rig(vec![PAUSED.to_vec()], PipelineConfig::default(), None);
+    p.reconfigure(PipelineConfig { sentence_wait: Duration::from_millis(2500), ..PipelineConfig::default() });
+    say(&p, 0);
+    let done = Instant::now();
+    let events = until(p.events(), |e| matches!(e, Event::Text { text, .. } if text.contains('.')));
+    // The default 1.5 s would have ended it well before.
+    assert!(done.elapsed() >= Duration::from_millis(2200), "waited {:?}", done.elapsed());
+    assert_eq!(page(&events), "I'm going to say a sentence with a pause.");
+}

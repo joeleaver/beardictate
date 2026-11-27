@@ -392,12 +392,35 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   at every mid-sentence pause (testers, 2026-10-19). Instead the stream is
   held open over a pause and the next utterance goes on in it: the stopped
   one ends as Nemotron punctuates it once the next words come in (full
-  stop, comma or nothing). After 1.5 s more silence (4 s after "and",
-  "the", a comma…) it's a sentence's end: a question mark when it reads as
-  one ("can you…", "how do…"), else a full stop. On Piper TTS, all seven
-  mid-sentence pauses of 1.2–2.5 s came out right and 3 of 5 real
-  sentence ends. The cost: a sentence's end, and so its tidying or a
-  typed-once sentence, comes about 1.5 s later.
+  stop, comma or nothing). After the **sentence wait** of more silence
+  (1.5 s by default; 8/3 of it, 4 s, after "and", "the", a comma…) it's a
+  sentence's end: a question mark when it reads as one ("can you…", "how
+  do…"), else a full stop. On Piper TTS, all seven mid-sentence pauses of
+  1.2–2.5 s came out right and 3 of 5 real sentence ends. The cost: a
+  sentence's end, and so its tidying or a typed-once sentence, comes that
+  much later.
+- **The sentence wait is a setting** (Writing › Pauses, 1–3 s,
+  `sentence_wait_secs`; `PipelineConfig::sentence_wait`,
+  `sentence_wait.rs`), asked for by the Windows tester, who pauses to think
+  mid-sentence. On his labelled pauses 1.5 → 1.8 s cut false full stops
+  from 18 to 14, 2.2 s to 12. The app **suggests** a wait from the user's
+  own pauses and shows it under the setting with a button; it never changes
+  the wait itself. It learns only from pauses it can label: the speaker went
+  on before the wait ran out, after a word a sentence can end on, and
+  Nemotron didn't end the sentence there (`Event::Paused`; the last 400
+  kept in `sentence-pauses.json`, lengths only). Longer pauses get our full
+  stop and can't be labelled, so what's seen is cut off at the wait: the
+  suggestion is the 95th percentile of a log-normal fitted to the pauses,
+  truncated at each one's wait, rounded to 0.1 s, from 150 pauses on. On
+  telemetry (2026-11-26) it gave the Windows tester 1.9 s and another
+  Windows install 2.0 s (today's 1.5 s was the 90th percentile for both);
+  it can't see a tail of long thinking pauses (2–8 s), so it errs short.
+  Extrapolating Nemotron's below-the-wait "went on" share past the wait
+  was tried and dropped: it predicted 38 % of his closed pauses were
+  mid-sentence, where the labels say 15 %. The Bear Pad's own 1.5 s / 5 s
+  (when to tidy, `stages/pad_mode.rs`) and the tidy's hold for an
+  unfinished sentence (`sentence_hold`) count from after the listener has
+  ended the sentence, so they don't follow the setting.
 - **A list item over a pause** (`stages/list_join.rs`): in a list, an
   utterance the speaker went on to before the listener's deadline is the
   rest of the item, unless Nemotron ended the one before with . ? or !
