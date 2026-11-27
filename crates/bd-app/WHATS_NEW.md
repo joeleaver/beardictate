@@ -8,6 +8,7 @@ us. `site/publish.sh add` refuses a version with no section here.
 ## 0.1.24
 
 - If your microphone is on but sends no sound (some USB microphones do for a while after the computer starts), beardictate notices, keeps reopening it and picks it up as soon as it sends sound. Meanwhile the bear glows amber; press your shortcut or click the bear to try straight away.
+- In a list, when you pause for a moment in the middle of an item and carry on, the rest goes on the same item instead of a new line. Writing › Pauses turns it off.
 
 ## 0.1.23
 

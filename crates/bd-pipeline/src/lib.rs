@@ -187,6 +187,10 @@ pub struct PipelineConfig {
     /// capital or the recognizer's full stop, and not tidied. "bear, start
     /// a list" and "bear, end the list" switch it too ([`Event::ListMode`]).
     pub list_mode: bool,
+    /// List mode: an utterance said before the listener's deadline is the
+    /// rest of the item, unless the recognizer ended the one before with
+    /// . ? or ! (`stages/list_join.rs`). On by default.
+    pub list_join: bool,
     /// Title case, lower case or all caps ([`CaseMode`]): until switched
     /// back, by "bear, normal case" or [`Event::CaseMode`]'s like. Not tidied.
     pub case_mode: CaseMode,
@@ -214,6 +218,7 @@ impl Default for PipelineConfig {
             drop_far_voices: false,
             pad: false,
             list_mode: false,
+            list_join: true,
             case_mode: CaseMode::Normal,
         }
     }
@@ -253,6 +258,9 @@ pub enum Event {
     },
     /// A spoken "scratch that" dropped this segment before delivery.
     Scratched { id: u64 },
+    /// In list mode, segment `id` goes on the item of `onto`, said before a
+    /// pause ([`PipelineConfig::list_join`]).
+    Rejoined { id: u64, onto: u64 },
     /// Take `text` back (with Backspace, one per character typed; the
     /// cursor is still right after it, since the user is talking, not
     /// typing). `scratch`: "scratch that" (or an undo) for a segment already

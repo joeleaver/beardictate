@@ -1,6 +1,6 @@
 # beardictate — handover
 
-Last updated: 2026-11-10 (unreleased fixes after 0.1.22). Read this, then
+Last updated: 2026-11-26 (pauses: list items, unreleased). Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
@@ -29,6 +29,12 @@ on, expect amber within ~10 s, unmute, expect it back within a minute.
 After Will updates: `mic_sound`'s `silent_ms`/`reopens`, and `mic` `level`
 `zeros`. `engine.rs`'s status code moved to `engine/status.rs`.
 
+**Since 0.1.23 (2026-11-26, unreleased, tests only):** pauses
+(`stages/list_join.rs`). In a list, words said after a short pause stay on
+the same item (setting `list_join_pauses`, on, under Writing › Pauses;
+telemetry `rejoined`). Try by voice: a list item with a pause in it.
+Next idea there: fillers ("um") in the listener's UNFINISHED words, so it
+waits.
 
 From the Windows tester's notes (10-26 to 11-08) and their telemetry; all
 proved by tests only, not yet in a build or by voice:

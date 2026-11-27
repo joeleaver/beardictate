@@ -16,6 +16,7 @@ use bd_commands::{CommandConfig, is_spoken_mark};
 use bd_core::{AudioSegment, BoxError, LiveAudio, SAMPLE_RATE, StreamingAsr};
 use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
 
+use super::list_join::Ending;
 use super::transcribe::Report;
 use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;
@@ -231,7 +232,7 @@ impl Listener {
             }
             Err(e) => {
                 self.close(None);
-                if let Some(heard) = self.report.finished(id, &seg, used, started, Err(e)) {
+                if let Some(heard) = self.report.finished(id, &seg, used, started, Err(e), Ending::Alone) {
                     let _ = self.out.send(heard);
                 }
                 return;
@@ -297,7 +298,8 @@ impl Listener {
             text = end_sentence(text);
         }
         self.done = end;
-        if let Some(heard) = self.report.finished(s.id, &s.seg, s.used, s.started, Ok(text)) {
+        let ending = if close.is_some() { Ending::Closed } else { Ending::WentOn };
+        if let Some(heard) = self.report.finished(s.id, &s.seg, s.used, s.started, Ok(text), ending) {
             let _ = self.out.send(heard);
         }
     }

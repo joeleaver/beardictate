@@ -398,6 +398,16 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   mid-sentence pauses of 1.2–2.5 s came out right and 3 of 5 real
   sentence ends. The cost: a sentence's end, and so its tidying or a
   typed-once sentence, comes about 1.5 s later.
+- **A list item over a pause** (`stages/list_join.rs`): in a list, an
+  utterance the speaker went on to before the listener's deadline is the
+  rest of the item, unless Nemotron ended the one before with . ? or !
+  (17 of 18 items split at a pause kept whole, 1 false join in 39 item
+  ends): on by default (`list_join_pauses`), and telemetry's `rejoined`
+  says when it fires. Tried and dropped (2026-11-26): taking back the full
+  stop the listener puts at a longer thinking pause when the next words
+  carry the sentence on. A text rule fixed 1 of 11 such pauses, and
+  neither Bear nor stock Gemma 4 E2B could tell them from real ends
+  (`eval/rejoin/FINDINGS.md`).
 - Measured 2026-10-19, `bd file --stream --realtime` on NICO-TOP, tidy on:
   cleanup 0.3–0.5 s a sentence on its Radeon iGPU, about 2 s on its CPU
   alone with Nemotron running, never behind, so the tidied sentence lands
