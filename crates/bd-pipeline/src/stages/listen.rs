@@ -85,6 +85,8 @@ struct Listener {
     commands: CommandConfig,
     /// How long a stopped utterance waits ([`PipelineConfig::sentence_wait`]).
     wait: Duration,
+    /// Where its words go: the pad, and typed as they're spoken.
+    goes: (bool, bool),
     /// The wait in force when the utterance being spoken started, which
     /// the pause before it was cut off at.
     wait_at_start: Duration,
@@ -117,6 +119,7 @@ pub(super) fn live(
         commands: config.commands.clone(),
         wait: sentence_wait::clamp(config.sentence_wait),
         wait_at_start: sentence_wait::clamp(config.sentence_wait),
+        goes: (config.pad, config.live_typing),
         loudness: (0.0, 0, 1.0),
     };
     loop {
@@ -163,12 +166,20 @@ impl Listener {
 
     fn take(&mut self, cut: Cut) {
         let Cut::Live(id, audio, used) = cut else {
-            if let Cut::Reconfigure(config) = &cut {
-                // A setting changed (the sentence wait slider sends one per
-                // step): the sentence waiting goes on waiting, under it.
-                self.commands = config.commands.clone();
-                self.wait = sentence_wait::clamp(config.sentence_wait);
-            } else if self.speaking.is_none() {
+            // A setting changed (the sentence wait slider sends one per
+            // step): the sentence waiting goes on waiting, under it, unless
+            // its words now go somewhere else (the pad, or typed once), which
+            // must not get half of it.
+            let stays = match &cut {
+                Cut::Reconfigure(config) => {
+                    self.commands = config.commands.clone();
+                    self.wait = sentence_wait::clamp(config.sentence_wait);
+                    let goes = (config.pad, config.live_typing);
+                    std::mem::replace(&mut self.goes, goes) == goes
+                }
+                _ => false,
+            };
+            if !stays && self.speaking.is_none() {
                 self.close(None);
             }
             let asr = &mut self.asr;

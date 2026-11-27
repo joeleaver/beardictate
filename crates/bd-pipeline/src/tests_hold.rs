@@ -285,7 +285,23 @@ fn a_setting_changed_mid_sentence_leaves_the_sentence_open() {
     say(&p, 1);
     let events: Vec<Event> = p.finish().try_iter().collect();
     assert_eq!(page(&events), "I'm going to say a sentence with a pause in the middle.");
-    assert_eq!(paused(&events).len(), 1, "{events:?}");
+    let pauses = paused(&events);
+    assert_eq!(pauses.len(), 1, "{events:?}");
+    // Filed under the wait in force when the words went on.
+    assert_eq!(pauses[0].wait, Duration::from_secs(2));
+}
+
+#[test]
+fn switching_to_typing_once_mid_sentence_ends_the_sentence_where_it_was() {
+    // A new stream after the first is finished: it hears only what follows.
+    let p = rig(vec![PAUSED.to_vec(), vec!["In the", "In the middle"]], PipelineConfig::default(), None);
+    say(&p, 0);
+    p.reconfigure(PipelineConfig { live_typing: false, ..PipelineConfig::default() });
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    let heard: Vec<&str> = events.iter().filter_map(|e| if let Event::Transcribed { text, .. } = e { Some(text.as_str()) } else { None }).collect();
+    assert_eq!(heard, ["I'm going to say a sentence with a pause.", "In the middle."], "{events:?}");
+    assert!(paused(&events).is_empty(), "{events:?}");
 }
 
 #[test]
