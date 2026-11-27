@@ -174,7 +174,8 @@ impl Listener {
             // starts asleep). Anything else (a session's end, sleep
             // or waking, a new passage) ends it now, without the wait, so it
             // comes before the switch; the segmenter has ended an utterance
-            // being spoken before a session's end or a sleep.
+            // being spoken before a session's end, a sleep or voice wake
+            // turned on.
             let stays = match &cut {
                 Cut::Reconfigure(config) => {
                     self.commands = config.commands.clone();

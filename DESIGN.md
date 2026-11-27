@@ -299,7 +299,8 @@ ours), goes through commands, cleanup and typing, and is typed before the
 bear sleeps; words typed live stay typed. Turning voice wake on (it starts
 asleep) cuts the same way. Live text is gated where it's taken in, in order
 with the switches, as finished text is: live text of a sentence ended
-before a wake isn't typed, and a sentence's typed just before a sleep is.
+before a wake isn't typed, and the live text of a sentence said just
+before a sleep is.
 Waking doesn't cut: an utterance under way when the hotkey wakes it is
 typed whole, so a first word said just before the press isn't lost. (The
 Windows tester toggles by hotkey ~400 times a fortnight, often a word or
