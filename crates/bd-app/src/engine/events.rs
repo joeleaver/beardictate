@@ -27,6 +27,7 @@ impl<U: Ui> Worker<U> {
             }
             Event::SessionEnded => {
                 self.cleaning = false;
+                self.settle_pauses();
                 if std::mem::take(&mut self.reopen_mic) && !self.standby {
                     // The next dictation opens the newly chosen microphone.
                     self.capture = None;
@@ -67,6 +68,7 @@ impl<U: Ui> Worker<U> {
             }
             Event::Slept => {
                 tracing::info!("voice wake: asleep");
+                self.settle_pauses();
                 self.listening_since = None;
                 self.last_dictation = Some(Instant::now());
                 if self.reload_when_idle {
@@ -94,6 +96,8 @@ impl<U: Ui> Worker<U> {
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
             Event::Rejoined { id, onto } => tracing::info!(segment = id, onto, "went on the list item before"),
+            Event::Paused(pause) if !self.testing => self.add_pause(pause),
+            Event::Paused(_) => {}
             Event::Pad(view) => self.on_pad_view(view),
             Event::CaseMode(mode) => {
                 self.settings.case_mode = mode;

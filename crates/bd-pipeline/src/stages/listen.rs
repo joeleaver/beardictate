@@ -8,7 +8,10 @@
 //! when the next one's first words come in, ending as the recognizer then
 //! punctuated it (a full stop, a comma, or nothing when the sentence runs
 //! on); when nobody speaks again soon, with a full stop or question mark of
-//! ours ([`end_sentence`]).
+//! ours ([`end_sentence`]). How soon is the user's setting
+//! ([`crate::PipelineConfig::sentence_wait`]), longer after a word a sentence
+//! doesn't end on; each pause the speaker went on from in time, mid-sentence,
+//! is reported ([`Event::Paused`]) to suggest it from.
 
 use std::time::{Duration, Instant};
 
@@ -20,13 +23,10 @@ use super::list_join::Ending;
 use super::transcribe::Report;
 use super::{Cut, Heard, noise, wake};
 use crate::gain::InputGain;
+use crate::sentence_wait::{self, Pause};
 use crate::voice::VoiceLevel;
-use crate::{Event, Stage};
+use crate::{Event, PipelineConfig, Stage};
 
-/// How long a stopped utterance waits for more before it's a sentence's end.
-const WAIT: Duration = Duration::from_millis(1500);
-/// The wait after a word a sentence doesn't end on ("and", "the").
-const WAIT_UNFINISHED: Duration = Duration::from_secs(4);
 /// A stream this long (60 s) is finished at the next pause, not held.
 const MAX_HELD: usize = 60 * SAMPLE_RATE as usize;
 /// How much of an utterance it takes to tell whose voice it is.
@@ -48,7 +48,20 @@ struct Stopped {
     started: Instant,
     /// Stream words up to its end.
     end: usize,
+    /// When it stopped (the VAD said so), which its wait counts from.
     at: Instant,
+    /// It ended on a word a sentence doesn't end on: the longer wait.
+    unfinished: bool,
+}
+
+/// How the stopped utterance's wait came to an end.
+enum Then {
+    /// Nobody spoke in time: the stream was finished, the sentence ended at
+    /// this stream word.
+    Closed(usize),
+    /// The next utterance, which started then, under that wait, brought
+    /// words.
+    WentOn(Instant, Duration),
 }
 
 struct Listener {
@@ -70,6 +83,13 @@ struct Listener {
     held_at: Option<Instant>,
     /// For spoken marks: one said after a pause joins the utterance before.
     commands: CommandConfig,
+    /// How long a stopped utterance waits ([`PipelineConfig::sentence_wait`]).
+    wait: Duration,
+    /// Where its words go: the pad, and typed as they're spoken.
+    goes: (bool, bool),
+    /// The wait in force when the utterance being spoken started, which
+    /// the pause before it was cut off at.
+    wait_at_start: Duration,
     /// The utterance being spoken so far: its samples' sum of squares and
     /// count, and the gain they were raised by, to tell whose voice it is.
     loudness: (f64, usize, f32),
@@ -82,7 +102,7 @@ pub(super) fn live(
     events: Sender<Event>,
     gain: InputGain,
     voice: VoiceLevel,
-    commands: CommandConfig,
+    config: &PipelineConfig,
 ) {
     let report = Report { events, gain, voice, previous_end: None };
     let mut l = Listener {
@@ -96,7 +116,10 @@ pub(super) fn live(
         speaking: None,
         stopped: None,
         held_at: None,
-        commands,
+        commands: config.commands.clone(),
+        wait: sentence_wait::clamp(config.sentence_wait),
+        wait_at_start: sentence_wait::clamp(config.sentence_wait),
+        goes: (config.pad, config.live_typing),
         loudness: (0.0, 0, 1.0),
     };
     loop {
@@ -126,20 +149,37 @@ impl Listener {
             return None;
         }
         match &self.stopped {
-            Some(s) => {
-                let last = self.text.split_whitespace().nth(s.end.saturating_sub(1)).unwrap_or("");
-                Some(s.at + if unfinished(last) { WAIT_UNFINISHED } else { WAIT })
-            }
-            None => self.open.then(|| self.held_at.unwrap_or_else(Instant::now) + WAIT),
+            Some(s) => Some(s.at + self.wait_after(s)),
+            None => self.open.then(|| self.held_at.unwrap_or_else(Instant::now) + self.wait),
         }
+    }
+
+    fn wait_after(&self, s: &Stopped) -> Duration {
+        if s.unfinished { sentence_wait::unfinished(self.wait) } else { self.wait }
+    }
+
+    /// Whether the stream's word `end` (counting from 1) is one a sentence
+    /// doesn't end on.
+    fn ends_unfinished(&self, end: usize) -> bool {
+        end > 0 && self.text.split_whitespace().nth(end - 1).is_some_and(unfinished)
     }
 
     fn take(&mut self, cut: Cut) {
         let Cut::Live(id, audio, used) = cut else {
-            if let Cut::Reconfigure(config) = &cut {
-                self.commands = config.commands.clone();
-            }
-            if self.speaking.is_none() {
+            // A setting changed (the sentence wait slider sends one per
+            // step): the sentence waiting goes on waiting, under it, unless
+            // its words now go somewhere else (the pad, or typed once), which
+            // must not get half of it.
+            let stays = match &cut {
+                Cut::Reconfigure(config) => {
+                    self.commands = config.commands.clone();
+                    self.wait = sentence_wait::clamp(config.sentence_wait);
+                    let goes = (config.pad, config.live_typing);
+                    std::mem::replace(&mut self.goes, goes) == goes
+                }
+                _ => false,
+            };
+            if !stays && self.speaking.is_none() {
                 self.close(None);
             }
             let asr = &mut self.asr;
@@ -158,6 +198,7 @@ impl Listener {
         match audio {
             LiveAudio::Start(samples) => {
                 self.speaking = Some((id, Instant::now()));
+                self.wait_at_start = self.wait;
                 let started = if self.open {
                     let gap = self.held_at.map_or(Duration::ZERO, |t| t.elapsed());
                     self.asr.resume(gap)
@@ -206,7 +247,8 @@ impl Listener {
             if self.only_a_mark(n) {
                 return;
             }
-            self.report_stopped(None);
+            let started = self.speaking.map_or_else(Instant::now, |(_, t)| t);
+            self.report_stopped(Then::WentOn(started, self.wait_at_start));
         }
         if self.stopped.is_some() {
             return;
@@ -227,7 +269,7 @@ impl Listener {
             Ok(Some(text)) => text,
             Ok(None) => {
                 // Can't wait for more: finished alone, as it was heard.
-                self.stopped = Some(Stopped { id, seg, used, started, end: 0, at: Instant::now() });
+                self.stopped = Some(Stopped { id, seg, used, started, end: 0, at: Instant::now(), unfinished: false });
                 return self.close(None);
             }
             Err(e) => {
@@ -241,18 +283,25 @@ impl Listener {
         self.text = text;
         self.held_at = Some(Instant::now());
         let n = self.text.split_whitespace().count();
+        // No new words, but the waiting utterance's last word may read
+        // differently now ("river" → "river,"), and with it, how long it waits.
+        if let Some(end) = self.stopped.as_ref().map(|s| s.end).filter(|&end| n <= end) {
+            let unfinished = self.ends_unfinished(end);
+            self.stopped.as_mut().expect("checked").unfinished = unfinished;
+        }
         if self.stopped.as_ref().is_some_and(|s| n > s.end) && self.only_a_mark(n) {
             // A mark said on its own ("…so well" and then "exclamation
             // point"): it ends the utterance before, which waits on.
             tracing::info!(segment = id, "a spoken mark joins the utterance before");
+            let unfinished = self.ends_unfinished(n);
             let s = self.stopped.as_mut().expect("checked");
-            (s.end, s.at) = (n, Instant::now());
+            (s.end, s.at, s.unfinished) = (n, Instant::now(), unfinished);
             let (sid, text) = (s.id, words(&self.text, self.done, n));
             let _ = self.out.send(Heard::Partial { id: sid, text, settled: true });
             return;
         }
         if self.stopped.as_ref().is_some_and(|s| n > s.end) {
-            self.report_stopped(None);
+            self.report_stopped(Then::WentOn(started, self.wait_at_start));
         }
         // An utterance that brought no words leaves the one before waiting.
         if self.stopped.is_some() || n <= self.done {
@@ -262,7 +311,8 @@ impl Listener {
         let text = words(&self.text, self.done, n);
         // Someone else's voice: nothing to show while it waits.
         let far = self.report.voice.is_far(noise::rms(&seg.samples) / used, wake::heard(&text).is_some());
-        self.stopped = Some(Stopped { id, seg, used, started, end: n, at: Instant::now() });
+        let unfinished = self.ends_unfinished(n);
+        self.stopped = Some(Stopped { id, seg, used, started, end: n, at: Instant::now(), unfinished });
         if !far {
             let _ = self.out.send(Heard::Partial { id, text, settled: true });
         }
@@ -287,11 +337,15 @@ impl Listener {
         is_spoken_mark(&new, &self.commands)
     }
 
-    /// Reports the stopped utterance: up to `close`'s end of the stream
-    /// with a sentence's end added, or as the recognizer has punctuated it
-    /// now that the next words came.
-    fn report_stopped(&mut self, close: Option<usize>) {
+    /// Reports the stopped utterance: closed, up to that stream word with a
+    /// sentence's end added; or, when the speaker went on, as the
+    /// recognizer has punctuated it now that the next words came.
+    fn report_stopped(&mut self, then: Then) {
         let Some(s) = self.stopped.take() else { return };
+        let close = match then {
+            Then::Closed(upto) => Some(upto),
+            Then::WentOn(..) => None,
+        };
         let end = close.unwrap_or(s.end).max(self.done);
         let mut text = words(&self.text, self.done, end);
         if close.is_some() {
@@ -299,9 +353,16 @@ impl Listener {
         }
         self.done = end;
         let ending = if close.is_some() { Ending::Closed } else { Ending::WentOn };
-        if let Some(heard) = self.report.finished(s.id, &s.seg, s.used, s.started, Ok(text), ending) {
-            let _ = self.out.send(heard);
+        let Some(heard) = self.report.finished(s.id, &s.seg, s.used, s.started, Ok(text), ending) else { return };
+        if let (Then::WentOn(next, wait), Heard::Text { text, .. }) = (then, &heard) {
+            // Someone else's voice (no text) says nothing of the user's pauses.
+            let mid_sentence = !text.is_empty() && !text.ends_with(['.', '?', '!']);
+            if mid_sentence && !s.unfinished {
+                let pause = Pause { pause: next.saturating_duration_since(s.at), wait };
+                let _ = self.report.events.send(Event::Paused(pause));
+            }
         }
+        let _ = self.out.send(heard);
     }
 
     /// Finishes the stream and reports the utterance waiting on it, ended
@@ -317,7 +378,7 @@ impl Listener {
             Err(e) => self.error(e),
         }
         let all = self.text.split_whitespace().count();
-        self.report_stopped(Some(upto.unwrap_or(all).min(all)));
+        self.report_stopped(Then::Closed(upto.unwrap_or(all).min(all)));
     }
 
     fn error(&self, e: BoxError) {

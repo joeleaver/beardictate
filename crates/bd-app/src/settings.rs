@@ -4,11 +4,13 @@ use std::time::Duration;
 
 use bd_commands::{CommandConfig, NumberStyle};
 use bd_core::{PunctuationPlacement, QuoteStyle, Spelling, Style};
+use bd_pipeline::sentence_wait;
 use serde::{Deserialize, Serialize};
 
 mod paths;
 mod words;
 pub use paths::Paths;
+pub(crate) use paths::write_atomic;
 pub use words::{FIRST_GROUP, SpecialWord, WordGroup, active_words, starter_groups, vocabulary};
 
 /// The marks around dialog.
@@ -119,6 +121,9 @@ pub struct Settings {
     /// In a list, words said after a short pause go on the same item
     /// rather than a new one ([`bd_pipeline::PipelineConfig::list_join`]).
     pub list_join_pauses: bool,
+    /// How long, in seconds, a pause waits for you to go on before the
+    /// sentence ends there ([`bd_pipeline::PipelineConfig::sentence_wait`]).
+    pub sentence_wait_secs: f32,
     pub quote_marks: QuoteMarks,
     /// Curly quotation marks (“ ” ‘ ’); off, straight typewriter ones.
     pub curly_quotes: bool,
@@ -209,6 +214,7 @@ impl Default for Settings {
             paragraph_on_topic: false,
             pause_paragraph_secs: 3.0,
             list_join_pauses: true,
+            sentence_wait_secs: 1.5,
             quote_marks: QuoteMarks::Double,
             curly_quotes: true,
             voice_wake: true,
@@ -269,6 +275,7 @@ pub struct LiveSettings {
     pub list_mode: bool,
     pub case_mode: bd_pipeline::CaseMode,
     pub list_join_pauses: bool,
+    pub sentence_wait: Duration,
 }
 
 /// Whether `cleanup` names a catalog model id the catalog no longer has.
@@ -343,6 +350,13 @@ impl Settings {
         self.paragraph_on_pause.then(|| Duration::from_secs_f32(self.pause_paragraph_secs.max(0.5)))
     }
 
+    /// The sentence wait, within what can be set; the default when the file
+    /// holds something that isn't a number of seconds.
+    pub fn sentence_wait(&self) -> Duration {
+        let wait = Duration::try_from_secs_f32(self.sentence_wait_secs).unwrap_or(sentence_wait::DEFAULT);
+        sentence_wait::clamp(wait)
+    }
+
     pub fn models(&self) -> ModelSettings {
         ModelSettings {
             cleanup: self.cleanup.clone(),
@@ -367,6 +381,7 @@ impl Settings {
             list_mode: self.list_mode,
             case_mode: self.case_mode,
             list_join_pauses: self.list_join_pauses,
+            sentence_wait: self.sentence_wait(),
         }
     }
 

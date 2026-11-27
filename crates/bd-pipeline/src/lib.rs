@@ -27,6 +27,7 @@
 mod case;
 mod compose;
 mod sentence;
+pub mod sentence_wait;
 pub mod dump;
 pub mod gain;
 mod voice;
@@ -191,6 +192,11 @@ pub struct PipelineConfig {
     /// rest of the item, unless the recognizer ended the one before with
     /// . ? or ! (`stages/list_join.rs`). On by default.
     pub list_join: bool,
+    /// How long a stopped utterance waits for the speaker to go on before
+    /// the listener ends its sentence there, with a streaming recognizer;
+    /// after a word a sentence doesn't end on, [`sentence_wait::unfinished`]
+    /// of it. Within [`sentence_wait::MIN`]..=[`sentence_wait::MAX`].
+    pub sentence_wait: Duration,
     /// Title case, lower case or all caps ([`CaseMode`]): until switched
     /// back, by "bear, normal case" or [`Event::CaseMode`]'s like. Not tidied.
     pub case_mode: CaseMode,
@@ -219,6 +225,7 @@ impl Default for PipelineConfig {
             pad: false,
             list_mode: false,
             list_join: true,
+            sentence_wait: sentence_wait::DEFAULT,
             case_mode: CaseMode::Normal,
         }
     }
@@ -261,6 +268,9 @@ pub enum Event {
     /// In list mode, segment `id` goes on the item of `onto`, said before a
     /// pause ([`PipelineConfig::list_join`]).
     Rejoined { id: u64, onto: u64 },
+    /// The speaker went on mid-sentence after this pause, before the
+    /// listener's wait ran out: what [`sentence_wait::suggest`] learns from.
+    Paused(sentence_wait::Pause),
     /// Take `text` back (with Backspace, one per character typed; the
     /// cursor is still right after it, since the user is talking, not
     /// typing). `scratch`: "scratch that" (or an undo) for a segment already

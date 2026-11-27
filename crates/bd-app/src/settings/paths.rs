@@ -15,6 +15,9 @@ pub struct Paths {
     pub portal_token: PathBuf,
     /// The microphone gain learned for each microphone.
     pub gains: PathBuf,
+    /// Your recent pauses mid-sentence, to suggest a sentence wait from
+    /// (`engine/pauses.rs`): their lengths only, no words.
+    pub pauses: PathBuf,
     /// Where the Bear Pad window was, and its size.
     pub pad_window: PathBuf,
     /// Where the bear on screen was left.
@@ -42,6 +45,7 @@ impl Paths {
             portal_token: dirs.data_local_dir().join("portal-token"),
             log: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("beardictate.log"),
             gains: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("input-gain.toml"),
+            pauses: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("sentence-pauses.json"),
             pad_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("pad-window"),
             bear_window: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("bear-window"),
             settings_section: dirs.state_dir().unwrap_or(dirs.data_local_dir()).join("settings-section"),
@@ -125,7 +129,7 @@ impl Paths {
     }
 }
 
-fn write_atomic(path: &Path, text: &str) -> Result<()> {
+pub(crate) fn write_atomic(path: &Path, text: &str) -> Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     }
@@ -161,6 +165,8 @@ const SETTINGS_HEADER: &str = "\
 # tidy_device: where the model that tidies runs: \"auto\" (the graphics card if there is one) or \"cpu\"
 #   (the processor only; try it if tidying is slow).
 # list_join_pauses: true to keep words said after a short pause on the same list item.
+# sentence_wait_secs: how long (1 to 3 seconds) a pause waits for you to go on before
+#   the sentence ends there; longer if you pause to think mid-sentence.
 # word_groups: [[word_groups]] with name and enabled, each with
 #   [[word_groups.words]] entries: word = \"...\", heard = [\"...\"], enabled.
 ";

@@ -35,6 +35,15 @@ the same item (setting `list_join_pauses`, on, under Writing › Pauses;
 telemetry `rejoined`). Try by voice: a list item with a pause in it.
 Next idea there: fillers ("um") in the listener's UNFINISHED words, so it
 waits.
+**The sentence wait is a setting** (unreleased, tests only; Writing ›
+Pauses, `sentence_wait_secs`, 1–3 s, default 1.5), with a wait suggested
+from the user's own pauses once 150 are kept (`sentence_wait.rs`,
+`engine/pauses.rs`, `sentence-pauses.json` in the state dir; DESIGN
+"Pauses"). Telemetry: `settings`' `sentence_wait_secs`, and `state`
+`sentence_wait_suggested_secs` when the suggestion changes. To check in a
+build: the slider and the suggestion line render, "Use" sets it, and after
+Will updates, what he's offered and whether he takes it.
+`engine.rs`'s settings code moved to `engine/apply.rs`.
 
 From the Windows tester's notes (10-26 to 11-08) and their telemetry; all
 proved by tests only, not yet in a build or by voice:

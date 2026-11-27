@@ -17,6 +17,7 @@ mod mic_page;
 mod modes;
 mod news;
 mod old_models;
+mod sentence_wait;
 mod setup;
 mod spelling;
 mod updates;
