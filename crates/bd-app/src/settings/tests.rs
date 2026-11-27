@@ -86,3 +86,20 @@ fn word_groups_round_trip_and_old_lists_move_into_one() {
     let mut kept: Settings = toml::from_str("cleanup = \"/models/mine.gguf\"\n").unwrap();
     assert!(!kept.upgrade());
 }
+
+#[test]
+fn the_sentence_wait_stays_within_what_can_be_set() {
+    let missing: Settings = toml::from_str("").unwrap();
+    assert_eq!(missing.sentence_wait(), Duration::from_millis(1500));
+    assert_eq!(missing.live().sentence_wait, Duration::from_millis(1500));
+    let wait = |secs: f32| Settings { sentence_wait_secs: secs, ..Settings::default() }.sentence_wait();
+    assert_eq!(wait(2.2), Duration::from_secs_f32(2.2));
+    assert_eq!(wait(0.2), Duration::from_secs(1));
+    assert_eq!(wait(5.0), Duration::from_secs(3));
+    assert_eq!(wait(-1.0), Duration::from_millis(1500));
+    assert_eq!(wait(f32::NAN), Duration::from_millis(1500));
+    // A new wait reaches the running pipeline without a reload.
+    let longer = Settings { sentence_wait_secs: 2.0, ..Settings::default() };
+    assert_ne!(missing.live(), longer.live());
+    assert_eq!(missing.models(), longer.models());
+}

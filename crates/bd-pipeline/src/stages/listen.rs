@@ -59,8 +59,9 @@ enum Then {
     /// Nobody spoke in time: the stream was finished, the sentence ended at
     /// this stream word.
     Closed(usize),
-    /// The next utterance, which started then, brought words.
-    WentOn(Instant),
+    /// The next utterance, which started then, under that wait, brought
+    /// words.
+    WentOn(Instant, Duration),
 }
 
 struct Listener {
@@ -84,6 +85,9 @@ struct Listener {
     commands: CommandConfig,
     /// How long a stopped utterance waits ([`PipelineConfig::sentence_wait`]).
     wait: Duration,
+    /// The wait in force when the utterance being spoken started, which
+    /// the pause before it was cut off at.
+    wait_at_start: Duration,
     /// The utterance being spoken so far: its samples' sum of squares and
     /// count, and the gain they were raised by, to tell whose voice it is.
     loudness: (f64, usize, f32),
@@ -112,6 +116,7 @@ pub(super) fn live(
         held_at: None,
         commands: config.commands.clone(),
         wait: sentence_wait::clamp(config.sentence_wait),
+        wait_at_start: sentence_wait::clamp(config.sentence_wait),
         loudness: (0.0, 0, 1.0),
     };
     loop {
@@ -159,10 +164,11 @@ impl Listener {
     fn take(&mut self, cut: Cut) {
         let Cut::Live(id, audio, used) = cut else {
             if let Cut::Reconfigure(config) = &cut {
+                // A setting changed (the sentence wait slider sends one per
+                // step): the sentence waiting goes on waiting, under it.
                 self.commands = config.commands.clone();
                 self.wait = sentence_wait::clamp(config.sentence_wait);
-            }
-            if self.speaking.is_none() {
+            } else if self.speaking.is_none() {
                 self.close(None);
             }
             let asr = &mut self.asr;
@@ -181,6 +187,7 @@ impl Listener {
         match audio {
             LiveAudio::Start(samples) => {
                 self.speaking = Some((id, Instant::now()));
+                self.wait_at_start = self.wait;
                 let started = if self.open {
                     let gap = self.held_at.map_or(Duration::ZERO, |t| t.elapsed());
                     self.asr.resume(gap)
@@ -230,7 +237,7 @@ impl Listener {
                 return;
             }
             let started = self.speaking.map_or_else(Instant::now, |(_, t)| t);
-            self.report_stopped(Then::WentOn(started));
+            self.report_stopped(Then::WentOn(started, self.wait_at_start));
         }
         if self.stopped.is_some() {
             return;
@@ -283,7 +290,7 @@ impl Listener {
             return;
         }
         if self.stopped.as_ref().is_some_and(|s| n > s.end) {
-            self.report_stopped(Then::WentOn(started));
+            self.report_stopped(Then::WentOn(started, self.wait_at_start));
         }
         // An utterance that brought no words leaves the one before waiting.
         if self.stopped.is_some() || n <= self.done {
@@ -326,7 +333,7 @@ impl Listener {
         let Some(s) = self.stopped.take() else { return };
         let close = match then {
             Then::Closed(upto) => Some(upto),
-            Then::WentOn(_) => None,
+            Then::WentOn(..) => None,
         };
         let end = close.unwrap_or(s.end).max(self.done);
         let mut text = words(&self.text, self.done, end);
@@ -336,11 +343,11 @@ impl Listener {
         self.done = end;
         let ending = if close.is_some() { Ending::Closed } else { Ending::WentOn };
         let Some(heard) = self.report.finished(s.id, &s.seg, s.used, s.started, Ok(text), ending) else { return };
-        if let (Then::WentOn(next), Heard::Text { text, .. }) = (then, &heard) {
+        if let (Then::WentOn(next, wait), Heard::Text { text, .. }) = (then, &heard) {
             // Someone else's voice (no text) says nothing of the user's pauses.
             let mid_sentence = !text.is_empty() && !text.ends_with(['.', '?', '!']);
             if mid_sentence && !s.unfinished {
-                let pause = Pause { pause: next.saturating_duration_since(s.at), wait: self.wait };
+                let pause = Pause { pause: next.saturating_duration_since(s.at), wait };
                 let _ = self.report.events.send(Event::Paused(pause));
             }
         }

@@ -283,7 +283,10 @@ impl<U: Ui> Worker<U> {
                     }
                     Ok(Command::Act(act)) => self.ui.act(act),
                     Ok(Command::ShortcutTaken(taken)) => self.shortcut_taken(taken),
-                    Ok(Command::Shutdown) | Err(_) => break,
+                    Ok(Command::Shutdown) | Err(_) => {
+                        self.settle_pauses();
+                        break;
+                    }
                 },
                 recv(audio) -> ev => if let Ok(ev) = ev { self.on_audio(ev) },
                 recv(events) -> ev => if let Ok(ev) = ev { self.on_pipeline(ev) },

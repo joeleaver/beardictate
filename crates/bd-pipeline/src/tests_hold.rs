@@ -276,3 +276,31 @@ fn a_longer_wait_set_while_running_holds_the_sentence_open_longer() {
     assert!(done.elapsed() >= Duration::from_millis(2200), "waited {:?}", done.elapsed());
     assert_eq!(page(&events), "I'm going to say a sentence with a pause.");
 }
+
+#[test]
+fn a_setting_changed_mid_sentence_leaves_the_sentence_open() {
+    let p = rig(vec![PAUSED.to_vec(), WENT_ON.to_vec()], PipelineConfig::default(), None);
+    say(&p, 0);
+    p.reconfigure(PipelineConfig { sentence_wait: Duration::from_secs(2), ..PipelineConfig::default() });
+    say(&p, 1);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "I'm going to say a sentence with a pause in the middle.");
+    assert_eq!(paused(&events).len(), 1, "{events:?}");
+}
+
+#[test]
+fn a_cough_during_the_pause_still_counts_the_pause_from_where_the_words_stopped() {
+    const SAME: &str = "I'm going to say a sentence with a pause";
+    let p = rig(vec![PAUSED.to_vec(), vec![SAME, SAME], WENT_ON.to_vec()], PipelineConfig::default(), None);
+    say(&p, 0);
+    let stopped = Instant::now();
+    say(&p, 1);
+    std::thread::sleep(Duration::from_millis(300));
+    say(&p, 2);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "I'm going to say a sentence with a pause in the middle.");
+    let pauses = paused(&events);
+    assert_eq!(pauses.len(), 1, "{events:?}");
+    assert!(pauses[0].pause >= Duration::from_millis(250), "{:?}", pauses[0]);
+    assert!(pauses[0].pause <= stopped.elapsed(), "{:?}", pauses[0]);
+}

@@ -12,12 +12,16 @@ use serde_json::json;
 use super::{Ui, Worker};
 use crate::telemetry::record;
 
+/// Saved after this many new pauses, as well as when a dictation ends and
+/// when the app quits.
+const SAVE_EVERY: usize = 20;
+
 pub(super) struct Pauses {
     path: PathBuf,
     /// The most recent [`sentence_wait::KEEP`], oldest first.
     recent: VecDeque<Pause>,
-    /// Added to since last saved.
-    unsaved: bool,
+    /// Added since last saved.
+    unsaved: usize,
     suggested: Option<Duration>,
 }
 
@@ -27,21 +31,24 @@ impl Pauses {
     pub(super) fn load(path: &Path) -> Pauses {
         let mut recent = std::fs::read_to_string(path).map(|text| parse(&text)).unwrap_or_default();
         let suggested = sentence_wait::suggest(recent.make_contiguous());
-        Pauses { path: path.to_path_buf(), recent, unsaved: false, suggested }
+        Pauses { path: path.to_path_buf(), recent, unsaved: 0, suggested }
     }
 
-    pub(super) fn add(&mut self, pause: Pause) {
+    /// Keeps `pause`. Returns whether enough are unsaved to save now
+    /// (always listening can stay awake for hours).
+    pub(super) fn add(&mut self, pause: Pause) -> bool {
         if self.recent.len() == sentence_wait::KEEP {
             self.recent.pop_front();
         }
         self.recent.push_back(pause);
-        self.unsaved = true;
+        self.unsaved += 1;
+        self.unsaved >= SAVE_EVERY
     }
 
     /// Saves what was added, and works the suggestion out again. Returns
     /// whether the suggestion changed.
     fn settle(&mut self) -> bool {
-        if !std::mem::take(&mut self.unsaved) {
+        if std::mem::take(&mut self.unsaved) == 0 {
             return false;
         }
         if let Err(e) = crate::settings::write_atomic(&self.path, &render(&self.recent)) {
@@ -58,7 +65,13 @@ impl Pauses {
 }
 
 impl<U: Ui> Worker<U> {
-    /// A dictation ended: keep its pauses, and say if the suggested wait
+    pub(super) fn add_pause(&mut self, pause: Pause) {
+        if self.pauses.add(pause) {
+            self.settle_pauses();
+        }
+    }
+
+    /// A dictation ended (or the app quits, or enough came): keep its pauses, and say if the suggested wait
     /// moved (to the UI, and to telemetry, to see what testers are offered).
     pub(super) fn settle_pauses(&mut self) {
         if !self.pauses.settle() {

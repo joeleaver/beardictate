@@ -96,7 +96,7 @@ impl<U: Ui> Worker<U> {
             }
             Event::Scratched { id } => tracing::info!(segment = id, "scratched"),
             Event::Rejoined { id, onto } => tracing::info!(segment = id, onto, "went on the list item before"),
-            Event::Paused(pause) if !self.testing => self.pauses.add(pause),
+            Event::Paused(pause) if !self.testing => self.add_pause(pause),
             Event::Paused(_) => {}
             Event::Pad(view) => self.on_pad_view(view),
             Event::CaseMode(mode) => {

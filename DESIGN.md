@@ -405,7 +405,8 @@ behr); Piper's voices are heard as "There", "Rare", so test with your own.
   mid-sentence. On his labelled pauses 1.5 → 1.8 s cut false full stops
   from 18 to 14, 2.2 s to 12. The app **suggests** a wait from the user's
   own pauses and shows it under the setting with a button; it never changes
-  the wait itself. It learns only from pauses it can label: the speaker went
+  the wait itself. A setting changed mid-sentence (the slider sends one
+  per step) leaves the sentence waiting, under the new wait. It learns only from pauses it can label: the speaker went
   on before the wait ran out, after a word a sentence can end on, and
   Nemotron didn't end the sentence there (`Event::Paused`; the last 400
   kept in `sentence-pauses.json`, lengths only). Longer pauses get our full
