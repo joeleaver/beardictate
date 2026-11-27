@@ -296,9 +296,12 @@ session's numbering and positions go on, as the microphone does) and ends a
 sentence waiting to hear whether it goes on, without the wait. Either way it
 ends as a sentence closed by the wait does (a full stop or question mark of
 ours), goes through commands, cleanup and typing, and is typed before the
-bear sleeps; words typed live stay typed. Live text is gated where it's
-taken in, in order with the switches, as finished text is, so a word said
-just before a wake isn't typed and one said just before a sleep is. (The
+bear sleeps; words typed live stay typed. Turning voice wake on (it starts
+asleep) cuts the same way. Live text is gated where it's taken in, in order
+with the switches, as finished text is: live text of a sentence ended
+before a wake isn't typed, and a sentence's typed just before a sleep is.
+Waking doesn't cut: an utterance under way when the hotkey wakes it is
+typed whole, so a first word said just before the press isn't lost. (The
 Windows tester toggles by hotkey ~400 times a fortnight, often a word or
 two and straight to sleep; 26 such sentences reached the gate after it
 closed: "one-word dictation does nothing".)

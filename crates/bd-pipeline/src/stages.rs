@@ -82,9 +82,10 @@ pub(crate) fn spawn(
     let learner = gain.clone();
     let voice = crate::voice::VoiceLevel::new(config.drop_far_voices);
     let listening = config.clone();
+    let voice_wake = config.voice_wake;
     let finisher = Finisher::new(cleanup, config, events, live, focus);
     Ok(vec![
-        thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live))?,
+        thread::Builder::new().name("bd-segment".into()).spawn(move || segment::segment(segmenter, input, cut_tx, gain, live, voice_wake))?,
         thread::Builder::new().name("bd-asr".into()).spawn(move || match asr {
             Recognizer::Segments(asr) => transcribe::transcribe(asr, cut_rx, heard_tx, asr_events, learner, voice),
             Recognizer::Live(asr) => listen::live(asr, cut_rx, heard_tx, asr_events, learner, voice, &listening),

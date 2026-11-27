@@ -231,3 +231,24 @@ fn a_segment_recognizer_hears_an_utterance_cut_by_sleep() {
     assert_eq!(page(&events), "Yes.");
     typed_before_sleep(&events, "Yes.");
 }
+
+#[test]
+fn turning_voice_wake_on_mid_sentence_types_it_whole() {
+    let lines = vec![vec!["It was", "It was late", "It was late at night"], vec!["On the phone", "On the phone now"]];
+    let parts = Parts {
+        segmenter: Box::new(OpenUtterance::default()),
+        asr: Recognizer::Live(Box::new(Stream { lines, line: 0, fed: 0, text: "" })),
+        cleanup: None,
+        focus: None,
+    };
+    let p = Pipeline::spawn(parts, PipelineConfig::default()).unwrap();
+    say(&p, 0);
+    say(&p, 0);
+    // Turned on, it starts asleep: what is being said ends there.
+    p.reconfigure(awake_with(PipelineConfig::default()));
+    say(&p, 1);
+    silence(&p);
+    let events: Vec<Event> = p.finish().try_iter().collect();
+    assert_eq!(page(&events), "It was late at night.");
+    assert!(events.iter().all(|e| !matches!(e, Event::Erase { .. })), "{events:?}");
+}

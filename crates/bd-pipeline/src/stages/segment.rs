@@ -18,11 +18,18 @@ enum Feed<'a> {
 }
 
 /// Stage 1: cut audio into utterances. Numbers segments over the pipeline's
-/// life. When the session ends, the input closes or it goes to sleep, cuts
-/// what is in progress. With
+/// life. When the session ends, the input closes or it goes to sleep
+/// (voice wake turned on starts asleep), cuts what is in progress. With
 /// `live`, hands out each utterance's audio as it is spoken
 /// ([`Cut::Live`]) for a streaming recognizer.
-pub(super) fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>, out: Sender<Cut>, gain: InputGain, live: bool) {
+pub(super) fn segment(
+    mut segmenter: Box<dyn Segmenting>,
+    input: Receiver<Input>,
+    out: Sender<Cut>,
+    gain: InputGain,
+    live: bool,
+    mut voice_wake: bool,
+) {
     let mut next_id = 0u64;
     let mut used = 1.0;
     let mut send_segments = |segs: Vec<AudioSegment>, used: f32, out: &Sender<Cut>| {
@@ -79,6 +86,11 @@ pub(super) fn segment(mut segmenter: Box<dyn Segmenting>, input: Receiver<Input>
             }
             Input::Reconfigure(config) => {
                 gain.set(config.input_gain, config.auto_gain);
+                // Turning voice wake on starts it asleep: a sleep, as above.
+                if config.voice_wake && !voice_wake {
+                    send_all(&mut segmenter, Feed::Cut, used, &out);
+                }
+                voice_wake = config.voice_wake;
                 let _ = out.send(Cut::Reconfigure(config));
             }
             Input::Awake(awake) => {
