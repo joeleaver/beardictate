@@ -70,6 +70,16 @@ pub trait Segmenting: Send {
     fn flush_live(&mut self) -> Vec<LiveAudio> {
         whole(self.flush())
     }
+
+    /// Ends the utterance in progress, if any, and returns it, without
+    /// ending the session: numbering and sample positions carry on (going
+    /// to sleep while the microphone keeps running).
+    fn cut(&mut self) -> Vec<AudioSegment>;
+
+    /// [`cut`](Self::cut) for [`accept_live`](Self::accept_live).
+    fn cut_live(&mut self) -> Vec<LiveAudio> {
+        whole(self.cut())
+    }
 }
 
 fn whole(segments: Vec<AudioSegment>) -> Vec<LiveAudio> {
@@ -91,6 +101,14 @@ impl Segmenting for bd_asr::Segmenter {
 
     fn flush_live(&mut self) -> Vec<LiveAudio> {
         bd_asr::Segmenter::flush_live(self)
+    }
+
+    fn cut(&mut self) -> Vec<AudioSegment> {
+        bd_asr::Segmenter::cut(self)
+    }
+
+    fn cut_live(&mut self) -> Vec<LiveAudio> {
+        bd_asr::Segmenter::cut_live(self)
     }
 }
 

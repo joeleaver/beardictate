@@ -223,6 +223,38 @@ impl Segmenter {
         out
     }
 
+    /// Ends the utterance in progress (if any speech was detected), as
+    /// [`flush`](Self::flush) does, without ending the session: numbering
+    /// and stream positions carry on, so a later segment's `start_sample`
+    /// still says how long after this one it began. For going to sleep
+    /// while always listening, which keeps the microphone running.
+    pub fn cut(&mut self) -> Vec<AudioSegment> {
+        let out = self.finish();
+        self.restart_vad();
+        self.trim();
+        out
+    }
+
+    /// [`cut`](Self::cut) for [`accept_live`](Self::accept_live).
+    pub fn cut_live(&mut self) -> Vec<LiveAudio> {
+        let segments = self.finish();
+        self.restart_vad();
+        // With no utterance running now, a live one the VAD never finished
+        // is dropped.
+        let out = self.live(segments);
+        self.trim();
+        out
+    }
+
+    /// A fresh VAD from the current stream position, with no utterance
+    /// running.
+    fn restart_vad(&mut self) {
+        self.vad.reset();
+        self.vad_origin = self.pos;
+        self.run_start = None;
+        self.carry_from = None;
+    }
+
     /// The utterance in progress, ended; no reset.
     fn finish(&mut self) -> Vec<AudioSegment> {
         let mut out = Vec::new();

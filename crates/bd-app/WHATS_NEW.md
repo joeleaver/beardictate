@@ -9,6 +9,7 @@ us. `site/publish.sh add` refuses a version with no section here.
 
 - If your microphone is on but sends no sound (some USB microphones do for a while after the computer starts), beardictate notices, keeps reopening it and picks it up as soon as it sends sound. Meanwhile the bear glows amber; press your shortcut or click the bear to try straight away.
 - In a list, when you pause for a moment in the middle of an item and carry on, the rest goes on the same item instead of a new line. Writing › Pauses turns it off.
+- Putting the bear to sleep straight after you speak no longer loses what you said: a word or a sentence still being said, or waiting to see if you’d go on, is typed before the bear sleeps.
 - If you pause to think mid-sentence and get a full stop there, set how long beardictate waits before it ends a sentence: Writing › Pauses › Wait before ending a sentence. Once it has heard enough of your pauses, it suggests a wait for you there; it only changes when you press “Use”.
 
 ## 0.1.23

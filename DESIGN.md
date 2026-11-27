@@ -289,6 +289,20 @@ reopened at 13 minutes it was still silent, so one retry isn't enough.)
 Waking after more than a minute asleep
 starts a new passage (no cleanup context from before).
 
+**Going to sleep ends what is being said** (2026-11-27). Sleep, by the
+hotkey or the app (unspoken to, the microphone turned off or lost), cuts
+the utterance in progress at once (`Segmenter::cut`: the VAD's end, but the
+session's numbering and positions go on, as the microphone does) and ends a
+sentence waiting to hear whether it goes on, without the wait. Either way it
+ends as a sentence closed by the wait does (a full stop or question mark of
+ours), goes through commands, cleanup and typing, and is typed before the
+bear sleeps; words typed live stay typed. Live text is gated where it's
+taken in, in order with the switches, as finished text is, so a word said
+just before a wake isn't typed and one said just before a sleep is. (The
+Windows tester toggles by hotkey ~400 times a fortnight, often a word or
+two and straight to sleep; 26 such sentences reached the gate after it
+closed: "one-word dictation does nothing".)
+
 **Other voices in the room** (2026-10-20). An alpha tester left it awake;
 for an hour and a half it typed, and sent as telemetry, a video and other
 people at -45 to -76 dBFS, while their own voice came in at -25 to -37 (and

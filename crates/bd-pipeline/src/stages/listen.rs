@@ -169,7 +169,10 @@ impl Listener {
             // A setting changed (the sentence wait slider sends one per
             // step): the sentence waiting goes on waiting, under it, unless
             // its words now go somewhere else (the pad, or typed once), which
-            // must not get half of it.
+            // must not get half of it. Anything else (a session's end, sleep
+            // or waking, a new passage) ends it now, without the wait, so it
+            // comes before the switch; the segmenter has ended an utterance
+            // being spoken before a session's end or a sleep.
             let stays = match &cut {
                 Cut::Reconfigure(config) => {
                     self.commands = config.commands.clone();

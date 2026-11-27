@@ -32,10 +32,8 @@ pub(super) struct Typing {
 impl Finisher {
     /// A streaming recognizer's text so far for utterance `id`.
     /// `settled` once it has ended: its last word is typed too.
+    /// Only what was heard awake is queued (`take_in.rs`).
     pub(super) fn partial(&mut self, id: u64, text: &str, settled: bool) {
-        if !self.gate.awake() {
-            return;
-        }
         if self.pad.is_some() {
             let shown = bd_vocab::breaks_as_text(&self.own_words(text));
             return self.pad_live(&shown);

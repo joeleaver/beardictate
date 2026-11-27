@@ -40,7 +40,10 @@ impl Finisher {
             Heard::Partial { id, text, settled } => {
                 self.speaking = (!text.is_empty()).then_some(id);
                 // Typed a sentence at a time, it only says someone's speaking.
-                if self.types_live() || self.pad.is_some() {
+                // Asleep, nothing of it is shown: told now, in order with
+                // the switches, as its finished text will be, not when it's
+                // typed (a wake or sleep taken in since doesn't change it).
+                if self.gate.awake() && (self.types_live() || self.pad.is_some()) {
                     self.queue.push_back(Item::Partial(id, text, settled));
                 }
                 return;

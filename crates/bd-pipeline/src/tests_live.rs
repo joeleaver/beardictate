@@ -17,6 +17,9 @@ impl Segmenting for LiveChunks {
     fn flush(&mut self) -> Vec<AudioSegment> {
         Vec::new()
     }
+    fn cut(&mut self) -> Vec<AudioSegment> {
+        Vec::new()
+    }
     fn accept_live(&mut self, samples: &[f32]) -> Vec<LiveAudio> {
         let seg = AudioSegment { samples: samples.to_vec(), seq: 0, start_sample: 0 };
         let more = || LiveAudio::More(samples.to_vec());
@@ -427,6 +430,9 @@ fn a_mark_said_while_its_sentence_is_tidied_stays_the_only_mark() {
 
 #[path = "tests_hold.rs"]
 mod hold;
+
+#[path = "tests_sleep.rs"]
+mod sleep;
 
 #[test]
 fn someone_elses_voice_is_neither_shown_as_spoken_nor_typed() {
