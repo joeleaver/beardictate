@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use bd_asr::{AsrError, Segmenter, SegmenterConfig};
-use bd_core::{AudioSegment, SAMPLE_RATE};
+use bd_core::{AudioSegment, LiveAudio, SAMPLE_RATE};
 use common::*;
 
 const EN_TEXT: &str =
@@ -100,6 +100,78 @@ fn flush_returns_speech_in_progress_and_restarts_numbering() {
     assert_eq!(all.len(), 1);
     assert_eq!(all[0].seq, 0);
     assert!(all[0].start_sample < en.len() as u64, "offsets restart too");
+}
+
+#[test]
+fn cut_ends_speech_in_progress_and_the_session_goes_on() {
+    let Some(models) = models_dir() else { return };
+    let en = read_wav_16k(&test_wav(&models));
+    let mut seg = Segmenter::new(&vad_model(&models), SegmenterConfig::default()).unwrap();
+    // Going to sleep mid-sentence, the microphone still running.
+    let cut = en.len() * 3 / 4;
+    for chunk in en[..cut].chunks(480) {
+        assert!(seg.accept(chunk).is_empty());
+    }
+    let first = seg.cut();
+    assert_eq!(first.len(), 1);
+    assert_eq!(first[0].seq, 0);
+    // Nothing of what was said is lost at the end.
+    assert!(first[0].samples.ends_with(&en[cut - 1600..cut]));
+    assert!(seg.cut().is_empty(), "nothing is in progress now");
+
+    // The session goes on: numbering and positions carry on, and the next
+    // sentence is heard whole.
+    let mut rest = silence(1.0);
+    let next_at = cut + rest.len();
+    rest.extend(&en);
+    rest.extend(silence(1.0));
+    let (live, flushed) = run(&mut seg, &rest);
+    let all: Vec<_> = live.into_iter().chain(flushed).collect();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].seq, 1);
+    let start = all[0].start_sample as usize;
+    assert!(start > cut && start <= next_at, "starts at {start}, said at {next_at}");
+    let mut asr = nemotron(&models);
+    assert_eq!(wer(EN_TEXT, &transcribe(&mut asr, &all[0].samples)), 0.0);
+}
+
+#[test]
+fn cut_live_ends_the_live_utterance() {
+    let Some(models) = models_dir() else { return };
+    let en = read_wav_16k(&test_wav(&models));
+    let mut seg = Segmenter::new(&vad_model(&models), SegmenterConfig::default()).unwrap();
+    let cut = en.len() / 2;
+    let mut heard = Vec::new();
+    for chunk in en[..cut].chunks(480) {
+        heard.extend(seg.accept_live(chunk));
+    }
+    assert!(matches!(heard.first(), Some(LiveAudio::Start(_))));
+    assert!(heard.iter().all(|a| matches!(a, LiveAudio::Start(_) | LiveAudio::More(_))));
+    let ended = seg.cut_live();
+    // What was handed out live, then the utterance whole.
+    let Some(LiveAudio::End(whole)) = ended.last() else { panic!("not ended: {} pieces", ended.len()) };
+    let live: Vec<f32> = heard
+        .iter()
+        .chain(&ended)
+        .flat_map(|a| match a {
+            LiveAudio::Start(s) | LiveAudio::More(s) => s.clone(),
+            _ => Vec::new(),
+        })
+        .collect();
+    assert_eq!(live, whole.samples);
+    assert!(seg.cut_live().is_empty(), "nothing is in progress now");
+
+    // The next utterance starts afresh, numbered on.
+    let mut next = Vec::new();
+    let mut rest = silence(1.0);
+    rest.extend(&en);
+    rest.extend(silence(1.0));
+    for chunk in rest.chunks(480) {
+        next.extend(seg.accept_live(chunk));
+    }
+    assert!(matches!(next.first(), Some(LiveAudio::Start(_))));
+    let ends: Vec<u64> = next.iter().filter_map(|a| if let LiveAudio::End(s) = a { Some(s.seq) } else { None }).collect();
+    assert_eq!(ends, [1]);
 }
 
 #[test]

@@ -32,6 +32,11 @@ impl Segmenting for ChunkSegmenter {
         self.offset = 0;
         Vec::new()
     }
+
+    /// Every chunk is a whole utterance: none is ever in progress.
+    fn cut(&mut self) -> Vec<AudioSegment> {
+        Vec::new()
+    }
 }
 
 struct ScriptAsr(Vec<&'static str>);

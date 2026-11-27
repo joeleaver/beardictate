@@ -85,8 +85,9 @@ struct Listener {
     commands: CommandConfig,
     /// How long a stopped utterance waits ([`PipelineConfig::sentence_wait`]).
     wait: Duration,
-    /// Where its words go: the pad, and typed as they're spoken.
-    goes: (bool, bool),
+    /// Where its words go: the pad, typed as they're spoken, and through
+    /// the voice wake gate (turned on, it starts asleep).
+    goes: (bool, bool, bool),
     /// The wait in force when the utterance being spoken started, which
     /// the pause before it was cut off at.
     wait_at_start: Duration,
@@ -119,7 +120,7 @@ pub(super) fn live(
         commands: config.commands.clone(),
         wait: sentence_wait::clamp(config.sentence_wait),
         wait_at_start: sentence_wait::clamp(config.sentence_wait),
-        goes: (config.pad, config.live_typing),
+        goes: (config.pad, config.live_typing, config.voice_wake),
         loudness: (0.0, 0, 1.0),
     };
     loop {
@@ -169,12 +170,17 @@ impl Listener {
             // A setting changed (the sentence wait slider sends one per
             // step): the sentence waiting goes on waiting, under it, unless
             // its words now go somewhere else (the pad, or typed once), which
-            // must not get half of it.
+            // must not get half of it, or voice wake was switched (on, it
+            // starts asleep). Anything else (a session's end, sleep
+            // or waking, a new passage) ends it now, without the wait, so it
+            // comes before the switch; the segmenter has ended an utterance
+            // being spoken before a session's end, a sleep or voice wake
+            // turned on.
             let stays = match &cut {
                 Cut::Reconfigure(config) => {
                     self.commands = config.commands.clone();
                     self.wait = sentence_wait::clamp(config.sentence_wait);
-                    let goes = (config.pad, config.live_typing);
+                    let goes = (config.pad, config.live_typing, config.voice_wake);
                     std::mem::replace(&mut self.goes, goes) == goes
                 }
                 _ => false,

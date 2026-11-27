@@ -1,6 +1,6 @@
 # beardictate — handover
 
-Last updated: 2026-11-26 (pauses: list items, unreleased). Read this, then
+Last updated: 2026-11-27 (sleep keeps the sentence, unreleased). Read this, then
 [DESIGN.md](DESIGN.md), which is canonical for *what* we're building. This
 file is *where things stand*.
 
@@ -28,6 +28,18 @@ on NICO-TOP: mute the mic in Windows' sound settings with always listening
 on, expect amber within ~10 s, unmute, expect it back within a minute.
 After Will updates: `mic_sound`'s `silent_ms`/`reopens`, and `mic` `level`
 `zeros`. `engine.rs`'s status code moved to `engine/status.rs`.
+
+**Sleep keeps the sentence being said** (2026-11-27, unreleased, tests
+only; WHATS_NEW 0.1.24). Will's "one-word dictation does nothing": sleep
+by hotkey overtook an utterance the VAD hadn't ended, so its text reached
+the voice wake gate after it closed (26 sentences in his 0.1.23 telemetry,
+the last live text 0 to 1.7 s before `asleep`, no `transcribed`). Now
+sleep cuts the utterance in progress (`Segmenter::cut`, `stages/segment.rs`)
+and it's typed, full stop and all, before the bear sleeps; live text is
+gated at take-in (DESIGN "Always listening"). After Will updates: segments
+whose last event is under 2 s before `asleep` should all have
+`transcribed`. Quitting mid-sentence still loses it (the engine stops
+reading the pipeline's events before it drains); a choice for Joe.
 
 **Since 0.1.23 (2026-11-26, unreleased, tests only):** pauses
 (`stages/list_join.rs`). In a list, words said after a short pause stay on
